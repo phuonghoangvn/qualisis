@@ -24,23 +24,34 @@ export async function POST(
             return NextResponse.json({ error: 'Suggestion not found' }, { status: 404 })
         }
 
-        // Create or update ReviewDecision
-        const decision = await prisma.reviewDecision.upsert({
-            where: { aiSuggestionId: suggestionId },
-            update: { action, note: note ?? null },
-            create: {
-                aiSuggestionId: suggestionId,
-                action,
-                note: note ?? null,
-                reviewerId: 'researcher-1', // No auth mode: use default
-            }
-        })
+        // If RESTORE: delete ReviewDecision and CodeAssignment
+        if (action === 'RESTORE') {
+            await prisma.reviewDecision.deleteMany({
+                where: { aiSuggestionId: suggestionId }
+            })
+            await prisma.codeAssignment.deleteMany({
+                where: { aiSuggestionId: suggestionId }
+            })
+        } else {
+            // Create or update ReviewDecision
+            await prisma.reviewDecision.upsert({
+                where: { aiSuggestionId: suggestionId },
+                update: { action, note: note ?? null },
+                create: {
+                    aiSuggestionId: suggestionId,
+                    action,
+                    note: note ?? null,
+                    reviewerId: 'researcher-1', // No auth mode: use default
+                }
+            })
+        }
 
         // Update suggestion status
         const newStatus =
             action === 'ACCEPT' ? 'APPROVED' :
             action === 'REJECT' ? 'REJECTED' :
-            action === 'OVERRIDE' ? 'MODIFIED' : 'UNDER_REVIEW'
+            action === 'OVERRIDE' ? 'MODIFIED' :
+            action === 'RESTORE' ? 'SUGGESTED' : 'UNDER_REVIEW'
 
         await prisma.aISuggestion.update({
             where: { id: suggestionId },
@@ -99,7 +110,7 @@ export async function POST(
         // Audit log
         await prisma.auditLog.create({
             data: {
-                eventType: 'REVIEW_DECISION_MADE',
+                eventType: action === 'RESTORE' ? 'REVIEW_DECISION_RESTORED' : 'REVIEW_DECISION_MADE',
                 entityType: 'AISuggestion',
                 entityId: suggestionId,
                 oldValue: suggestion.status,
@@ -108,7 +119,7 @@ export async function POST(
             }
         })
 
-        return NextResponse.json({ success: true, decision, newStatus })
+        return NextResponse.json({ success: true, action, newStatus })
     } catch (e) {
         console.error('Review error:', e)
         return NextResponse.json({ error: 'Failed to save review', details: String(e) }, { status: 500 })

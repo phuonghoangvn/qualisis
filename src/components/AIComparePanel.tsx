@@ -45,13 +45,19 @@ export default function AIComparePanel({
     onClose,
     onDecision,
 }: {
-    segment: Segment
+    segment: Segment & { codeAssignments?: { codebookEntry: { name: string } }[] }
     onClose: () => void
     onDecision: (segId: string, action: string, label?: string) => void
 }) {
+    // Find if it was already accepted or modified
+    const initialAccepted = segment.suggestions?.find(s => s.status === 'APPROVED' || s.status === 'MODIFIED')
+    const initialLabel = segment.codeAssignments?.[0]?.codebookEntry?.name || initialAccepted?.label || ''
+
     const [overrideMode, setOverrideMode] = useState(false)
     const [customLabel, setCustomLabel] = useState('')
-    const [decided, setDecided] = useState<{ action: string; label: string } | null>(null)
+    const [decided, setDecided] = useState<{ action: string; label: string } | null>(
+        initialAccepted ? { action: initialAccepted.status === 'APPROVED' ? 'ACCEPT' : 'OVERRIDE', label: initialLabel } : null
+    )
     const [loading, setLoading] = useState(false)
 
     // Compute consensus
@@ -101,8 +107,13 @@ export default function AIComparePanel({
             )
         )
 
-        setDecided({ action, label: finalLabel })
-        onDecision(segment.id, action, finalLabel)
+        if (action === 'RESTORE') {
+            setDecided(null)
+            onDecision(segment.id, 'RESTORE', undefined)
+        } else {
+            setDecided({ action, label: finalLabel })
+            onDecision(segment.id, action, finalLabel)
+        }
         setLoading(false)
     }
 
@@ -298,11 +309,21 @@ export default function AIComparePanel({
                 <p className="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-3">Review</p>
 
                 {decided ? (
-                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {decided.action === 'ACCEPT' ? `✓ Accepted: "${decided.label}"` : `✏ Overridden: "${decided.label}"`}
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 shadow-sm">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            {decided.action === 'ACCEPT' ? `✓ Accepted: "${decided.label}"` : `✏ Overridden: "${decided.label}"`}
+                        </div>
+                        <button 
+                            onClick={() => submitDecision('RESTORE')}
+                            disabled={loading}
+                            className="bg-white border border-slate-300 text-slate-700 text-xs font-bold py-2 rounded-xl hover:bg-slate-50 transition flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                            Undo decision (Restore)
+                        </button>
                     </div>
                 ) : overrideMode ? (
                     <>

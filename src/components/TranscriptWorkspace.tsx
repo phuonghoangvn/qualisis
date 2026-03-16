@@ -535,15 +535,15 @@ export default function TranscriptWorkspace({
                                         ...s,
                                         suggestions: s.suggestions.map(sg => ({
                                             ...sg,
-                                            status: action === 'ACCEPT' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : 'MODIFIED'
+                                            status: action === 'ACCEPT' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : action === 'RESTORE' ? 'SUGGESTED' : 'MODIFIED'
                                         }))
                                     }
                                     : s
                             ))
                             setStats(prev => ({
                                 ...prev,
-                                assignedCodes: action !== 'REJECT' ? prev.assignedCodes + 1 : prev.assignedCodes,
-                                pendingReview: Math.max(0, prev.pendingReview - 1),
+                                assignedCodes: action === 'RESTORE' ? Math.max(0, prev.assignedCodes - 1) : (action !== 'REJECT' ? prev.assignedCodes + 1 : prev.assignedCodes),
+                                pendingReview: action === 'RESTORE' ? prev.pendingReview + 1 : Math.max(0, prev.pendingReview - 1),
                             }))
                         }}
                     />
