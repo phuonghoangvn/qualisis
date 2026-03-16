@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth Models
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(RESEARCHER)
+
+  accounts       Account[]
+  sessions       Session[]
+  projectMembers ProjectMember[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum UserRole {
+  ADMIN
+  RESEARCHER
+  REVIEWER
+}
+
+// Domain Models
+
+model Project {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  coreOntology     String?  @db.Text
+  researchQuestion String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  members      ProjectMember[]
+  datasets     Dataset[]
+  codebooks    CodebookEntry[]
+  themes       Theme[]
+  reportBlocks ReportSection[]
+  auditLogs    AuditLog[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      UserRole
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Dataset {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  transcripts Transcript[]
+}
+
+model Transcript {
+  id        String   @id @default(cuid())
+  datasetId String
+  title     String
+  content   String   @db.Text
+  status    String   @default("DRAFT")
+  metadata  Json? // DRAFT, ANALYZING, REVIEWED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dataset  Dataset    @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  segments Segment[]
+}
+
+model Segment {
+  id           String   @id @default(cuid())
+  transcriptId String
+  text         String   @db.Text
+  startIndex   Int
+  endIndex     Int
+  speaker      String?
+  order        Int      @default(0)
+
+  transcript      Transcript       @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+  suggestions     AISuggestion[]
+  codeAssignments CodeAssignment[]
+}
+
+model AISuggestion {
+  id             String    @id @default(cuid())
+  segmentId      String
+  label          String
+  explanation    String    @db.Text
+  confidence     String // HIGH, MEDIUM, LOW
+  alternatives   String[]
+  uncertainty    String?   @db.Text
+  promptVersion  String?
+  modelProvider  String?
+  status         ReviewStatus @default(SUGGESTED)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  segment          Segment                @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  evidenceSpans    AISuggestionEvidence[]
+  reviewDecision   ReviewDecision?
+  mappedCodeAssign CodeAssignment?        // If accepted, mapped to a code assignment
+}
+
+model AISuggestionEvidence {
+  id             String   @id @default(cuid())
+  aiSuggestionId String
+  exactQuote     String   @db.Text
+  startIndex     Int
+  endIndex       Int
+
+  aiSuggestion AISuggestion @relation(fields: [aiSuggestionId], references: [id], onDelete: Cascade)
+}
+
+enum ReviewStatus {
+  SUGGESTED
+  UNDER_REVIEW
+  MODIFIED
+  APPROVED
+  REJECTED
+  MERGED
+}
+
+model ReviewDecision {
+  id             String   @id @default(cuid())
+  aiSuggestionId String   @unique
+  action         String // ACCEPT, MODIFY, REJECT, MERGE
+  note           String?  @db.Text
+  reviewerId     String
+  createdAt      DateTime @default(now())
+
+  aiSuggestion AISuggestion @relation(fields: [aiSuggestionId], references: [id], onDelete: Cascade)
+}
+
+model CodebookEntry {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  definition  String?  @db.Text
+  type        String   @default("RAW") // RAW, CLEAN
+  examplesIn  String   @db.Text
+  examplesOut String   @db.Text
+  memo        String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  codeAssignments CodeAssignment[]
+  themeLinks      ThemeCodeLink[]
+  mappedFrom      CodebookEntry?   @relation("CodeMapping", fields: [mappedToId], references: [id])
+  mappedToId      String?
+  mappedTo        CodebookEntry[]  @relation("CodeMapping")
+}
+
+model CodeAssignment {
+  id              String   @id @default(cuid())
+  segmentId       String
+  codebookEntryId String
+  aiSuggestionId  String?  @unique
+  confidence      String?
+  createdAt       DateTime @default(now())
+
+  segment       Segment        @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  codebookEntry CodebookEntry  @relation(fields: [codebookEntryId], references: [id], onDelete: Cascade)
+  aiSuggestion  AISuggestion?  @relation(fields: [aiSuggestionId], references: [id], onDelete: SetNull)
+}
+
+model Theme {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String?  @db.Text
+  status      String   @default("DRAFT") // DRAFT, REVIEWED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  codeLinks      ThemeCodeLink[]
+  relationsOut   ThemeRelation[] @relation("ThemeSource")
+  relationsIn    ThemeRelation[] @relation("ThemeTarget")
+  reportSections ReportSection[]
+}
+
+model ThemeCodeLink {
+  id              String   @id @default(cuid())
+  themeId         String
+  codebookEntryId String
+
+  theme         Theme         @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  codebookEntry CodebookEntry @relation(fields: [codebookEntryId], references: [id], onDelete: Cascade)
+  
+  @@unique([themeId, codebookEntryId])
+}
+
+model ThemeRelation {
+  id           String   @id @default(cuid())
+  sourceId     String
+  targetId     String
+  relationType String // CONTRADICTS, SUPPORTS, RELATED_TO, SUBTHEME_OF
+  description  String?  @db.Text
+
+  source Theme @relation("ThemeSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Theme @relation("ThemeTarget", fields: [targetId], references: [id], onDelete: Cascade)
+}
+
+model ReportSection {
+  id        String   @id @default(cuid())
+  projectId String
+  type      String // THEMATIC_SUMMARY, FINDING, RECOMMENDATION, APPENDIX
+  title     String
+  content   String   @db.Text
+  themeId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  theme   Theme?  @relation(fields: [themeId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  projectId  String?
+  userId     String?
+  eventType  String // e.g., AI_SUGGESTION_GENERATED, REVIEW_DECISION_MADE, CODE_EDITED
+  entityType String // e.g., AISuggestion, CodebookEntry
+  entityId   String
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  note       String?
+  createdAt  DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}

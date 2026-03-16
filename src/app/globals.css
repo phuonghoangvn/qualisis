@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+/* ── Transcript highlight styles ─────────────────────────── */
+.h-ai {
+  background: linear-gradient(to right, #fef08a, #fde68a);
+  border-bottom: 2px solid #f59e0b;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  padding: 0 1px;
+}
+.h-ai:hover { background: #fde047; }
+.h-ai.active {
+  background: #fcd34d;
+  box-shadow: 0 0 0 2px #f59e0b;
+  font-weight: 500;
+  position: relative;
+  z-index: 10;
+}
+.h-ai.accepted {
+  background: #dcfce7 !important;
+  border-bottom-color: #22c55e !important;
+}
+.h-ai.overridden {
+  background: #fed7aa !important;
+  border-bottom-color: #f97316 !important;
+}
+
+.h-human {
+  background: #ede9fe;
+  border-bottom: 2px solid #8b5cf6;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.15s;
+  padding: 0 1px;
+}
+.h-human:hover { background: #ddd6fe; }
+.h-human.active {
+  background: #c4b5fd;
+  box-shadow: 0 0 0 2px #8b5cf6;
+  font-weight: 500;
+}
+
+/* ── GPT / Claude / Gemini model colours ─────────────────── */
+.model-gpt    { @apply bg-yellow-50 border-yellow-200; }
+.model-claude { @apply bg-blue-50 border-blue-200; }
+.model-gemini { @apply bg-green-50 border-green-200; }
