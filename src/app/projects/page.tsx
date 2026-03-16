@@ -4,6 +4,8 @@ import CreateProjectButton from '@/components/CreateProjectButton'
 import DeleteProjectButton from '@/components/DeleteProjectButton'
 import { Network, Home, Settings, Plus, FolderOpen, FileText } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ProjectsDashboard() {
     const projects = await prisma.project.findMany({
         include: {
@@ -71,19 +73,21 @@ export default async function ProjectsDashboard() {
                         {projects.map(p => {
                             const totalTranscripts = p.datasets.reduce((sum, ds) => sum + ds._count.transcripts, 0)
                             return (
-                                <Link 
-                                    href={`/projects/${p.id}`}
+                                <div 
                                     key={p.id}
                                     className="bg-white border text-left border-slate-200 rounded-2xl p-6 hover:shadow-md hover:border-indigo-300 transition-all group relative overflow-hidden h-64 flex flex-col"
                                 >
-                                    <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <Link href={`/projects/${p.id}`} className="absolute inset-0 z-0" aria-label={`View ${p.name}`} />
+                                    <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
+                                    
                                     <DeleteProjectButton projectId={p.id} projectName={p.name} />
-                                    <h3 className="font-bold text-slate-800 text-lg mb-2 pr-8">{p.name}</h3>
-                                    <p className="text-slate-500 text-sm line-clamp-3 mb-auto h-16">
+                                    
+                                    <h3 className="relative z-10 font-bold text-slate-800 text-lg mb-2 pr-8 pointer-events-none">{p.name}</h3>
+                                    <p className="relative z-10 text-slate-500 text-sm line-clamp-3 mb-auto h-16 pointer-events-none">
                                         {p.description || "No description provided."}
                                     </p>
                                     
-                                    <div className="flex items-center justify-between text-sm text-slate-500 border-t border-slate-100 pt-4 mt-auto w-full">
+                                    <div className="relative z-10 flex items-center justify-between text-sm text-slate-500 border-t border-slate-100 pt-4 mt-auto w-full pointer-events-none">
                                         <div className="flex gap-4">
                                             <span className="flex items-center gap-1.5 font-medium" title="Datasets">
                                                 <FolderOpen className="w-4 h-4" /> {p.datasets.length}
@@ -96,7 +100,7 @@ export default async function ProjectsDashboard() {
                                             {p.updatedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </span>
                                     </div>
-                                </Link>
+                                </div>
                             )
                         })}
                     </div>

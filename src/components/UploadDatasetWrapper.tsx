@@ -1,14 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X, UploadCloud } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
 // Common demographic fields (default)
 const DEFAULT_COLUMNS = ['Speaker Tag', 'Age', 'Gender', 'Role']
 
 export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon }: { projectId: string, asCard?: boolean, asSidebarIcon?: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
+    const [mounted, setMounted] = useState(false)
     const [title, setTitle] = useState('')
     const [fileContent, setFileContent] = useState<string | null>(null)
     const [fileName, setFileName] = useState<string | null>(null)
@@ -18,6 +20,10 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
     const [autoTranslate, setAutoTranslate] = useState(true)
     const [autoSpeakerDetect, setAutoSpeakerDetect] = useState(true)
     const router = useRouter()
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     // Dynamic columns and rows for metadata
     const [columns, setColumns] = useState(DEFAULT_COLUMNS)
@@ -30,14 +36,37 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
     async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
         if (!e.target.files || e.target.files.length === 0) return
         const file = e.target.files[0]
-        const text = await file.text()
+
         
-        // Auto-fill title if empty
         if (!title) {
             setTitle(file.name.replace(/\.[^/.]+$/, ""))
         }
         setFileName(file.name)
-        setFileContent(text)
+        
+        setLoading(true)
+        setPreprocessing(true)
+        setPreprocessSteps(['📄 Extracting text from document...'])
+
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+            
+            const res = await fetch('/api/parse', { method: 'POST', body: formData })
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                throw new Error(err.error || 'Failed to extract text')
+            }
+            const data = await res.json()
+            setFileContent(data.text)
+        } catch (error: any) {
+            alert(`Could not extract text: ${error.message}`)
+            setFileName(null)
+            setFileContent(null)
+        } finally {
+            setLoading(false)
+            setPreprocessing(false)
+            setPreprocessSteps([])
+        }
     }
 
     const handleUpdateRow = (index: number, col: string, value: string) => {
@@ -103,15 +132,18 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
                     ]
                 })
             })
-            if (!res.ok) throw new Error()
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}))
+                throw new Error(errData.error || 'Failed to upload transcript')
+            }
             
             setIsOpen(false)
             setTitle('')
             setFileContent(null)
             setPreprocessSteps([])
             router.refresh()
-        } catch (error) {
-            alert('Failed to upload transcript')
+        } catch (error: any) {
+            alert(error.message || 'Failed to upload transcript')
         } finally {
             setLoading(false)
             setPreprocessing(false)
@@ -144,7 +176,7 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
                 </button>
             )}
 
-            {isOpen && (
+            {mounted && isOpen && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                         <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-4 flex-shrink-0">
@@ -314,7 +346,7 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>, document.body
             )}
         </>
     )

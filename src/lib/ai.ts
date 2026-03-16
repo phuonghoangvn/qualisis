@@ -290,7 +290,7 @@ export async function analyzeWithClaude(transcriptContent: string, researchConte
                 console.error("Failed to parse Claude chunk", e);
             }
         }
-        return { model: 'Claude-Haiku', suggestions: deduplicateSuggestions(allSuggestions) }
+        return { model: 'Claude 4.5 Haiku', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
         console.error('Claude Haiku error:', e)
         return null
@@ -327,7 +327,7 @@ export async function analyzeWithGemini(transcriptContent: string, researchConte
                 console.error("Failed to parse Gemini chunk", e);
             }
         }
-        return { model: 'Gemini-Flash', suggestions: deduplicateSuggestions(allSuggestions) }
+        return { model: 'Gemini 2.5 Flash', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
         console.error('Gemini Flash error:', e)
         return null

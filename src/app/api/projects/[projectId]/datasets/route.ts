@@ -13,6 +13,14 @@ export async function POST(
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
+        // Verify project exists
+        const project = await prisma.project.findUnique({
+            where: { id: params.projectId }
+        })
+        if (!project) {
+            return NextResponse.json({ error: 'Project not found or was deleted' }, { status: 404 })
+        }
+
         // Create dataset
         const dataset = await prisma.dataset.create({
             data: {

@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-
 import { Plus } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
 export default function CreateProjectButton({ asCard }: { asCard?: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
@@ -62,8 +62,8 @@ export default function CreateProjectButton({ asCard }: { asCard?: boolean }) {
                 </button>
             )}
 
-            {isOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            {isOpen && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                             <h2 className="text-lg font-bold text-slate-800">Create New Project</h2>
@@ -128,7 +128,7 @@ export default function CreateProjectButton({ asCard }: { asCard?: boolean }) {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>, document.body
             )}
         </>
     )

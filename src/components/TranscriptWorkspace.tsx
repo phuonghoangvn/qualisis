@@ -63,7 +63,7 @@ export default function TranscriptWorkspace({
     const [analysisRun, setAnalysisRun] = useState(transcript.segments.length > 0)
     const [activePanel, setActivePanel] = useState<ActivePanel>(null)
     const [isAnalyzing, setIsAnalyzing] = useState(false)
-    const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>({ gpt: true })
+    const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>({ gpt: true, claude: true, gemini: true })
     const [showModelPicker, setShowModelPicker] = useState(false)
 
     const [researchContext, setResearchContext] = useState(DEFAULT_PROMPT)
@@ -241,17 +241,20 @@ export default function TranscriptWorkspace({
                 }
 
                 let inlineStyle: React.CSSProperties = {};
+                let underlineColor = '';
 
                 if (accepted) {
                     inlineStyle.backgroundColor = 'rgba(52, 211, 153, 0.2)';
                     activeColors.length = 0; activeColors.push('#10b981');
+                    underlineColor = '#10b981';
                 } else if (overridden) {
                     inlineStyle.backgroundColor = 'rgba(167, 139, 250, 0.2)';
-                    activeColors.length = 0; activeColors.push('#8b5cf6');
+                    activeColors.length = 0; activeColors.push('#a855f7');
+                    underlineColor = '#a855f7';
                 } else {
                     if (activeColors.length === 1) {
-                        // Make single model background extremely light so it's not overwhelmingly "yellow" or "blue"
                         inlineStyle.backgroundColor = `rgba(${activeBgRgb[0]}, 0.15)`;
+                        underlineColor = activeColors[0];
                     } else if (activeColors.length > 1) {
                         // Striped background for multiple models
                         const gradientParts = activeBgRgb.map((rgb, i) => {
@@ -260,17 +263,23 @@ export default function TranscriptWorkspace({
                             return `rgba(${rgb}, 0.15) ${start}px, rgba(${rgb}, 0.15) ${end}px`;
                         });
                         inlineStyle.backgroundImage = `repeating-linear-gradient(-45deg, ${gradientParts.join(', ')})`;
+                        
+                        // All models agree = Purple underline
+                        const numSelectedModels = Object.values(selectedModels).filter(Boolean).length || activeColors.length;
+                        if (activeColors.length === numSelectedModels && numSelectedModels > 1) {
+                            underlineColor = '#a855f7'; // Purple
+                        } else {
+                            underlineColor = '#94a3b8'; // Slate
+                        }
                     } else {
                         inlineStyle.backgroundColor = 'transparent';
                     }
                 }
 
-                let cls = 'h-ai relative group cursor-pointer transition-colors rounded-sm ';
+                let cls = 'h-ai relative group cursor-pointer transition-colors rounded-sm px-0.5 ';
 
-                if (activeColors.length > 0) {
-                    // Remove inline-block to allow natural text wrapping!
-                    const shadows = activeColors.map((c, i) => `0 ${ (i + 1) * 3 }px 0 0 ${c}`);
-                    inlineStyle.boxShadow = shadows.join(', ');
+                if (underlineColor) {
+                    inlineStyle.boxShadow = `0 2px 0 0 ${underlineColor}`;
                     inlineStyle.paddingBottom = '2px';
                 }
 
@@ -304,9 +313,9 @@ export default function TranscriptWorkspace({
     }
 
     const aiModels = [
-        { key: 'gpt', label: 'GPT-4o', color: 'yellow' },
-        { key: 'gemini', label: 'Gemini Flash', color: 'green' },
-        { key: 'claude', label: 'Claude Haiku', color: 'blue' },
+        { key: 'gpt', label: 'GPT-4o', provider: 'OpenAI', dotClass: 'bg-amber-400' },
+        { key: 'claude', label: 'Claude 4.5 Haiku', provider: 'Anthropic', dotClass: 'bg-blue-400' },
+        { key: 'gemini', label: 'Gemini 2.5 Flash', provider: 'Google', dotClass: 'bg-emerald-400' },
     ]
 
     return (
@@ -379,19 +388,27 @@ export default function TranscriptWorkspace({
                             {showModelPicker && (
                                 <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-lg z-[100] p-4 flex flex-col gap-3">
                                     <div className="flex flex-col gap-1">
-                                        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Configure AI Models</p>
+                                        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Select AI Models To Run</p>
                                         <div className="flex flex-col gap-1 mt-1">
                                             {aiModels.map(m => (
-                                                <label key={m.key} className="flex items-center gap-3 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500" 
-                                                        checked={!!selectedModels[m.key as keyof typeof selectedModels]}
-                                                        onChange={e => setSelectedModels(prev => ({ ...prev, [m.key]: e.target.checked }))}
-                                                    />
-                                                    <span className="text-sm font-semibold text-slate-700">{m.label}</span>
+                                                <label key={m.key} className="flex items-center justify-between px-2 py-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500" 
+                                                            checked={!!selectedModels[m.key as keyof typeof selectedModels]}
+                                                            onChange={e => setSelectedModels(prev => ({ ...prev, [m.key]: e.target.checked }))}
+                                                        />
+                                                        <div className={`w-3 h-3 rounded-full ${m.dotClass}`} />
+                                                        <span className="text-sm font-bold text-slate-700">{m.label}</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-400 font-medium">{m.provider}</span>
                                                 </label>
                                             ))}
+                                        </div>
+                                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 px-2">
+                                            <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                                            <span className="text-[11px] font-semibold text-slate-500">Purple underline = All models agree</span>
                                         </div>
                                     </div>
                                     <div className="border-t border-slate-100 pt-3 flex flex-col gap-2">
@@ -586,20 +603,20 @@ function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats }: {
                                 <span className="text-slate-600">GPT-4o only</span>
                             </div>
                             <div className="flex items-center gap-2">
+                                <span className="w-3.5 h-3.5 rounded bg-blue-100 border border-blue-300 flex-shrink-0" />
+                                <span className="text-slate-600">Claude only</span>
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <span className="w-3.5 h-3.5 rounded bg-emerald-100 border border-emerald-300 flex-shrink-0" />
                                 <span className="text-slate-600">Gemini only</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="w-3.5 h-3.5 rounded bg-sky-100 border border-sky-300 flex-shrink-0" />
-                                <span className="text-slate-600">Claude only</span>
+                                <span className="w-3.5 h-3.5 rounded bg-slate-100 border-b-2 border-b-slate-400 flex-shrink-0" />
+                                <span className="text-slate-600">Multiple models agree</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="w-3.5 h-3.5 rounded bg-indigo-200 border border-indigo-400 flex-shrink-0" />
-                                <span className="text-slate-600">2 models agree</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-3.5 h-3.5 rounded bg-purple-200 border border-purple-400 flex-shrink-0" />
-                                <span className="text-slate-600">All 3 models agree</span>
+                                <span className="w-3.5 h-3.5 rounded bg-indigo-50 border-b-2 border-b-purple-500 flex-shrink-0" />
+                                <span className="text-slate-600">All models agree</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="w-3.5 h-3.5 rounded bg-emerald-100 border border-emerald-400 flex-shrink-0" />
