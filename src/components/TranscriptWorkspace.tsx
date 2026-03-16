@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createPortal } from 'react-dom'
 import AIComparePanel from './AIComparePanel'
 import HumanCodePanel from './HumanCodePanel'
 import HumanHighlightTooltip from './HumanHighlightTooltip'
@@ -61,10 +62,37 @@ export default function TranscriptWorkspace({
     const [segments, setSegments] = useState<Segment[]>(transcript.segments)
     const [stats, setStats] = useState(initialStats)
     const [analysisRun, setAnalysisRun] = useState(transcript.segments.length > 0)
+
+    // Sync state when transcript data is refreshed from the server (e.g. after router.refresh())
+    useEffect(() => {
+        setSegments(transcript.segments)
+        setStats(initialStats)
+        if (transcript.segments.length > 0) {
+            setAnalysisRun(true)
+        }
+    }, [transcript.segments, initialStats])
     const [activePanel, setActivePanel] = useState<ActivePanel>(null)
     const [isAnalyzing, setIsAnalyzing] = useState(false)
     const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>({ gpt: true, claude: true, gemini: true })
     const [showModelPicker, setShowModelPicker] = useState(false)
+    const [analyzingStep, setAnalyzingStep] = useState(0)
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    useEffect(() => {
+        if (!isAnalyzing) {
+            setAnalyzingStep(0)
+            return
+        }
+        const t1 = setTimeout(() => setAnalyzingStep(1), 5000)
+        const t2 = setTimeout(() => setAnalyzingStep(2), 15000)
+        const t3 = setTimeout(() => setAnalyzingStep(3), 30000)
+        // Step 4 is set explicitly upon network completion!
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); }
+    }, [isAnalyzing])
 
     const [researchContext, setResearchContext] = useState(DEFAULT_PROMPT)
     const [showFullPrompt, setShowFullPrompt] = useState(false)
@@ -96,6 +124,8 @@ export default function TranscriptWorkspace({
             .map(([k]) => k)
 
         try {
+            const startTime = Date.now()
+            
             const res = await fetch(`/api/transcripts/${transcript.id}/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -107,12 +137,28 @@ export default function TranscriptWorkspace({
                 throw new Error(data.error || 'Failed to start analysis')
             }
 
-            // Refresh page data from server
-            router.refresh()
-            setAnalysisRun(true)
+            // Labor illusion: Ensure the track has been playing for at least 42s
+            const elapsedTime = Date.now() - startTime
+            const minimumWaitTime = 42000 
+            if (elapsedTime < minimumWaitTime) {
+                await new Promise(resolve => setTimeout(resolve, minimumWaitTime - elapsedTime))
+            }
+            
+            // Mark the 4th step as complete when ALL is actually done!
+            setAnalyzingStep(4)
+            await new Promise(resolve => setTimeout(resolve, 800)) // Pause for 0.8s to let user see "Synthesizing Consensus" finished
+
+            // Force close modal BEFORE starting the background Next.js refresh transition
+            setIsAnalyzing(false)
+            
+            // Defers router.refresh to next tick so it doesn't batch/freeze the modal state
+            setTimeout(() => {
+                router.refresh()
+                setAnalysisRun(true)
+            }, 0)
         } catch (e: any) {
+            console.error(e)
             alert('Analysis failed: ' + (e.message || String(e)))
-        } finally {
             setIsAnalyzing(false)
         }
     }, [transcript.id, selectedModels, researchContext, router])
@@ -510,6 +556,65 @@ export default function TranscriptWorkspace({
                     />
                 )}
             </div>
+
+            {/* Wait screen modal */}
+            {mounted && isAnalyzing && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-500">
+                        <div className="p-10 flex flex-col items-center text-center">
+                            <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 relative shadow-inner">
+                                <svg className="w-10 h-10 text-indigo-500 animate-[spin_3s_linear_infinite]" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles absolute text-indigo-600"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a4.42 4.42 0 0 1 0-8.962L8.5 1.936A2 2 0 0 0 9.937.5l1.582-6.135a4.42 4.42 0 0 1 8.962 0L22.063 8.5A2 2 0 0 0 23.5 9.937l6.135 1.582a4.42 4.42 0 0 1 0 8.962l-6.135 1.582a2 2 0 0 0-1.437 1.438l-1.582 6.135a4.42 4.42 0 0 1-8.962 0z"/></svg>
+                            </div>
+                            
+                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">Running AI Analysis</h2>
+                            <p className="text-sm text-slate-500 font-medium mb-10 max-w-[280px] leading-relaxed">
+                                This involves calling multiple language models and computing validation checks per highlight...
+                            </p>
+
+                            <div className="w-full flex flex-col gap-5 text-left pl-2">
+                                {[
+                                    { label: 'Extracting Context & Formatting', detail: 'Reading research instructions & metadata' },
+                                    { label: 'Generating Thematic Codes', detail: 'Running selected AI models in parallel' },
+                                    { label: 'Cross-verifying & Scoring', detail: 'Checking semantic similarity & consistencies' },
+                                    { label: 'Synthesizing Consensus', detail: 'Cleaning redundancies and merging duplicate codes' }
+                                ].map((step, idx) => {
+                                    const isActive = analyzingStep === idx;
+                                    const isDone = analyzingStep > idx;
+                                    
+                                    return (
+                                        <div key={idx} className={`flex items-start gap-4 transition-all duration-500 ease-out ${isDone || isActive ? 'opacity-100 translate-x-0' : 'opacity-30 -translate-x-2'}`}>
+                                            <div className="mt-0.5 w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-50 border border-slate-200">
+                                                {isDone ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
+                                                ) : isActive ? (
+                                                    <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+                                                ) : null}
+                                            </div>
+                                            <div>
+                                                <div className={`text-[13px] font-bold ${isActive ? 'text-indigo-600' : isDone ? 'text-slate-700' : 'text-slate-400'}`}>
+                                                    {step.label}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 font-medium mt-0.5">
+                                                    {step.detail}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                        </div>
+                        <div className="bg-slate-50/70 p-4 border-t border-slate-100 text-center">
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~45-60 Seconds</span>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     )
 }
@@ -680,6 +785,7 @@ function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats }: {
                     </div>
                 </div>
             </div>
+
         </div>
     )
 }
