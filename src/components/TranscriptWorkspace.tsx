@@ -46,7 +46,7 @@ type Stats = { totalHighlights: number; assignedCodes: number; pendingReview: nu
 
 type ActivePanel =
     | { type: 'ai'; segment: Segment }
-    | { type: 'human'; text: string; codeName: string; spanEl?: HTMLSpanElement }
+    | { type: 'human'; text: string; codeName: string; spanEl?: HTMLSpanElement; segmentId: string }
     | null
 
 export default function TranscriptWorkspace({
@@ -110,7 +110,8 @@ export default function TranscriptWorkspace({
         if (target.classList.contains('h-human')) {
             const title = target.getAttribute('title') || '';
             const codeName = title.replace('Human Code: ', '');
-            setActivePanel({ type: 'human', text: target.innerText, codeName });
+            const segmentId = target.getAttribute('data-segment-id') || '';
+            setActivePanel({ type: 'human', text: target.innerText, codeName, segmentId });
         }
     };
 
@@ -257,39 +258,55 @@ export default function TranscriptWorkspace({
                 cursor = Math.max(cursor, ds.endIndex);
             } else if (ds.type === 'highlight') {
                 const seg = ds.seg!;
-                const validSuggestions = seg.suggestions.filter(s => s.status !== 'REJECTED');
-                if (validSuggestions.length === 0) continue;
+                const validSuggestions = (seg.suggestions || []).filter(s => s.status !== 'REJECTED');
+                const isHuman = validSuggestions.length === 0 && seg.codeAssignments?.length > 0;
+                
+                if (validSuggestions.length === 0 && !isHuman) continue;
 
-                const accepted = validSuggestions.some(s => s.status === 'APPROVED');
-                const overridden = validSuggestions.some(s => s.status === 'MODIFIED');
-                const label = validSuggestions.find(s => s.status === 'APPROVED' || s.status === 'MODIFIED')?.label 
-                           ?? validSuggestions[0]?.label ?? 'AI Code';
-
-                const modelProviders = Array.from(new Set(validSuggestions.map(s => s.modelProvider).filter(Boolean)));
-                const hasGPT = modelProviders.some(m => m?.includes('GPT') || m?.includes('gpt'));
-                const hasGemini = modelProviders.some(m => m?.includes('Gemini') || m?.includes('gemini'));
-                const hasClaude = modelProviders.some(m => m?.includes('Claude') || m?.includes('claude'));
-
+                let accepted = false;
+                let overridden = false;
+                let label = '';
+                let modelProviders: string[] = [];
                 const activeColors: string[] = [];
                 const activeBgRgb: string[] = [];
 
-                if (hasGPT) {
-                    activeColors.push('#f59e0b'); // Yellow/Amber for GPT
-                    activeBgRgb.push('251, 191, 36');
-                }
-                if (hasGemini) {
-                    activeColors.push('#10b981'); // Green for Gemini
-                    activeBgRgb.push('52, 211, 153');
-                }
-                if (hasClaude) {
-                    activeColors.push('#0ea5e9'); // Blue for Claude
-                    activeBgRgb.push('56, 189, 248');
+                if (isHuman) {
+                    label = seg.codeAssignments[0].codebookEntry.name;
+                    modelProviders.push('Human');
+                    activeColors.push('#a855f7');
+                    activeBgRgb.push('168, 85, 247');
+                } else {
+                    accepted = validSuggestions.some(s => s.status === 'APPROVED');
+                    overridden = validSuggestions.some(s => s.status === 'MODIFIED');
+                    label = validSuggestions.find(s => s.status === 'APPROVED' || s.status === 'MODIFIED')?.label 
+                               ?? validSuggestions[0]?.label ?? 'AI Code';
+
+                    modelProviders.push(...Array.from(new Set(validSuggestions.map(s => s.modelProvider).filter(Boolean))) as string[]);
+                    const hasGPT = modelProviders.some(m => m?.includes('GPT') || m?.includes('gpt'));
+                    const hasGemini = modelProviders.some(m => m?.includes('Gemini') || m?.includes('gemini'));
+                    const hasClaude = modelProviders.some(m => m?.includes('Claude') || m?.includes('claude'));
+
+                    if (hasGPT) {
+                        activeColors.push('#f59e0b'); // Yellow/Amber for GPT
+                        activeBgRgb.push('251, 191, 36');
+                    }
+                    if (hasGemini) {
+                        activeColors.push('#10b981'); // Green for Gemini
+                        activeBgRgb.push('52, 211, 153');
+                    }
+                    if (hasClaude) {
+                        activeColors.push('#0ea5e9'); // Blue for Claude
+                        activeBgRgb.push('56, 189, 248');
+                    }
                 }
 
                 let inlineStyle: React.CSSProperties = {};
                 let underlineColor = '';
 
-                if (accepted) {
+                if (isHuman) {
+                    inlineStyle.backgroundColor = 'rgba(168, 85, 247, 0.2)';
+                    underlineColor = '#a855f7';
+                } else if (accepted) {
                     inlineStyle.backgroundColor = 'rgba(52, 211, 153, 0.2)';
                     activeColors.length = 0; activeColors.push('#10b981');
                     underlineColor = '#10b981';
@@ -322,7 +339,9 @@ export default function TranscriptWorkspace({
                     }
                 }
 
-                let cls = 'h-ai relative group cursor-pointer transition-colors rounded-sm px-0.5 ';
+                let cls = isHuman 
+                    ? 'h-human relative group cursor-pointer transition-colors rounded-sm px-0.5 '
+                    : 'h-ai relative group cursor-pointer transition-colors rounded-sm px-0.5 ';
 
                 if (underlineColor) {
                     inlineStyle.boxShadow = `0 2px 0 0 ${underlineColor}`;
@@ -339,8 +358,16 @@ export default function TranscriptWorkspace({
                             key={`${seg.id}-${actualStart}`}
                             className={cls}
                             style={inlineStyle}
-                            title={`${label} (${modelProviders.join(', ')})`}
-                            onClick={() => setActivePanel({ type: 'ai', segment: seg })}
+                            data-segment-id={seg.id}
+                            title={isHuman ? `Human Code: ${label}` : `${label} (${modelProviders.join(', ')})`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (isHuman) {
+                                    setActivePanel({ type: 'human', text: textToRender, codeName: label, segmentId: seg.id });
+                                } else {
+                                    setActivePanel({ type: 'ai', segment: seg });
+                                }
+                            }}
                         >
                             <span className="whitespace-pre-wrap">{textToRender}</span>
                         </span>
@@ -513,6 +540,8 @@ export default function TranscriptWorkspace({
                 {/* Human highlight tooltip (floating) */}
                 <HumanHighlightTooltip
                     transcriptId={transcript.id}
+                    projectId={projectId}
+                    transcriptContent={transcript.content}
                     onCodeApplied={() => router.refresh()}
                 />
             </div>
@@ -552,7 +581,13 @@ export default function TranscriptWorkspace({
                     <HumanCodePanel
                         text={activePanel.text}
                         codeName={activePanel.codeName}
+                        segmentId={activePanel.segmentId}
                         onClose={() => setActivePanel(null)}
+                        onRemove={async (segId: string) => {
+                            setSegments(prev => prev.filter(s => s.id !== segId));
+                            setStats(prev => ({ ...prev, totalHighlights: Math.max(0, prev.totalHighlights - 1), assignedCodes: Math.max(0, prev.assignedCodes - 1) }));
+                            setActivePanel(null);
+                        }}
                     />
                 )}
             </div>

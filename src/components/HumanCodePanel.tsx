@@ -1,15 +1,42 @@
 'use client'
+import { useState } from 'react'
 
 export default function HumanCodePanel({
     text,
     codeName,
+    segmentId,
     onClose,
+    onRemove,
 }: {
     text: string
     codeName: string
+    segmentId: string
     onClose: () => void
+    onRemove?: (segId: string) => Promise<void>
 }) {
     const ts = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const handleDelete = async () => {
+        if (!segmentId) return;
+        setIsDeleting(true)
+        try {
+            const res = await fetch(`/api/segments/${segmentId}`, {
+                method: 'DELETE',
+            })
+            if (!res.ok) throw new Error('Failed to delete segment')
+            if (onRemove) {
+                await onRemove(segmentId)
+            } else {
+                onClose()
+            }
+        } catch (error) {
+            console.error('Failed to remove human highlight:', error)
+            alert('Failed to remove the highlight.')
+        } finally {
+            setIsDeleting(false)
+        }
+    }
 
     return (
         <div className="flex flex-col h-full">
@@ -62,12 +89,14 @@ export default function HumanCodePanel({
                     ✏ Edit Code Label
                 </button>
                 <button
-                    onClick={onClose}
-                    className="w-full flex items-center justify-center gap-2 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="w-full flex items-center justify-center gap-2 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition disabled:opacity-50"
                 >
-                    🗑 Remove Highlight
+                    {isDeleting ? 'Removing...' : '🗑 Remove Highlight'}
                 </button>
             </div>
         </div>
     )
 }
+

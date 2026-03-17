@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 
 export default function HumanHighlightTooltip({
     transcriptId,
+    projectId,
+    transcriptContent,
     onCodeApplied,
 }: {
     transcriptId: string
+    projectId: string
+    transcriptContent: string
     onCodeApplied: () => void
 }) {
     const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
@@ -53,13 +57,31 @@ export default function HumanHighlightTooltip({
         setTimeout(() => inputRef.current?.focus(), 50)
     }
 
-    function applyCode() {
+    async function applyCode() {
         if (!codeName.trim() || !selection) return
+        
+        let startIndex = transcriptContent.indexOf(selection.text)
+        if (startIndex === -1) startIndex = 0
+        const endIndex = startIndex + selection.text.length
+
         try {
             const span = document.createElement('span')
             span.className = 'h-human'
             span.title = `Human Code: ${codeName}`
             selection.range.surroundContents(span)
+
+            // Save segment and codebook entry concurrently to backend
+            await fetch(`/api/transcripts/${transcriptId}/human-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId,
+                    text: selection.text,
+                    codeName: codeName.trim(),
+                    startIndex,
+                    endIndex
+                })
+            })
         } catch {
             // Selection crosses element boundaries — ignore
         }

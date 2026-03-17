@@ -113,15 +113,28 @@ function resolveIndex(fullText: string, quote: string, hintOffset = 0): { start:
         return { start: origStart, end: origEnd };
     }
 
-    // Strategy 5: first-30-chars partial match
-    const firstWords = qNorm.slice(0, Math.min(40, qNorm.length));
-    idx = fullNorm.indexOf(firstWords, hintOffset);
-    if (idx === -1) idx = fullNorm.indexOf(firstWords);
-    if (idx !== -1) {
-        const origStart = mapCollapsedToOriginal(fullText, fullNorm, idx);
-        const approxEnd = Math.min(origStart + q.length + 30, fullText.length);
-        console.warn(`[resolveIndex] Used partial match fallback for: "${q.slice(0, 40)}..."`);
-        return { start: origStart, end: approxEnd };
+    // Strategy 5: loose regex match ignoring punctuation/spacing
+    const words = qNorm.split(/\s+/).filter(w => w.length > 0).slice(0, 8);
+    if (words.length >= 3) {
+        // Build regex tracking words separated by any non-word/whitespace characters
+        const regexPattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\W]+');
+        const regex = new RegExp(regexPattern, 'i');
+        
+        let match = fullText.substring(hintOffset).match(regex);
+        if (match) {
+            const start = hintOffset + match.index!;
+            const approxEnd = Math.min(start + Math.round(q.length * 1.15), fullText.length);
+            console.warn(`[resolveIndex] Loose regex match for: "${words.join(' ')}..."`);
+            return { start, end: approxEnd };
+        }
+        
+        match = fullText.match(regex);
+        if (match) {
+            const start = match.index!;
+            const approxEnd = Math.min(start + Math.round(q.length * 1.15), fullText.length);
+            console.warn(`[resolveIndex] Loose regex match for: "${words.join(' ')}..."`);
+            return { start, end: approxEnd };
+        }
     }
 
     console.warn(`[resolveIndex] FAILED to locate: "${q.slice(0, 80)}"`);
@@ -382,6 +395,19 @@ export async function calculateConfidenceScores(segmentText: string, label: stri
     }
 }
 
+/**
+ * Compute word-level similarity between two labels.
+ * Returns a value between 0 and 1 (1 = identical words).
+ */
+function labelSimilarity(a: string, b: string): number {
+    const wordsA = new Set(a.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(Boolean));
+    const wordsB = new Set(b.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(Boolean));
+    if (wordsA.size === 0 || wordsB.size === 0) return 0;
+    let intersection = 0;
+    Array.from(wordsA).forEach(w => { if (wordsB.has(w)) intersection++; });
+    return intersection / Math.min(wordsA.size, wordsB.size);
+}
+
 // ─── Merge & compute consensus ───────────────────────────────────────────────
 export function mergeAndComputeConsensus(results: Array<{ model: string; suggestions: any[] } | null>) {
     const validResults = results.filter(Boolean) as Array<{ model: string; suggestions: any[] }>
@@ -391,7 +417,7 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
         r.suggestions.map((s: any) => ({ ...s, _model: r.model }))
     )
 
-    // Group by similar text (simple overlap check)
+    // Group by similar text using multiple matching strategies
     const merged: Array<{
         text: string
         startIndex: number
@@ -402,15 +428,56 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
     }> = []
 
     for (const sug of allSuggestions) {
-        // Check if a similar segment already exists (overlap > 50%)
-        const existing = merged.find(m => {
-            const overlap = Math.min(m.endIndex, sug.endIndex) - Math.max(m.startIndex, sug.startIndex)
-            const range = Math.max(m.endIndex, sug.endIndex) - Math.min(m.startIndex, sug.startIndex)
-            return range > 0 && overlap / range > 0.5
-        })
+        // Strategy: Find the BEST matching existing segment using multiple criteria
+        let bestMatch: typeof merged[0] | null = null;
+        let bestScore = 0;
 
-        if (existing) {
-            existing.models[sug._model] = {
+        for (const m of merged) {
+            const overlapChars = Math.min(m.endIndex, sug.endIndex) - Math.max(m.startIndex, sug.startIndex);
+            const unionChars = Math.max(m.endIndex, sug.endIndex) - Math.min(m.startIndex, sug.startIndex);
+            const mLen = m.endIndex - m.startIndex;
+            const sLen = sug.endIndex - sug.startIndex;
+
+            if (overlapChars <= 0 || unionChars <= 0) continue;
+
+            // 1. IoU overlap ratio (intersection over union)
+            const iouRatio = overlapChars / unionChars;
+
+            // 2. Containment ratio: one quote is largely inside the other
+            const containmentRatio = overlapChars / Math.min(mLen, sLen);
+
+            // 3. Label similarity (word overlap)
+            const existingLabels = Object.values(m.models).map(md => md.label);
+            const maxLabelSim = Math.max(...existingLabels.map(l => labelSimilarity(l, sug.label)));
+
+            // Decide if this is a match using combined criteria:
+            // - IoU > 30% (lowered from 50%) OR containment > 60% (one inside the other)
+            // - Bonus: if labels are similar, accept even lower overlap
+            const positionMatch = iouRatio > 0.3 || containmentRatio > 0.6;
+            const labelMatch = maxLabelSim > 0.5;
+
+            // Accept if position overlaps enough, or if moderate overlap + similar labels
+            const isMatch = positionMatch || (iouRatio > 0.15 && labelMatch);
+
+            if (isMatch) {
+                // Score to find the BEST match (prefer higher overlap)
+                const score = iouRatio * 0.6 + containmentRatio * 0.2 + maxLabelSim * 0.2;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = m;
+                }
+            }
+        }
+
+        if (bestMatch) {
+            // Merge: expand the segment boundaries to cover both quotes
+            bestMatch.startIndex = Math.min(bestMatch.startIndex, sug.startIndex);
+            bestMatch.endIndex = Math.max(bestMatch.endIndex, sug.endIndex);
+            // Keep the longest text as representative
+            if (sug.text.length > bestMatch.text.length) {
+                bestMatch.text = sug.text;
+            }
+            bestMatch.models[sug._model] = {
                 label: sug.label,
                 explanation: sug.explanation,
                 confidence: sug.confidence,
@@ -434,6 +501,33 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
                 consensusLabel: null,
                 consensusConfidence: 'LOW',
             })
+        }
+    }
+
+    // Second pass: merge any remaining segments that overlap after boundary expansion
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (let i = 0; i < merged.length; i++) {
+            for (let j = i + 1; j < merged.length; j++) {
+                const a = merged[i];
+                const b = merged[j];
+                const overlap = Math.min(a.endIndex, b.endIndex) - Math.max(a.startIndex, b.startIndex);
+                const union = Math.max(a.endIndex, b.endIndex) - Math.min(a.startIndex, b.startIndex);
+                if (overlap > 0 && union > 0 && overlap / union > 0.25) {
+                    // Merge b into a
+                    a.startIndex = Math.min(a.startIndex, b.startIndex);
+                    a.endIndex = Math.max(a.endIndex, b.endIndex);
+                    if (b.text.length > a.text.length) a.text = b.text;
+                    for (const [model, data] of Object.entries(b.models)) {
+                        if (!a.models[model]) a.models[model] = data;
+                    }
+                    merged.splice(j, 1);
+                    changed = true;
+                    break;
+                }
+            }
+            if (changed) break;
         }
     }
 

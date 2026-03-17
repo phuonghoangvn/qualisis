@@ -23,7 +23,7 @@ export async function POST(
         // Fetch transcript
         const transcript = await prisma.transcript.findUnique({
             where: { id: params.id },
-            include: { dataset: true }
+            include: { dataset: { include: { project: true } } }
         })
         if (!transcript) {
             return NextResponse.json({ error: 'Transcript not found' }, { status: 404 })
@@ -39,11 +39,24 @@ export async function POST(
         const summary = await generateTranscriptSummary(transcript.content);
         const metadataRaw = typeof transcript.metadata === 'string' ? JSON.parse(transcript.metadata) : (transcript.metadata || {});
 
+        // Combine UI-provided researchContext with Global Project Context
+        const project = transcript.dataset.project;
+        const projectContextPieces = [];
+        if (project.description) projectContextPieces.push(`Project Description: ${project.description}`);
+        if (project.researchQuestion) projectContextPieces.push(`Research Question: ${project.researchQuestion}`);
+        if (project.coreOntology) projectContextPieces.push(`Core Ontology / Known Concepts: ${project.coreOntology}`);
+        
+        const combinedProjectContext = projectContextPieces.join('\n');
+        const finalResearchContext = [
+            combinedProjectContext ? `[GLOBAL PROJECT CONTEXT]\n${combinedProjectContext}\n` : '',
+            researchContext ? `[SPECIFIC INSTRUCTIONS FOR THIS RUN]\n${researchContext}` : ''
+        ].filter(Boolean).join('\n') || 'Focus on identifying statements made by participants about their experiences, feelings, and perceptions.';
+
         // Call selected AI models in parallel
         const [gptResult, claudeResult, geminiResult] = await Promise.allSettled([
-            models.includes('gpt') ? analyzeWithGPT(transcript.content, researchContext, metadataRaw, summary) : Promise.resolve(null),
-            models.includes('claude') ? analyzeWithClaude(transcript.content, researchContext, metadataRaw, summary) : Promise.resolve(null),
-            models.includes('gemini') ? analyzeWithGemini(transcript.content, researchContext, metadataRaw, summary) : Promise.resolve(null),
+            models.includes('gpt') ? analyzeWithGPT(transcript.content, finalResearchContext, metadataRaw, summary) : Promise.resolve(null),
+            models.includes('claude') ? analyzeWithClaude(transcript.content, finalResearchContext, metadataRaw, summary) : Promise.resolve(null),
+            models.includes('gemini') ? analyzeWithGemini(transcript.content, finalResearchContext, metadataRaw, summary) : Promise.resolve(null),
         ])
 
         const results = [
@@ -77,41 +90,40 @@ export async function POST(
             })
         }
 
-        // Save merged segments + suggestions to DB
-        const savedSegments = await Promise.all(
-            mergedSegments.map(async (seg, idx) => {
-                const segment = await prisma.segment.create({
+        // Save merged segments + suggestions to DB sequentially to avoid Neon DB timeout
+        const savedSegments = []
+        for (let idx = 0; idx < mergedSegments.length; idx++) {
+            const seg = mergedSegments[idx]
+            const segment = await prisma.segment.create({
+                data: {
+                    transcriptId: params.id,
+                    text: seg.text,
+                    startIndex: seg.startIndex,
+                    endIndex: seg.endIndex,
+                    order: idx,
+                }
+            })
+
+            // Iterate sequentially
+            for (const [modelName, modelData] of Object.entries(seg.models)) {
+                const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label);
+                
+                await prisma.aISuggestion.create({
                     data: {
-                        transcriptId: params.id,
-                        text: seg.text,
-                        startIndex: seg.startIndex,
-                        endIndex: seg.endIndex,
-                        order: idx,
+                        segmentId: segment.id,
+                        label: modelData.label,
+                        explanation: modelData.explanation,
+                        confidence: scoring.labelConf,
+                        alternatives: modelData.alternatives,
+                        uncertainty: JSON.stringify(scoring),
+                        modelProvider: modelName,
+                        promptVersion: researchContext || 'Empty prompt',
+                        status: 'SUGGESTED',
                     }
                 })
-
-                // Create AISuggestion records — calculate confidence scores in parallel
-                await Promise.all(Object.entries(seg.models).map(async ([modelName, modelData]) => {
-                    const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label);
-                    
-                    await prisma.aISuggestion.create({
-                        data: {
-                            segmentId: segment.id,
-                            label: modelData.label,
-                            explanation: modelData.explanation,
-                            confidence: scoring.labelConf,
-                            alternatives: modelData.alternatives,
-                            uncertainty: JSON.stringify(scoring),
-                            modelProvider: modelName,
-                            promptVersion: researchContext || 'Empty prompt',
-                            status: 'SUGGESTED',
-                        }
-                    })
-                }))
-
-                return segment
-            })
-        )
+            }
+            savedSegments.push(segment)
+        }
 
         // Mark transcript as reviewed (analysis done)
         await prisma.transcript.update({

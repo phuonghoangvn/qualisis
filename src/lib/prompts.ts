@@ -52,7 +52,9 @@ Stay close to the data. Be open-minded. Use the participant's own language when 
 4. EXISTENCE CHECK: Every quote must exist verbatim in the transcript. Do not invent or paraphrase.
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
-7. DESCRIPTIVE LABELS: Code labels should be concise (3-7 words) and close to the data.
+7. DESCRIPTIVE BUT GENERALIZED LABELS: Code labels should capture the core concept (e.g., "Financial Stress", "Burnout", "Coping Mechanism") rather than highly specific variations ("Stressed about money today", "Feeling totally burnt out").
+8. REUSE CODES: If you encounter the same concept multiple times across the text, use the EXACT SAME code label avoiding slight variations. DO NOT invent 5 different codes for the exact same underlying sentiment.
+9. STANDARDIZED NAMING: Start code labels with a Capital Letter and use consistent phrasing (e.g., use Noun Phrases like "Emotional Exhaustion" over verbs "Exhausted emotionally").
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
 SKIP THESE (not analytically relevant, DO NOT CODE):
