@@ -164,12 +164,7 @@ export default function TranscriptWorkspace({
                 throw new Error(data.error || 'Failed to start analysis')
             }
 
-            // Labor illusion: Ensure the track has been playing for at least 42s
-            const elapsedTime = Date.now() - startTime
-            const minimumWaitTime = 42000 
-            if (elapsedTime < minimumWaitTime) {
-                await new Promise(resolve => setTimeout(resolve, minimumWaitTime - elapsedTime))
-            }
+            // No artificial delay — proceed immediately to the final completion step.
             
             // Mark the 4th step as complete when ALL is actually done!
             setAnalyzingStep(4)
