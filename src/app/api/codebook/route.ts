@@ -11,7 +11,11 @@ export async function GET(req: Request) {
             where: projectId ? { projectId } : undefined,
             include: {
                 _count: { select: { codeAssignments: true } },
-                themeLinks: { include: { theme: true } }
+                themeLinks: { include: { theme: true } },
+                codeAssignments: { 
+                    select: { aiSuggestionId: true },
+                    take: 1
+                }
             },
             orderBy: { createdAt: 'desc' }
         })

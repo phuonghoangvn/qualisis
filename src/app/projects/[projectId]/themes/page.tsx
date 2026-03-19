@@ -338,20 +338,20 @@ Rules:
                 .map((c: any) => ({
                     id: c.id,
                     name: c.name,
-                    type: c.type === 'RAW' ? (c.name ? 'AI' : 'HUMAN') : c.type,
+                    type: c.type === 'RAW' ? (c.name ? 'AI-ASSISTED' : 'MANUAL') : c.type,
                     instances: c._count?.codeAssignments ?? 0,
                     definition: c.definition
                 }))
 
             // Infer type from how the codebook entry was created
-            // If it has AI suggestion links, mark as AI, else HUMAN  
+            // If it has AI suggestion links, mark as AI-ASSISTED, else MANUAL
             const enriched = unassigned.map((code: CodeEntry) => {
                 // Find the original code to check assignments
                 const origCode = allCodes.find((c: any) => c.id === code.id)
                 const hasAISuggestion = origCode?.codeAssignments?.some((a: any) => a.aiSuggestionId)
                 return {
                     ...code,
-                    type: hasAISuggestion ? 'AI' : 'HUMAN'
+                    type: hasAISuggestion ? 'AI-ASSISTED' : 'MANUAL'
                 }
             })
 
@@ -581,7 +581,7 @@ Rules:
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[11px] font-medium text-slate-500">{code.instances} instances</span>
-                                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${code.type === 'HUMAN' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${code.type === 'MANUAL' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
                                                     {code.type}
                                                 </span>
                                             </div>
