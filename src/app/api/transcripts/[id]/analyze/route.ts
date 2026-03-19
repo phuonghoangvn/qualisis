@@ -5,7 +5,8 @@ import {
     analyzeWithClaude,
     analyzeWithGemini,
     mergeAndComputeConsensus,
-    generateTranscriptSummary
+    generateTranscriptSummary,
+    clusterThematicCodesWithClaude
 } from '@/lib/ai'
 import { calculateConfidenceScoresComplex } from '@/lib/score'
 import { autoCleanHighlights } from '@/lib/clean'
@@ -64,6 +65,37 @@ export async function POST(
             claudeResult.status === 'fulfilled' ? claudeResult.value : null,
             geminiResult.status === 'fulfilled' ? geminiResult.value : null,
         ]
+
+        // --- CLUSTER SEMANTIC CODES BEFORE MERGING ---
+        try {
+            const allUniqueLabels = new Set<string>();
+            results.forEach(r => {
+                if (r) {
+                    r.suggestions.forEach((s: any) => {
+                        if (s.label) allUniqueLabels.add(s.label);
+                    });
+                }
+            });
+
+            const uniqueLabelsArray = Array.from(allUniqueLabels);
+            if (uniqueLabelsArray.length > 0) {
+                const clusterMap = await clusterThematicCodesWithClaude(uniqueLabelsArray);
+                if (clusterMap) {
+                    results.forEach(r => {
+                        if (r) {
+                            r.suggestions.forEach((s: any) => {
+                                if (s.label && clusterMap[s.label]) {
+                                    s.label = clusterMap[s.label];
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+        } catch (clusterError) {
+            console.error("Semantic clustering failed, continuing with raw codes", clusterError);
+        }
+        // ------------------------------------------------
 
         // Merge results and compute consensus
         const mergedSegments = mergeAndComputeConsensus(results)

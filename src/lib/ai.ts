@@ -550,3 +550,44 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
 
     return merged
 }
+
+export async function clusterThematicCodesWithClaude(uniqueLabels: string[]) {
+    if (!anthropic || uniqueLabels.length < 2) return null;
+
+    try {
+        const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2000,
+            temperature: 0.1,
+            messages: [
+                {
+                    role: 'user',
+                    content: `Here is a list of diverse thematic codes extracted from qualitative interview analysis. 
+Your task is to perfectly group synonymous or highly semantically similar codes together.
+For each group, choose ONE concise, overarching, and academic label that best represents the group.
+
+List of codes:
+${JSON.stringify(uniqueLabels, null, 2)}
+
+Return ONLY a perfectly formatted JSON object mapping EVERY original code to its new representative overarching label. 
+Example format:
+{
+  "Intense Sadness": "Emotional Distress",
+  "Feeling extremely sad": "Emotional Distress",
+  "Bad Manager": "Poor Leadership"
+}
+Do not include any Markdown tags or explanations.`
+                }
+            ],
+        });
+
+        const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
+        const jsonString = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        
+        return JSON.parse(jsonString) as Record<string, string>;
+
+    } catch (error) {
+        console.error("Claude Clustering Error:", error);
+        return null;
+    }
+}

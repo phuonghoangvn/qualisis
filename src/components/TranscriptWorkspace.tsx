@@ -78,6 +78,32 @@ export default function TranscriptWorkspace({
     const [analyzingStep, setAnalyzingStep] = useState(0)
     const [mounted, setMounted] = useState(false)
 
+    const [isEditingText, setIsEditingText] = useState(false)
+    const [editedContent, setEditedContent] = useState(transcript.content)
+    const [isSaving, setIsSaving] = useState(false)
+
+    useEffect(() => {
+        setEditedContent(transcript.content)
+    }, [transcript.content])
+
+    const saveEditedContent = async () => {
+        setIsSaving(true);
+        try {
+            const res = await fetch(`/api/transcripts/${transcript.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: editedContent }),
+            })
+            if (!res.ok) throw new Error('Failed to save transcript');
+            setIsEditingText(false);
+            router.refresh(); // Tells NextJS to refresh server data, triggering useEffect above
+        } catch (e: any) {
+            alert(e.message)
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
     useEffect(() => {
         setMounted(true)
     }, [])
@@ -87,9 +113,9 @@ export default function TranscriptWorkspace({
             setAnalyzingStep(0)
             return
         }
-        const t1 = setTimeout(() => setAnalyzingStep(1), 5000)
-        const t2 = setTimeout(() => setAnalyzingStep(2), 15000)
-        const t3 = setTimeout(() => setAnalyzingStep(3), 30000)
+        const t1 = setTimeout(() => setAnalyzingStep(1), 15000)
+        const t2 = setTimeout(() => setAnalyzingStep(2), 60000)
+        const t3 = setTimeout(() => setAnalyzingStep(3), 150000)
         // Step 4 is set explicitly upon network completion!
         return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); }
     }, [isAnalyzing])
@@ -416,6 +442,35 @@ export default function TranscriptWorkspace({
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* Edit Button */}
+                        {isEditingText && (
+                            <button
+                                onClick={() => {
+                                    setIsEditingText(false);
+                                    setEditedContent(transcript.content);
+                                }}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        )}
+                        <button 
+                            onClick={() => {
+                                if (isEditingText) {
+                                    saveEditedContent();
+                                } else {
+                                    if (segments.length > 0 && !window.confirm("Editing the transcript may misalign existing highlights. Are you sure you want to proceed?")) return;
+                                    setEditedContent(transcript.content);
+                                    setIsEditingText(true);
+                                }
+                            }}
+                            disabled={isSaving || isAnalyzing}
+                            className={`px-4 py-2 border rounded-lg text-sm font-semibold transition-colors shadow-sm bg-white ${isEditingText ? 'border-emerald-300 text-emerald-600 hover:bg-emerald-50' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        >
+                            {isSaving ? 'Saving...' : isEditingText ? 'Save Changes' : 'Edit Transcript'}
+                        </button>
+
                         {/* Export Button */}
                         <button className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm bg-white">
                             Export
@@ -531,9 +586,19 @@ export default function TranscriptWorkspace({
                 {/* Transcript body (White Paper UI) */}
                 <div className="flex-1 overflow-y-auto w-full flex justify-center items-start py-10 px-8 bg-slate-50/50 custom-scrollbar">
                     <div className="w-full max-w-[850px] bg-white rounded-3xl p-16 shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-slate-100 h-fit min-h-full flex flex-col">
-                        <div onClick={handleTranscriptClick} className="text-[14.5px] leading-[3rem] text-slate-700 whitespace-pre-wrap break-words w-full max-w-full font-medium text-left">
-                            {renderTranscript()}
-                        </div>
+                        {isEditingText ? (
+                            <textarea
+                                value={editedContent}
+                                onChange={(e) => setEditedContent(e.target.value)}
+                                className="text-[14.5px] leading-[3rem] text-slate-700 w-full min-h-[600px] border-0 outline-none resize-none font-medium custom-scrollbar"
+                                spellCheck={false}
+                                placeholder="Edit your transcript here..."
+                            />
+                        ) : (
+                            <div onClick={handleTranscriptClick} className="text-[14.5px] leading-[3rem] text-slate-700 whitespace-pre-wrap break-words w-full max-w-full font-medium text-left">
+                                {renderTranscript()}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -644,7 +709,7 @@ export default function TranscriptWorkspace({
 
                         </div>
                         <div className="bg-slate-50/70 p-4 border-t border-slate-100 text-center">
-                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~45-60 Seconds</span>
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~4-7 Minutes</span>
                         </div>
                     </div>
                 </div>,
