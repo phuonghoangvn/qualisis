@@ -10,6 +10,8 @@ import {
 import { calculateConfidenceScoresComplex } from '@/lib/score'
 import { autoCleanHighlights } from '@/lib/clean'
 
+export const maxDuration = 60;
+
 // POST /api/transcripts/[id]/analyze
 // Calls all 3 AI models in parallel, merges results, saves to DB
 export async function POST(

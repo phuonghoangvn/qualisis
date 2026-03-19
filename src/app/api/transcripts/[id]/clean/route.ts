@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { openai, anthropic, gemini } from '@/lib/ai'
 
+export const maxDuration = 60;
+
 const CLEAN_PROMPT = `
 You are an expert qualitative researcher. Review these "Initial Codes" (AI suggestions) for a transcript.
 Drop any code that meets these criteria:
