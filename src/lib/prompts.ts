@@ -66,22 +66,31 @@ SKIP THESE (not analytically relevant, DO NOT CODE):
 - Filler phrases or conversational glue with no meaning ("So, um, yeah...")
 - General chit-chat, scheduling, or wrap-up conversation.`;
 
-    // 5. Output Format
+    // 5. Output Format — Matches manual Codebook structure: Theme | Code | Sample Excerpt | Sentiment
     const outputFormat = `[OUTPUT FORMAT]
-Return a raw valid JSON array. Each object must have these fields:
+Return a raw valid JSON array. Each object must follow this exact structure:
 [
   {
-    "text": "Exact verbatim quote from the transcript",
-    "label": "Highly Descriptive Contextual Label (MAXIMUM 8 words capturing the specific situation)",
-    "explanation": "Why this is relevant: what phenomenon does it capture? What makes it analytically interesting?",
+    "theme": "Broad overarching theme or category name (e.g., 'Stressors and Challenges', 'Effectiveness and Benefits of Breathing', 'Coping Strategies')",
+    "label": "Descriptive code label (3-10 words, capturing the specific situation, e.g., 'Chronic work-related anxiety', 'Positive impact of breathing on evening stress')",
+    "text": "Exact verbatim quote from the transcript (the Sample Excerpt)",
+    "sentiment": "Positive" | "Negative" | "Neutral",
     "confidence": "HIGH" | "MEDIUM" | "LOW",
-
-    "sentiment": "POSITIVE" | "NEGATIVE" | "NEUTRAL",
-    "alternatives": ["Alternative Label 1", "Alternative Label 2"],
-    "uncertainty": null
+    "explanation": "Brief justification for why this quote is analytically relevant"
   }
 ]
-Return ONLY the JSON array. Code EXTREMELY SPARINGLY. If a statement is not an undeniable, powerful insight, DO NOT code it. Quality over quantity. ONLY return insights with HIGH or MEDIUM confidence.`;
+
+IMPORTANT RULES FOR THEMES:
+- Group your codes under broad, meaningful themes (e.g., "Stressors and Challenges", "Coping Strategies", "Effectiveness and Benefits of Breathing").
+- Reuse the SAME theme name for all codes that belong to the same category. Do NOT create a unique theme for every single code.
+- Aim for 3-7 distinct themes per transcript.
+
+IMPORTANT RULES FOR CODE LABELS:
+- Each code label should be 3-10 words, descriptive, and capture the specific nuance of the quote.
+- Examples of GOOD code labels: "Chronic work-related anxiety", "Fear of judgment during job interviews", "Positive use of box breathing in conflict situations".
+- Examples of BAD code labels: "Stress", "Hope", "Breathing" (too vague and abstract).
+
+Return ONLY the JSON array. No markdown wrappers. Code SELECTIVELY — quality over quantity.`;
 
     return `${role}\n\n${context}\n\n${task}\n\n[USER INSTRUCTIONS & RESEARCH FOCUS]\n${researchContext}\n\n${constraints}\n\n${outputFormat}`;
 };
