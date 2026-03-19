@@ -76,26 +76,28 @@ CODES TO ANALYZE:
 
         let allDropIds: string[] = [];
 
+        // Process all models concurrently to prevent Vercel 60s timeout
+        const cleaningPromises = [];
+
         // 1. Process GPT codes
         if (suggestionsByModel.gpt.length > 0 && openai) {
-            const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.gpt, null, 2);
-            try {
+            cleaningPromises.push((async () => {
+                const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.gpt, null, 2);
                 const completion = await openai.chat.completions.create({
-                    model: "gpt-4o",
+                    model: "gpt-4o-mini", // Use mini for faster cleaning, saving precious seconds
                     messages: [{ role: "user", content: promptText }],
                     response_format: { type: "json_object" },
                     temperature: 0.1
                 });
                 const resultJson = JSON.parse(completion.choices[0].message.content || '{"decisions":[]}');
-                const dropIds = (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
-                allDropIds.push(...dropIds);
-            } catch (e) {}
+                return (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
+            })().catch(e => { console.error('GPT clean error:', e); return []; }));
         }
 
         // 2. Process Claude codes
         if (suggestionsByModel.claude.length > 0 && anthropic) {
-            const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.claude, null, 2);
-            try {
+            cleaningPromises.push((async () => {
+                const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.claude, null, 2);
                 const response = await anthropic.messages.create({
                     model: 'claude-3-haiku-20240307',
                     max_tokens: 4000,
@@ -106,24 +108,28 @@ CODES TO ANALYZE:
                 const content = 'text' in response.content[0] ? response.content[0].text : '{}';
                 const jsonMatch = content.match(/\{[\s\S]*\}/);
                 const jsonStr = jsonMatch ? jsonMatch[0] : content;
-                
                 const resultJson = JSON.parse(jsonStr);
-                const dropIds = (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
-                allDropIds.push(...dropIds);
-            } catch (e) {}
+                return (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
+            })().catch(e => { console.error('Claude clean error:', e); return []; }));
         }
 
         // 3. Process Gemini codes
         if (suggestionsByModel.gemini.length > 0 && gemini) {
-            const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.gemini, null, 2);
-            try {
+            cleaningPromises.push((async () => {
+                const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.gemini, null, 2);
                 const model = gemini.getGenerativeModel({ model: 'gemini-1.5-flash', generationConfig: { responseMimeType: 'application/json' } });
                 const result = await model.generateContent(promptText);
-                const responseText = result.response.text();
-                const resultJson = JSON.parse(responseText || '{"decisions":[]}');
-                const dropIds = (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
+                const resultJson = JSON.parse(result.response.text() || '{"decisions":[]}');
+                return (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
+            })().catch(e => { console.error('Gemini clean error:', e); return []; }));
+        }
+
+        // Wait for all 3 cleaning runs in parallel
+        const results = await Promise.all(cleaningPromises);
+        for (const dropIds of results) {
+            if (Array.isArray(dropIds)) {
                 allDropIds.push(...dropIds);
-            } catch (e) {}
+            }
         }
 
         if (allDropIds.length > 0) {
