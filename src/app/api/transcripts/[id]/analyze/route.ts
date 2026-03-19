@@ -7,10 +7,8 @@ import {
     mergeAndComputeConsensus,
     generateTranscriptSummary
 } from '@/lib/ai'
-import { batchCalculateConfidenceScores, calculateConfidenceScoresComplex } from '@/lib/score'
+import { calculateConfidenceScoresComplex } from '@/lib/score'
 import { autoCleanHighlights } from '@/lib/clean'
-
-export const maxDuration = 60;
 
 // POST /api/transcripts/[id]/analyze
 // Calls all 3 AI models in parallel, merges results, saves to DB
@@ -92,32 +90,6 @@ export async function POST(
             })
         }
 
-        // Precalculate all scores using high-speed concurrent batching to avoid timeouts
-        const flattenScoringReqs: { id: string, text: string, label: string, segIdx: number, modelName: string }[] = [];
-        for (let idx = 0; idx < mergedSegments.length; idx++) {
-            for (const [modelName, modelData] of Object.entries(mergedSegments[idx].models)) {
-                flattenScoringReqs.push({ 
-                    id: `${idx}-${modelName}`, 
-                    text: mergedSegments[idx].text, 
-                    label: modelData.label,
-                    segIdx: idx,
-                    modelName
-                });
-            }
-        }
-
-        const scoreResults = new Map<string, any>();
-        
-        // Process up to 25 items at a time
-        const BATCH_SIZE = 25;
-        for (let i = 0; i < flattenScoringReqs.length; i += BATCH_SIZE) {
-            const batch = flattenScoringReqs.slice(i, i + BATCH_SIZE);
-            const batchScores = await batchCalculateConfidenceScores(batch);
-            for (const b of batchScores) {
-                scoreResults.set(b.id, b.scoreInfo);
-            }
-        }
-
         // Save merged segments + suggestions to DB sequentially to avoid Neon DB timeout
         const savedSegments = []
         for (let idx = 0; idx < mergedSegments.length; idx++) {
@@ -132,11 +104,9 @@ export async function POST(
                 }
             })
 
-            // Iterate sequentially for DB writes, but use precalculated scores
+            // Iterate sequentially
             for (const [modelName, modelData] of Object.entries(seg.models)) {
-                const reqId = `${idx}-${modelName}`;
-                // Fallback to local heuristic just in case batching failed
-                const scoring = scoreResults.get(reqId) || calculateConfidenceScoresComplex(seg.text, modelData.label);
+                const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label);
                 
                 await prisma.aISuggestion.create({
                     data: {

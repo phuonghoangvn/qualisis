@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
 import { openai } from '@/lib/ai'
 
-export const maxDuration = 60;
-
 // POST /api/projects/[projectId]/datasets/preprocess
 // Pre-process transcript content: detect language, translate if needed, label speakers
 export async function POST(
@@ -63,44 +61,19 @@ ${content.substring(0, 8000)}`
                 const detection = JSON.parse(cleaned)
                 
                 if (detection.needsTranslation && detection.translatedText) {
-                    // If we only translated a sample, translate the full text in chunks
+                    // If we only translated a sample, translate the full text
                     if (content.length > 8000) {
-                        // Split text to avoid token limits
-                        const chunks: string[] = [];
-                        let i = 0;
-                        const maxLen = 8000;
-                        while (i < content.length) {
-                            if (i + maxLen >= content.length) {
-                                chunks.push(content.slice(i));
-                                break;
-                            }
-                            let slice = content.slice(i, i + maxLen);
-                            let breakIdx = slice.lastIndexOf('\n\n');
-                            if (breakIdx === -1 || breakIdx < maxLen * 0.5) breakIdx = slice.lastIndexOf('\n');
-                            if (breakIdx === -1 || breakIdx < maxLen * 0.5) breakIdx = maxLen;
-                            chunks.push(content.slice(i, i + breakIdx));
-                            i += breakIdx;
-                        }
-
-                        const translatedChunks = await Promise.all(chunks.map(async (chunk) => {
-                            const fullTranslatePrompt = `Translate this complete text from ${detection.language} to English.
+                        const fullTranslatePrompt = `Translate this complete text from ${detection.language} to English.
 Preserve all line breaks, speaker labels (like "Interviewer:", "Q:", etc.), formatting, and structure exactly.
 Return ONLY the translated text, no wrappers.
 
-${chunk}`
-                            try {
-                                const fullRes = await openai!.chat.completions.create({
-                                    model: 'gpt-4o',
-                                    temperature: 0.1,
-                                    messages: [{ role: 'user', content: fullTranslatePrompt }],
-                                })
-                                return fullRes.choices[0]?.message?.content ?? chunk
-                            } catch (e) {
-                                console.error('Chunk translation failed:', e)
-                                return chunk // fallback to original on failure
-                            }
-                        }))
-                        processedContent = translatedChunks.join('\n')
+${content}`
+                        const fullRes = await openai.chat.completions.create({
+                            model: 'gpt-4o',
+                            temperature: 0.1,
+                            messages: [{ role: 'user', content: fullTranslatePrompt }],
+                        })
+                        processedContent = fullRes.choices[0]?.message?.content ?? content
                     } else {
                         processedContent = detection.translatedText
                     }
@@ -119,25 +92,7 @@ ${chunk}`
             const hasLabels = /^(Interviewer|Participant|Q|A|Speaker|P\d|I|R)[\s]*:/im.test(processedContent)
             
             if (!hasLabels) {
-                // Apply chunking to speaker labeling to prevent output truncation
-                const speakerChunks: string[] = [];
-                let i = 0;
-                const maxLen = 8000;
-                while (i < processedContent.length) {
-                    if (i + maxLen >= processedContent.length) {
-                        speakerChunks.push(processedContent.slice(i));
-                        break;
-                    }
-                    let slice = processedContent.slice(i, i + maxLen);
-                    let breakIdx = slice.lastIndexOf('\n\n');
-                    if (breakIdx === -1 || breakIdx < maxLen * 0.5) breakIdx = slice.lastIndexOf('\n');
-                    if (breakIdx === -1 || breakIdx < maxLen * 0.5) breakIdx = maxLen;
-                    speakerChunks.push(processedContent.slice(i, i + breakIdx));
-                    i += breakIdx;
-                }
-
-                const labeledChunks = await Promise.all(speakerChunks.map(async (chunk, idx) => {
-                     const speakerPrompt = `This interview transcript does NOT have clear speaker labels.
+                const speakerPrompt = `This interview transcript does NOT have clear speaker labels.
 Analyze the turns of speech and add labels.
 
 Rules:
@@ -148,22 +103,16 @@ Rules:
 5. If turns are separated by line breaks, keep them
 6. Return ONLY the labeled text, nothing else
 
-Original transcript part ${idx + 1}:
-${chunk}`
+Original transcript:
+${processedContent}`
 
-                    try {
-                        const speakerRes = await openai!.chat.completions.create({
-                            model: 'gpt-4o',
-                            temperature: 0.1,
-                            messages: [{ role: 'user', content: speakerPrompt }],
-                        })
-                        return speakerRes.choices[0]?.message?.content ?? chunk
-                    } catch (e) {
-                         return chunk;
-                    }
-                }))
-                
-                const labeled = labeledChunks.join('\n')
+                const speakerRes = await openai.chat.completions.create({
+                    model: 'gpt-4o',
+                    temperature: 0.1,
+                    messages: [{ role: 'user', content: speakerPrompt }],
+                })
+
+                const labeled = speakerRes.choices[0]?.message?.content
                 if (labeled && labeled.length > processedContent.length * 0.7) {
                     processedContent = labeled
                     steps.push('Auto-detected and labeled speaker turns (INTERVIEWER/PARTICIPANT)')

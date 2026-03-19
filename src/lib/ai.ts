@@ -238,35 +238,30 @@ export async function analyzeWithGPT(transcriptContent: string, researchContext?
         const chunks = chunkTranscriptWithOverlap(transcriptContent);
         const allSuggestions: any[] = [];
         
-        // Process up to 5 chunks concurrently to protect rate limits but radically improve speed
-        const BATCH_SIZE = 5;
-        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-            const batch = chunks.slice(i, i + BATCH_SIZE);
-            await Promise.all(batch.map(async (chunk) => {
-                try {
-                    const response = await openai.chat.completions.create({
-                        model: 'gpt-4o',
-                        temperature: 0.3,
-                        messages: [
-                            { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
-                        ],
-                    })
-                    const raw = response.choices[0]?.message?.content ?? '[]'
-                    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-                    const parsed = JSON.parse(cleaned);
-                    if (Array.isArray(parsed)) {
-                        for (const p of parsed) {
-                            const quote = stripSpeakerTag(p.text || '');
-                            if (!quote) continue;
-                            const pos = resolveIndex(transcriptContent, quote, chunk.offset);
-                            if (!pos) continue; // skip hallucinated quotes
-                            allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
-                        }
+        for (const chunk of chunks) {
+            const response = await openai.chat.completions.create({
+                model: 'gpt-4o',
+                temperature: 0.3,
+                messages: [
+                    { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
+                ],
+            })
+            const raw = response.choices[0]?.message?.content ?? '[]'
+            const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            try {
+                const parsed = JSON.parse(cleaned);
+                if (Array.isArray(parsed)) {
+                    for (const p of parsed) {
+                        const quote = stripSpeakerTag(p.text || '');
+                        if (!quote) continue;
+                        const pos = resolveIndex(transcriptContent, quote, chunk.offset);
+                        if (!pos) continue; // skip hallucinated quotes
+                        allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
                     }
-                } catch (e) {
-                    console.error("Failed to parse GPT chunk", e);
                 }
-            }));
+            } catch (e) {
+                console.error("Failed to parse GPT chunk", e);
+            }
         }
         return { model: 'GPT-4o', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
@@ -282,35 +277,31 @@ export async function analyzeWithClaude(transcriptContent: string, researchConte
         const chunks = chunkTranscriptWithOverlap(transcriptContent);
         const allSuggestions: any[] = [];
 
-        const BATCH_SIZE = 5;
-        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-            const batch = chunks.slice(i, i + BATCH_SIZE);
-            await Promise.all(batch.map(async (chunk) => {
-                try {
-                    const response = await anthropic.messages.create({
-                        model: 'claude-haiku-4-5-20251001',
-                        max_tokens: 4096,
-                        temperature: 0.3,
-                        messages: [
-                            { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
-                        ],
-                    })
-                    const raw = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
-                    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-                    const parsed = JSON.parse(cleaned);
-                    if (Array.isArray(parsed)) {
-                        for (const p of parsed) {
-                            const quote = stripSpeakerTag(p.text || '');
-                            if (!quote) continue;
-                            const pos = resolveIndex(transcriptContent, quote, chunk.offset);
-                            if (!pos) continue;
-                            allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
-                        }
+        for (const chunk of chunks) {
+            const response = await anthropic.messages.create({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 4096,
+                temperature: 0.3,
+                messages: [
+                    { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
+                ],
+            })
+            const raw = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
+            const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            try {
+                const parsed = JSON.parse(cleaned);
+                if (Array.isArray(parsed)) {
+                    for (const p of parsed) {
+                        const quote = stripSpeakerTag(p.text || '');
+                        if (!quote) continue;
+                        const pos = resolveIndex(transcriptContent, quote, chunk.offset);
+                        if (!pos) continue;
+                        allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
                     }
-                } catch (e) {
-                    console.error("Failed to parse Claude chunk", e);
                 }
-            }));
+            } catch (e) {
+                console.error("Failed to parse Claude chunk", e);
+            }
         }
         return { model: 'Claude 4.5 Haiku', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
@@ -330,28 +321,24 @@ export async function analyzeWithGemini(transcriptContent: string, researchConte
         const chunks = chunkTranscriptWithOverlap(transcriptContent);
         const allSuggestions: any[] = [];
 
-        const BATCH_SIZE = 5;
-        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-            const batch = chunks.slice(i, i + BATCH_SIZE);
-            await Promise.all(batch.map(async (chunk) => {
-                try {
-                    const result = await model.generateContent(buildAnalysisPrompt(chunk.text, researchContext, metadata, summary))
-                    const raw = result.response.text()
-                    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-                    const parsed = JSON.parse(cleaned);
-                    if (Array.isArray(parsed)) {
-                        for (const p of parsed) {
-                            const quote = stripSpeakerTag(p.text || '');
-                            if (!quote) continue;
-                            const pos = resolveIndex(transcriptContent, quote, chunk.offset);
-                            if (!pos) continue;
-                            allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
-                        }
+        for (const chunk of chunks) {
+            const result = await model.generateContent(buildAnalysisPrompt(chunk.text, researchContext, metadata, summary))
+            const raw = result.response.text()
+            const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            try {
+                const parsed = JSON.parse(cleaned);
+                if (Array.isArray(parsed)) {
+                    for (const p of parsed) {
+                        const quote = stripSpeakerTag(p.text || '');
+                        if (!quote) continue;
+                        const pos = resolveIndex(transcriptContent, quote, chunk.offset);
+                        if (!pos) continue;
+                        allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
                     }
-                } catch (e) {
-                    console.error("Failed to parse Gemini chunk", e);
                 }
-            }));
+            } catch (e) {
+                console.error("Failed to parse Gemini chunk", e);
+            }
         }
         return { model: 'Gemini 2.5 Flash', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
