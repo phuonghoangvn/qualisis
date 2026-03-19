@@ -53,8 +53,9 @@ Stay close to the data. Be open-minded. Use the participant's own language when 
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
 7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation (e.g., "Worry about family due to unstable home country", "Strategic use of breathing during commute"). Do NOT use generic one-or-two word abstract tags like "Financial Stress" or "Hope".
-8. SENTENCE-LIKE PHRASING: Write code labels as short, descriptive phrases or sentences (5-12 words in length) that clearly communicate WHAT is happening and WHY.
+8. SENTENCE-LIKE PHRASING: Write code labels as descriptive phrases or short sentences (MUST be less than 8 words in length) that clearly communicate WHAT is happening and WHY.
 9. CAPTURE SPECIFICS: Make sure to include the specific trigger, outcome, or underlying sentiment directly in the code label name.
+10. HIGH CONFIDENCE ONLY: Only extract quotes where you are highly or moderately confident in the code label. Do not return low-quality or ambiguous insights.
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
 SKIP THESE (not analytically relevant, DO NOT CODE):
@@ -70,14 +71,14 @@ Return a raw valid JSON array. Each object must have these fields:
 [
   {
     "text": "Exact verbatim quote from the transcript",
-    "label": "Highly Descriptive Contextual Label (5-12 words capturing the specific situation)",
+    "label": "Highly Descriptive Contextual Label (MAXIMUM 8 words capturing the specific situation)",
     "explanation": "Why this is relevant: what phenomenon does it capture? What makes it analytically interesting?",
-    "confidence": "HIGH" | "MEDIUM" | "LOW",
+    "confidence": "HIGH" | "MEDIUM",
     "alternatives": ["Alternative Label 1", "Alternative Label 2"],
-    "uncertainty": "Any ambiguity or reason for review, or null"
+    "uncertainty": null
   }
 ]
-Return ONLY the JSON array. Code EXTREMELY SPARINGLY. If a statement is not an undeniable, powerful insight, DO NOT code it. Quality over quantity.`;
+Return ONLY the JSON array. Code EXTREMELY SPARINGLY. If a statement is not an undeniable, powerful insight, DO NOT code it. Quality over quantity. ONLY return insights with HIGH or MEDIUM confidence.`;
 
     return `${role}\n\n${context}\n\n${task}\n\n[USER INSTRUCTIONS & RESEARCH FOCUS]\n${researchContext}\n\n${constraints}\n\n${outputFormat}`;
 };
