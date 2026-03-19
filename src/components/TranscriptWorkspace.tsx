@@ -78,6 +78,8 @@ export default function TranscriptWorkspace({
     const [analyzingStep, setAnalyzingStep] = useState(0)
     const [mounted, setMounted] = useState(false)
 
+    const [showLowConfidence, setShowLowConfidence] = useState(false)
+
     const [isEditingText, setIsEditingText] = useState(false)
     const [editedContent, setEditedContent] = useState(transcript.content)
     const [isSaving, setIsSaving] = useState(false)
@@ -284,6 +286,11 @@ export default function TranscriptWorkspace({
                 
                 if (validSuggestions.length === 0 && !isHuman) continue;
 
+                if (!isHuman && !showLowConfidence) {
+                    const hasMediumOrHigh = validSuggestions.some(s => s.confidence === 'MEDIUM' || s.confidence === 'HIGH');
+                    if (!hasMediumOrHigh) continue;
+                }
+
                 let accepted = false;
                 let overridden = false;
                 let label = '';
@@ -437,6 +444,19 @@ export default function TranscriptWorkspace({
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* Show Low Confidence Toggle */}
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
+                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest cursor-pointer flex items-center gap-2">
+                                <input 
+                                    type="checkbox" 
+                                    checked={showLowConfidence} 
+                                    onChange={(e) => setShowLowConfidence(e.target.checked)}
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                                />
+                                Show Low Confidence
+                            </label>
+                        </div>
+
                         {/* Edit Button */}
                         {isEditingText && (
                             <button
