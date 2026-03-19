@@ -52,9 +52,9 @@ Stay close to the data. Be open-minded. Use the participant's own language when 
 4. EXISTENCE CHECK: Every quote must exist verbatim in the transcript. Do not invent or paraphrase.
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
-7. DESCRIPTIVE BUT GENERALIZED LABELS: Code labels should capture the core concept (e.g., "Financial Stress", "Burnout", "Coping Mechanism") rather than highly specific variations ("Stressed about money today", "Feeling totally burnt out").
-8. REUSE CODES: If you encounter the same concept multiple times across the text, use the EXACT SAME code label avoiding slight variations. DO NOT invent 5 different codes for the exact same underlying sentiment.
-9. STANDARDIZED NAMING: Start code labels with a Capital Letter and use consistent phrasing (e.g., use Noun Phrases like "Emotional Exhaustion" over verbs "Exhausted emotionally").
+7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation (e.g., "Worry about family due to unstable home country", "Strategic use of breathing during commute"). Do NOT use generic one-or-two word abstract tags like "Financial Stress" or "Hope".
+8. SENTENCE-LIKE PHRASING: Write code labels as short, descriptive phrases or sentences (5-12 words in length) that clearly communicate WHAT is happening and WHY.
+9. CAPTURE SPECIFICS: Make sure to include the specific trigger, outcome, or underlying sentiment directly in the code label name.
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
 SKIP THESE (not analytically relevant, DO NOT CODE):
@@ -70,7 +70,7 @@ Return a raw valid JSON array. Each object must have these fields:
 [
   {
     "text": "Exact verbatim quote from the transcript",
-    "label": "Descriptive Code Label (3-7 words, close to data)",
+    "label": "Highly Descriptive Contextual Label (5-12 words capturing the specific situation)",
     "explanation": "Why this is relevant: what phenomenon does it capture? What makes it analytically interesting?",
     "confidence": "HIGH" | "MEDIUM" | "LOW",
     "alternatives": ["Alternative Label 1", "Alternative Label 2"],

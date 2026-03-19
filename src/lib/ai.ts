@@ -557,24 +557,24 @@ export async function clusterThematicCodesWithClaude(uniqueLabels: string[]) {
     try {
         const response = await anthropic.messages.create({
             model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 2000,
+            max_tokens: 3000,
             temperature: 0.1,
             messages: [
                 {
                     role: 'user',
-                    content: `Here is a list of diverse thematic codes extracted from qualitative interview analysis. 
-Your task is to perfectly group synonymous or highly semantically similar codes together.
-For each group, choose ONE concise, overarching, and academic label that best represents the group.
+                    content: `Here is a list of highly descriptive thematic codes extracted from qualitative interview analysis. 
+Your task is to group synonymous or highly semantically similar codes together.
+For each group, choose ONE highly descriptive, sentence-like label (5-12 words) that accurately captures the specific context and nuance of the group. Do NOT reduce them into short 1-2 word abstract tags.
 
 List of codes:
 ${JSON.stringify(uniqueLabels, null, 2)}
 
-Return ONLY a perfectly formatted JSON object mapping EVERY original code to its new representative overarching label. 
+Return ONLY a perfectly formatted JSON object mapping EVERY original code to its new representative highly descriptive label. 
 Example format:
 {
-  "Intense Sadness": "Emotional Distress",
-  "Feeling extremely sad": "Emotional Distress",
-  "Bad Manager": "Poor Leadership"
+  "Stress about balancing studying and job": "Overwhelming demands of balancing academic and work roles",
+  "Feeling stressed because of work rules": "High-pressure work environment contributing to chronic stress",
+  "Breathing helps me calm down on the bus": "Strategic use of breathing exercises during daily commute"
 }
 Do not include any Markdown tags or explanations.`
                 }
