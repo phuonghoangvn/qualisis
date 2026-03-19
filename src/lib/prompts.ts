@@ -42,7 +42,22 @@ WHAT TO CODE:
 - Emotional expressions ("it was overwhelming", "I felt relief")
 - Turning points and changes ("that's when things shifted for me")
 
-Stay close to the data. Be open-minded. Use the participant's own language when creating code labels where possible (in-vivo coding). Each code should capture ONE distinct phenomenon.`;
+Stay close to the data. Be open-minded. Use the participant's own language when creating code labels where possible (in-vivo coding). Each code should capture ONE distinct phenomenon.
+
+[EXEMPLAR CODE LABELS FOR YOUR REFERENCE]
+Study these examples of high-quality, descriptive code labels:
+- "Chronic work-related anxiety"
+- "Struggles with transitioning to university life"
+- "Worry about family due to unstable home country"
+- "High-pressure work environment as stressor"
+- "Emotional toll of caregiving for parent with dementia"
+- "Fear of judgment during job interviews"
+- "Overwhelming demands of balancing multiple roles"
+- "Perceived improvement in emotional control"
+- "Perceived control over anxiety through breathing"
+- "Reduction in severity of anxiety spirals"
+- "Strategic use of breathing during commute"
+- "Nighttime breathing to reduce anxiety and improve sleep"`;
 
     // 4. Constraints
     const constraints = `[CONSTRAINTS]
@@ -53,9 +68,9 @@ Stay close to the data. Be open-minded. Use the participant's own language when 
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
 7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation (e.g., "Worry about family due to unstable home country", "Strategic use of breathing during commute"). Do NOT use generic one-or-two word abstract tags like "Financial Stress" or "Hope".
-8. SENTENCE-LIKE PHRASING: Write code labels as descriptive phrases or short sentences (MUST be less than 8 words in length) that clearly communicate WHAT is happening and WHY.
-9. CAPTURE SPECIFICS: Make sure to include the specific trigger, outcome, or underlying sentiment directly in the code label name.
-10. HIGH CONFIDENCE ONLY: Only extract quotes where you are highly or moderately confident in the code label. Do not return low-quality or ambiguous insights.
+8. DESCRIPTIVE PHRASING: Code labels should be concise, human-readable summaries (roughly 4-9 words). Clearly communicate the specific experience or strategy. 
+9. CAPTURE SPECIFICS: Always include the trigger (the "why") or the specific domain (the "where") in the label.
+10. SENSITIVITY: Capture emotional weight and practical struggles accurately. Do not sanitize the participant's experience.
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
 SKIP THESE (not analytically relevant, DO NOT CODE):
@@ -71,14 +86,14 @@ Return a raw valid JSON array. Each object must have these fields:
 [
   {
     "text": "Exact verbatim quote from the transcript",
-    "label": "Highly Descriptive Contextual Label (MAXIMUM 8 words capturing the specific situation)",
-    "explanation": "Why this is relevant: what phenomenon does it capture? What makes it analytically interesting?",
-    "confidence": "HIGH" | "MEDIUM",
+    "label": "Descriptive Contextual Label (4-9 words like the exemplars provided)",
+    "explanation": "Briefly explain why this is an analytically interesting insight.",
+    "confidence": "HIGH" | "MEDIUM" | "LOW",
     "alternatives": ["Alternative Label 1", "Alternative Label 2"],
-    "uncertainty": null
+    "uncertainty": "Note any ambiguity here"
   }
 ]
-Return ONLY the JSON array. Code EXTREMELY SPARINGLY. If a statement is not an undeniable, powerful insight, DO NOT code it. Quality over quantity. ONLY return insights with HIGH or MEDIUM confidence.`;
+Return ONLY the JSON array. Quality over quantity. Return all valid insights regardless of confidence level.`;
 
     return `${role}\n\n${context}\n\n${task}\n\n[USER INSTRUCTIONS & RESEARCH FOCUS]\n${researchContext}\n\n${constraints}\n\n${outputFormat}`;
 };
