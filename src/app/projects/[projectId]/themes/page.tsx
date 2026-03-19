@@ -37,6 +37,108 @@ type ThemeData = {
     }[]
 }
 
+// ─── CodebookRow: Fetches sample excerpt + sentiment for each code ───
+function CodebookRow({ theme, link, isFirstInTheme, themeRowSpan, onTrace, projectId }: {
+    theme: ThemeData
+    link: ThemeData['codeLinks'][0]
+    isFirstInTheme: boolean
+    themeRowSpan: number
+    onTrace: (codeId: string, codeName: string) => void
+    projectId: string
+}) {
+    const router = useRouter()
+    const [excerpt, setExcerpt] = useState<{ text: string; transcriptId: string; transcriptName: string; projectId: string } | null>(null)
+    const [sentiment, setSentiment] = useState<string | null>(null)
+    const [loaded, setLoaded] = useState(false)
+
+    useEffect(() => {
+        let cancelled = false
+        const fetchData = async () => {
+            try {
+                const res = await fetch(`/api/codebook/${link.codebookEntry.id}/quotes`)
+                if (res.ok && !cancelled) {
+                    const data = await res.json()
+                    // Get the first quote as sample excerpt
+                    if (Array.isArray(data) && data.length > 0 && data[0].quotes?.length > 0) {
+                        setExcerpt({
+                            text: data[0].quotes[0].text,
+                            transcriptId: data[0].transcriptId,
+                            transcriptName: data[0].transcriptName,
+                            projectId: data[0].projectId
+                        })
+                    }
+                }
+            } catch {}
+
+            // Try to extract sentiment from the AI suggestion uncertainty JSON
+            try {
+                const sugRes = await fetch(`/api/codebook/${link.codebookEntry.id}/sentiment`)
+                if (sugRes.ok && !cancelled) {
+                    const sentData = await sugRes.json()
+                    if (sentData.sentiment) setSentiment(sentData.sentiment)
+                }
+            } catch {}
+
+            if (!cancelled) setLoaded(true)
+        }
+        fetchData()
+        return () => { cancelled = true }
+    }, [link.codebookEntry.id])
+
+    const sentimentColor = sentiment === 'Positive' || sentiment === 'POSITIVE'
+        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        : sentiment === 'Negative' || sentiment === 'NEGATIVE'
+        ? 'bg-rose-50 text-rose-700 border-rose-200'
+        : 'bg-slate-50 text-slate-600 border-slate-200'
+
+    const sentimentLabel = sentiment === 'POSITIVE' ? 'Positive' : sentiment === 'NEGATIVE' ? 'Negative' : sentiment === 'NEUTRAL' ? 'Neutral' : sentiment || '—'
+
+    return (
+        <tr className="hover:bg-slate-50/50 transition-colors group">
+            {isFirstInTheme && (
+                <td className="px-6 py-4 border-b border-r border-slate-200 align-top" rowSpan={themeRowSpan}>
+                    <span className="text-[13px] font-extrabold text-slate-800 leading-snug block">{theme.name}</span>
+                </td>
+            )}
+            <td className="px-6 py-4 border-b border-r border-slate-200">
+                <span className="font-semibold text-slate-700 text-[13px] leading-snug">{link.codebookEntry.name}</span>
+            </td>
+            <td className="px-6 py-4 border-b border-r border-slate-200">
+                {!loaded ? (
+                    <span className="text-[11px] text-slate-300 italic">Loading...</span>
+                ) : excerpt ? (
+                    <div className="flex items-start justify-between gap-2">
+                        <p className="text-[12px] text-slate-600 leading-relaxed line-clamp-3 italic">"{excerpt.text}"</p>
+                        <button
+                            onClick={() => {
+                                router.push(`/projects/${excerpt.projectId}/transcripts/${excerpt.transcriptId}`)
+                            }}
+                            title={`Go to source: ${excerpt.transcriptName}`}
+                            className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md hover:bg-indigo-100"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                            Trace
+                        </button>
+                    </div>
+                ) : (
+                    <span className="text-[11px] text-slate-300 italic">No excerpt available</span>
+                )}
+            </td>
+            <td className="px-6 py-4 border-b border-slate-200 text-center">
+                {loaded && sentiment ? (
+                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${sentimentColor}`}>
+                        {sentimentLabel}
+                    </span>
+                ) : loaded ? (
+                    <span className="text-[11px] text-slate-300">—</span>
+                ) : (
+                    <span className="text-[11px] text-slate-300 italic">...</span>
+                )}
+            </td>
+        </tr>
+    )
+}
+
 export default function ThemesPage() {
     const params = useParams()
     const router = useRouter()
@@ -843,8 +945,8 @@ Rules:
                     <div className="absolute inset-0 bg-white z-20 flex flex-col overflow-hidden">
                         <div className="flex-shrink-0 px-6 py-3 border-b border-slate-200 flex items-center justify-between">
                             <div>
-                                <h2 className="text-base font-extrabold text-slate-800">Codebook</h2>
-                                <p className="text-[11px] text-slate-400">Final codebook — all themes and their assigned codes</p>
+                                <h2 className="text-base font-extrabold text-slate-800">Codebook for themes</h2>
+                                <p className="text-[11px] text-slate-400">Structured codebook — Theme, Code, Sample Excerpt, Sentiment</p>
                             </div>
                             <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full">{themes.length} themes · {assignedCount} codes</span>
                         </div>
@@ -858,41 +960,24 @@ Rules:
                                     <table className="w-full text-left text-sm text-slate-600">
                                         <thead className="bg-slate-50 sticky top-0 z-10">
                                             <tr>
-                                                <th className="px-6 py-3 border-b border-r border-slate-200 w-[22%] text-xs font-bold uppercase tracking-wide text-slate-500">Theme</th>
-                                                <th className="px-6 py-3 border-b border-r border-slate-200 w-[28%] text-xs font-bold uppercase tracking-wide text-slate-500">Code</th>
-                                                <th className="px-6 py-3 border-b border-r border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">Definition</th>
-                                                <th className="px-6 py-3 border-b border-slate-200 w-24 text-xs font-bold uppercase tracking-wide text-slate-500">Uses</th>
+                                                <th className="px-6 py-3 border-b border-r border-slate-200 w-[18%] text-xs font-bold uppercase tracking-wide text-slate-500">Theme</th>
+                                                <th className="px-6 py-3 border-b border-r border-slate-200 w-[24%] text-xs font-bold uppercase tracking-wide text-slate-500">Code</th>
+                                                <th className="px-6 py-3 border-b border-r border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">Sample Excerpt</th>
+                                                <th className="px-6 py-3 border-b border-slate-200 w-[100px] text-xs font-bold uppercase tracking-wide text-slate-500 text-center">Sentiment</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {themes.flatMap((theme) =>
                                                 theme.codeLinks && theme.codeLinks.length > 0 ? theme.codeLinks.map((link, lIdx) => (
-                                                    <tr key={link.codebookEntry.id} className="hover:bg-slate-50 transition-colors group">
-                                                        {lIdx === 0 && (
-                                                            <td className="px-6 py-4 border-b border-r border-slate-200 align-top" rowSpan={theme.codeLinks.length}>
-                                                                <span className="text-[13px] font-extrabold text-slate-800 leading-snug block">{theme.name}</span>
-                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide mt-1 inline-block ${theme.status === 'REVIEWED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-50 text-amber-600'}`}>{theme.status}</span>
-                                                            </td>
-                                                        )}
-                                                        <td className="px-6 py-4 border-b border-r border-slate-200">
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <span className="font-semibold text-slate-700 text-[13px]">{link.codebookEntry.name}</span>
-                                                                <button onClick={() => openTrace(link.codebookEntry.id, link.codebookEntry.name)} title="Trace quotes" className="opacity-0 group-hover:opacity-100 text-indigo-400 hover:text-indigo-600 transition-all flex-shrink-0">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
-                                                                </button>
-                                                            </div>
-                                                            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-semibold">{link.codebookEntry.type}</span>
-                                                        </td>
-                                                        <td className="px-6 py-4 border-b border-r border-slate-200 text-[12px] text-slate-500">
-                                                            {link.codebookEntry.definition
-                                                                ? <span className="line-clamp-3">{link.codebookEntry.definition}</span>
-                                                                : <span className="italic text-slate-300">No definition</span>
-                                                            }
-                                                        </td>
-                                                        <td className="px-6 py-4 border-b border-slate-200 text-center">
-                                                            <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{link.codebookEntry._count?.codeAssignments || 0}</span>
-                                                        </td>
-                                                    </tr>
+                                                    <CodebookRow 
+                                                        key={link.codebookEntry.id}
+                                                        theme={theme}
+                                                        link={link}
+                                                        isFirstInTheme={lIdx === 0}
+                                                        themeRowSpan={theme.codeLinks.length}
+                                                        onTrace={(codeId, codeName) => openTrace(codeId, codeName)}
+                                                        projectId={projectId}
+                                                    />
                                                 )) : [
                                                     <tr key={`empty-${theme.id}`}>
                                                         <td className="px-6 py-4 border-b border-r border-slate-200 font-extrabold text-slate-700 text-[13px]">{theme.name}</td>

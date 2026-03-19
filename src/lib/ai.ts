@@ -422,9 +422,10 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
         text: string
         startIndex: number
         endIndex: number
-        models: Record<string, { label: string; explanation: string; confidence: string; alternatives: string[]; uncertainty: string | null }>
+        models: Record<string, { label: string; explanation: string; confidence: string; alternatives: string[]; uncertainty: string | null; theme: string | null; sentiment: string | null }>
         consensusLabel: string | null
         consensusConfidence: string
+        consensusTheme: string | null
     }> = []
 
     for (const sug of allSuggestions) {
@@ -483,6 +484,8 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
                 confidence: sug.confidence,
                 alternatives: sug.alternatives || [],
                 uncertainty: sug.uncertainty || null,
+                theme: sug.theme || null,
+                sentiment: sug.sentiment || null,
             }
         } else {
             merged.push({
@@ -496,10 +499,13 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
                         confidence: sug.confidence,
                         alternatives: sug.alternatives || [],
                         uncertainty: sug.uncertainty || null,
+                        theme: sug.theme || null,
+                        sentiment: sug.sentiment || null,
                     }
                 },
                 consensusLabel: null,
                 consensusConfidence: 'LOW',
+                consensusTheme: null,
             })
         }
     }
@@ -545,6 +551,14 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
         } else {
             seg.consensusLabel = labels[0]
             seg.consensusConfidence = 'LOW'
+        }
+
+        // Compute consensus theme (most common theme across models)
+        const themes = Object.values(seg.models).map(m => m.theme).filter(Boolean) as string[]
+        if (themes.length > 0) {
+            const themeCounts = themes.reduce((acc, t) => { acc[t] = (acc[t] || 0) + 1; return acc }, {} as Record<string, number>)
+            const topTheme = Object.entries(themeCounts).sort((a, b) => b[1] - a[1])[0]
+            seg.consensusTheme = topTheme[0]
         }
     }
 

@@ -107,15 +107,20 @@ export async function POST(
             // Iterate sequentially
             for (const [modelName, modelData] of Object.entries(seg.models)) {
                 const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label);
+                const scoringWithMeta = {
+                    ...scoring,
+                    theme: modelData.theme || seg.consensusTheme || null,
+                    sentiment: modelData.sentiment || null,
+                };
                 
                 await prisma.aISuggestion.create({
                     data: {
                         segmentId: segment.id,
                         label: modelData.label,
                         explanation: modelData.explanation,
-                        confidence: scoring.labelConf,
-                        alternatives: modelData.alternatives,
-                        uncertainty: JSON.stringify(scoring),
+                        confidence: scoringWithMeta.labelConf,
+                        alternatives: modelData.alternatives || [],
+                        uncertainty: JSON.stringify(scoringWithMeta),
                         modelProvider: modelName,
                         promptVersion: researchContext || 'Empty prompt',
                         status: 'SUGGESTED',
