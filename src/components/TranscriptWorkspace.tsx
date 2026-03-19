@@ -93,8 +93,8 @@ export default function TranscriptWorkspace({
             return
         }
         const t1 = setTimeout(() => setAnalyzingStep(1), 10000)
-        const t2 = setTimeout(() => setAnalyzingStep(2), 30000)
-        const t3 = setTimeout(() => setAnalyzingStep(3), 50000)
+        const t2 = setTimeout(() => setAnalyzingStep(2), 20000)
+        const t3 = setTimeout(() => setAnalyzingStep(3), 30000)
         // Step 4 is set explicitly upon network completion!
         return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); }
     }, [isAnalyzing])
@@ -690,7 +690,7 @@ export default function TranscriptWorkspace({
 
                         </div>
                         <div className="bg-slate-50/70 p-4 border-t border-slate-100 text-center">
-                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~1 - 3 Minutes</span>
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~30-45 Seconds</span>
                         </div>
                     </div>
                 </div>,
