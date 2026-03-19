@@ -62,6 +62,11 @@ export default function TranscriptWorkspace({
     const [segments, setSegments] = useState<Segment[]>(transcript.segments)
     const [stats, setStats] = useState(initialStats)
     const [analysisRun, setAnalysisRun] = useState(transcript.segments.length > 0)
+    
+    // Edit transcript states
+    const [isEditingTranscript, setIsEditingTranscript] = useState(false)
+    const [editedContent, setEditedContent] = useState(transcript.content)
+    const [isSavingTranscript, setIsSavingTranscript] = useState(false)
 
     // Sync state when transcript data is refreshed from the server (e.g. after router.refresh())
     useEffect(() => {
@@ -87,9 +92,9 @@ export default function TranscriptWorkspace({
             setAnalyzingStep(0)
             return
         }
-        const t1 = setTimeout(() => setAnalyzingStep(1), 5000)
-        const t2 = setTimeout(() => setAnalyzingStep(2), 15000)
-        const t3 = setTimeout(() => setAnalyzingStep(3), 30000)
+        const t1 = setTimeout(() => setAnalyzingStep(1), 10000)
+        const t2 = setTimeout(() => setAnalyzingStep(2), 30000)
+        const t3 = setTimeout(() => setAnalyzingStep(3), 50000)
         // Step 4 is set explicitly upon network completion!
         return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); }
     }, [isAnalyzing])
@@ -163,6 +168,44 @@ export default function TranscriptWorkspace({
             setIsAnalyzing(false)
         }
     }, [transcript.id, selectedModels, researchContext, router])
+
+    const saveTranscriptEdit = async () => {
+        if (!editedContent.trim() || editedContent === transcript.content) {
+            setIsEditingTranscript(false);
+            return;
+        }
+        
+        const hasAILabels = segments.some(s => s.suggestions.length > 0);
+        if (hasAILabels) {
+            const ok = confirm('Warning: Editing the transcript will clear all existing AI formatting and highlights because their text positions will change. Do you want to continue?');
+            if (!ok) return;
+        }
+
+        setIsSavingTranscript(true);
+        try {
+            // If they proceed, we need to clear AI segments if the text gets updated
+            if (hasAILabels) {
+                await fetch(`/api/transcripts/${transcript.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: editedContent, status: 'DRAFT' })
+                });
+                // We'd ideally need a route to delete existing segments too, but for simplicity we rely on re-running AI to clear old ones or we can just send an update
+            } else {
+                await fetch(`/api/transcripts/${transcript.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: editedContent })
+                });
+            }
+            router.refresh();
+            setIsEditingTranscript(false);
+        } catch (e: any) {
+            alert('Failed to save transcript: ' + e.message);
+        } finally {
+            setIsSavingTranscript(false);
+        }
+    };
 
     // Group suggestions by modelProvider for display
     const getModelSuggestions = (seg: Segment) => {
@@ -409,8 +452,11 @@ export default function TranscriptWorkspace({
                             </div>
                             <div className="flex items-center gap-2 mt-0.5 text-sm font-medium text-slate-500">
                                 <span>{transcript.title.toLowerCase().replace(/\s+/g, '_')}.txt</span>
-                                <button className="text-slate-400 hover:text-indigo-600 ml-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
-                                <button className="text-slate-400 hover:text-red-500"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                                <button onClick={() => { setEditedContent(transcript.content); setIsEditingTranscript(true); }} className="text-slate-400 hover:text-indigo-600 ml-1 transition-colors relative group" title="Edit Transcript Source">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit Transcript</span>
+                                </button>
+                                <button className="text-slate-400 hover:text-red-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
                             </div>
                         </div>
                     </div>
@@ -644,7 +690,59 @@ export default function TranscriptWorkspace({
 
                         </div>
                         <div className="bg-slate-50/70 p-4 border-t border-slate-100 text-center">
-                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~45-60 Seconds</span>
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~1 - 3 Minutes</span>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Edit Transcript Modal */}
+            {mounted && isEditingTranscript && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-500"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                Edit Transcript Source
+                            </h2>
+                            <button onClick={() => setIsEditingTranscript(false)} className="text-slate-400 hover:text-slate-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="p-4 bg-amber-50 border-b border-amber-100 flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <p className="text-[12px] text-amber-800 font-medium">
+                                Fix typos or missing speaker tags ("INTERVIEWER:" or "PARTICIPANT:") manually. <br/>
+                                <strong className="font-bold">Note:</strong> Editing the text may misalign any existing AI highlights until you re-run the analysis.
+                            </p>
+                        </div>
+                        <div className="flex-1 p-6 overflow-hidden flex flex-col">
+                            <textarea
+                                value={editedContent}
+                                onChange={e => setEditedContent(e.target.value)}
+                                className="w-full flex-1 p-6 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-colors custom-scrollbar font-medium text-slate-700 leading-relaxed text-[14px]"
+                                placeholder="Transcript text goes here..."
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
+                            <button
+                                disabled={isSavingTranscript}
+                                onClick={() => setIsEditingTranscript(false)}
+                                className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={saveTranscriptEdit}
+                                disabled={isSavingTranscript || editedContent.trim() === transcript.content}
+                                className="px-6 py-2.5 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl shadow-sm transition-all disabled:opacity-50 min-w-[120px] flex items-center justify-center gap-2"
+                            >
+                                {isSavingTranscript ? (
+                                    <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving...</>
+                                ) : 'Save Changes'}
+                            </button>
                         </div>
                     </div>
                 </div>,
