@@ -28,6 +28,8 @@ export const authOptions: NextAuthOptions = {
                 const userObj = user as any;
                 if (!userObj || !userObj.password) return null;
 
+                if (userObj.role === 'BANNED') return null; // Reject banned accounts
+
                 const bcrypt = require('bcryptjs');
                 const isPasswordValid = await bcrypt.compare(credentials.password, userObj.password);
 

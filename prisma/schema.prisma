@@ -65,6 +65,7 @@ enum UserRole {
   ADMIN
   RESEARCHER
   REVIEWER
+  BANNED
 }
 
 // Domain Models
