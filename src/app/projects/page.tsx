@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import CreateProjectButton from '@/components/CreateProjectButton'
 import DeleteProjectButton from '@/components/DeleteProjectButton'
+import GlobalSignOutButton from '@/components/GlobalSignOutButton'
 import { Network, Home, Settings, Plus, FolderOpen, FileText } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -38,10 +39,11 @@ export default async function ProjectsDashboard() {
                     </nav>
                 </div>
 
-                <div className="mt-auto p-4 border-t border-slate-200/60 bg-transparent flex-shrink-0">
-                    <button className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-all py-2.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 hover:shadow-sm">
-                        <Settings className="w-4 h-4" /> Platform Settings
-                    </button>
+                <div className="mt-auto p-4 border-t border-slate-200/60 flex flex-col gap-2 flex-shrink-0">
+                    <Link href="/profile" className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition-all rounded-lg border border-transparent hover:border-indigo-100">
+                        <Settings className="w-4 h-4" /> Profile & Settings
+                    </Link>
+                    <GlobalSignOutButton />
                 </div>
             </aside>
 

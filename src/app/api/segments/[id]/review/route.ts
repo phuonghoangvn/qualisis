@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // POST /api/segments/[id]/review
 // body: { action: "ACCEPT" | "OVERRIDE" | "REJECT", note?: string, customLabel?: string, suggestionId: string }
@@ -10,6 +12,9 @@ export async function POST(
     try {
         const body = await req.json()
         const { action, note, customLabel, suggestionId } = body
+
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
 
         if (!suggestionId || !action) {
             return NextResponse.json({ error: 'suggestionId and action are required' }, { status: 400 })
@@ -41,7 +46,7 @@ export async function POST(
                     aiSuggestionId: suggestionId,
                     action,
                     note: note ?? null,
-                    reviewerId: 'researcher-1', // No auth mode: use default
+                    reviewerId: userId || 'researcher-1', // Fallback if no auth
                 }
             })
         }
@@ -110,6 +115,7 @@ export async function POST(
         // Audit log
         await prisma.auditLog.create({
             data: {
+                userId,
                 eventType: action === 'RESTORE' ? 'REVIEW_DECISION_RESTORED' : 'REVIEW_DECISION_MADE',
                 entityType: 'AISuggestion',
                 entityId: suggestionId,

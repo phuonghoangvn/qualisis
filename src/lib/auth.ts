@@ -19,15 +19,21 @@ export const authOptions: NextAuthOptions = {
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                if (!credentials?.email) return null;
+                if (!credentials?.email || !credentials?.password) return null;
 
                 const user = await prisma.user.findUnique({
                     where: { email: credentials.email },
                 });
 
-                // For demo purposes, allow any password for seeded users
-                if (user) return user;
-                return null;
+                const userObj = user as any;
+                if (!userObj || !userObj.password) return null;
+
+                const bcrypt = require('bcryptjs');
+                const isPasswordValid = await bcrypt.compare(credentials.password, userObj.password);
+
+                if (!isPasswordValid) return null;
+                
+                return user;
             },
         }),
     ],

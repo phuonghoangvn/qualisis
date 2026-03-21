@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // GET /api/projects/[projectId]/themes — get all themes with their linked codes
 export async function GET(
@@ -50,6 +52,9 @@ export async function POST(
         const body = await req.json()
         const { name, description, codeIds } = body
 
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
         if (!name) {
             return NextResponse.json({ error: 'Theme name is required' }, { status: 400 })
         }
@@ -83,6 +88,7 @@ export async function POST(
         await prisma.auditLog.create({
             data: {
                 projectId: params.projectId,
+                userId,
                 eventType: 'THEME_CREATED',
                 entityType: 'Theme',
                 entityId: theme.id,
@@ -106,6 +112,9 @@ export async function PATCH(
         const body = await req.json()
         const { themeId, action, codeId } = body
 
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
         if (!themeId || !action || !codeId) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
@@ -117,11 +126,31 @@ export async function PATCH(
                     codebookEntryId: codeId
                 }
             })
+            await prisma.auditLog.create({
+                data: {
+                    projectId: params.projectId,
+                    userId,
+                    eventType: 'THEME_CODE_ADDED',
+                    entityType: 'ThemeCodeLink',
+                    entityId: themeId,
+                    note: `Code ${codeId} added to theme ${themeId}`,
+                }
+            })
         } else if (action === 'REMOVE_CODE') {
             await prisma.themeCodeLink.deleteMany({
                 where: {
                     themeId,
                     codebookEntryId: codeId
+                }
+            })
+            await prisma.auditLog.create({
+                data: {
+                    projectId: params.projectId,
+                    userId,
+                    eventType: 'THEME_CODE_REMOVED',
+                    entityType: 'ThemeCodeLink',
+                    entityId: themeId,
+                    note: `Code ${codeId} removed from theme ${themeId}`,
                 }
             })
         }

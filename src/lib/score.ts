@@ -27,11 +27,11 @@ export async function getEmbedding(text: string) {
     }
 }
 
-export async function calculateTokenProbability(segmentText: string, label: string) {
+export async function calculateTokenProbability(segmentText: string, label: string, scoringModel = 'gpt-4o-mini') {
     if (!openai) return 0.85;
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: scoringModel,
             messages: [{
                 role: 'system',
                 content: 'You are an AI responding with a single short label.'
@@ -59,11 +59,11 @@ export async function calculateTokenProbability(segmentText: string, label: stri
     } catch { return 0.85; }
 }
 
-export async function calculateRunConsistency(segmentText: string, originalLabel: string) {
+export async function calculateRunConsistency(segmentText: string, originalLabel: string, scoringModel = 'gpt-4o-mini') {
     if (!openai) return { agreeCount: 3, total: 3 };
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: scoringModel,
             messages: [{ role: 'system', content: 'Provide a concise thematic code for the text.' }, { role: 'user', content: segmentText }],
             n: 2,
             temperature: 0.7,
@@ -78,11 +78,11 @@ export async function calculateRunConsistency(segmentText: string, originalLabel
     } catch { return { agreeCount: 3, total: 3 }; }
 }
 
-export async function getSelfAssessment(segmentText: string, label: string) {
+export async function getSelfAssessment(segmentText: string, label: string, scoringModel = 'gpt-4o-mini') {
     if (!openai) return 4.2;
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: scoringModel,
             temperature: 0.1,
             response_format: { type: "json_object" },
             messages: [{
@@ -115,7 +115,7 @@ export function calculateHeuristics(text: string) {
     return { score, flags };
 }
 
-export async function calculateConfidenceScoresComplex(segmentText: string, label: string) {
+export async function calculateConfidenceScoresComplex(segmentText: string, label: string, scoringModel = 'gpt-4o-mini') {
     const { score: heuristicScore, flags } = calculateHeuristics(segmentText);
 
     if (!openai) {
@@ -133,10 +133,10 @@ export async function calculateConfidenceScoresComplex(segmentText: string, labe
 
     try {
         const [tokenProb, consistency, embeddings, selfAssess] = await Promise.all([
-            calculateTokenProbability(segmentText, label),
-            calculateRunConsistency(segmentText, label),
+            calculateTokenProbability(segmentText, label, scoringModel),
+            calculateRunConsistency(segmentText, label, scoringModel),
             Promise.all([getEmbedding(segmentText), getEmbedding(label)]),
-            getSelfAssessment(segmentText, label)
+            getSelfAssessment(segmentText, label, scoringModel)
         ]);
 
         const semSim = cosineSimilarity(embeddings[0], embeddings[1]);

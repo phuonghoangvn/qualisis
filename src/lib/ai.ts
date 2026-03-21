@@ -232,15 +232,16 @@ export function chunkTranscriptWithOverlap(text: string, maxLen = 12000, overlap
 }
 
 // ─── GPT-4o ──────────────────────────────────────────────────────────────────
-export async function analyzeWithGPT(transcriptContent: string, researchContext?: string, metadata?: any, summary?: string) {
+export async function analyzeWithGPT(transcriptContent: string, researchContext?: string, metadata?: any, summary?: string, modelOverride?: string) {
     if (!openai) return null
+    const model = modelOverride || 'gpt-4o-mini'
     try {
         const chunks = chunkTranscriptWithOverlap(transcriptContent);
         
         const chunkPromises = chunks.map(async (chunk) => {
             try {
                 const response = await openai!.chat.completions.create({
-                    model: 'gpt-4o-mini',
+                    model,
                     temperature: 0.3,
                     messages: [
                         { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
@@ -364,7 +365,7 @@ export async function analyzeWithGemini(transcriptContent: string, researchConte
     }
 }
 
-export async function calculateConfidenceScores(segmentText: string, label: string) {
+export async function calculateConfidenceScores(segmentText: string, label: string, scoringModel?: string) {
     const isShort = segmentText.split(' ').length < 5;
     if (!openai) {
         return {
@@ -377,8 +378,9 @@ export async function calculateConfidenceScores(segmentText: string, label: stri
         };
     }
     try {
+        const model = scoringModel || 'gpt-4o-mini'
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+            model,
             temperature: 0.1,
             response_format: { type: "json_object" },
             messages: [{

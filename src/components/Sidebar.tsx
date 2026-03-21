@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { signOut } from 'next-auth/react'
 import UploadDatasetWrapper from './UploadDatasetWrapper'
 
 type Transcript = { id: string; title: string; status: string }
@@ -20,6 +21,8 @@ export default function Sidebar({ project }: { project: Project }) {
         { href: `/projects/${project.id}/themes`, icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-layout-grid"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>, label: 'Themes & Network', activeGroup: ['/themes'] },
         { href: `/projects/${project.id}/report`, icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pen-tool"><path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"/><path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18z"/><path d="m2.3 2.3 7.286 7.286"/><path d="m11 13 4 4"/></svg>, label: 'Report Drafting', activeGroup: ['/report'] },
     ]
+    const settingsHref = `/projects/${project.id}/settings`
+    const isSettingsActive = pathname.includes('/settings')
 
     return (
         <aside className={`${collapsed ? 'w-16' : 'w-[260px]'} flex flex-col h-full bg-slate-50 border-r border-slate-200 transition-all duration-200 flex-shrink-0`}>
@@ -105,6 +108,32 @@ export default function Sidebar({ project }: { project: Project }) {
                         })
                     ))}
                 </div>
+            </div>
+
+            {/* Settings Footer Link */}
+            <div className="px-4 pb-5 pt-2 border-t border-slate-200 flex-shrink-0">
+                <Link href={settingsHref}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                        isSettingsActive
+                        ? 'bg-white border border-slate-200 shadow-sm text-indigo-700 font-semibold'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-medium border border-transparent'
+                    }`}
+                >
+                    <span className={isSettingsActive ? 'text-indigo-600' : 'text-slate-400'}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </span>
+                    {!collapsed && <span className="text-sm">Platform Settings</span>}
+                </Link>
+
+                <button 
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 mt-1 rounded-xl transition-all text-slate-500 hover:text-rose-600 hover:bg-rose-50/50 font-medium border border-transparent`}
+                >
+                    <span className="text-slate-400 group-hover:text-rose-500 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                    </span>
+                    {!collapsed && <span className="text-sm text-left">Sign Out</span>}
+                </button>
             </div>
         </aside>
     )

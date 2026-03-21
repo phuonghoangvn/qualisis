@@ -10,6 +10,8 @@ import {
 } from '@/lib/ai'
 import { calculateConfidenceScoresComplex } from '@/lib/score'
 import { autoCleanHighlights } from '@/lib/clean'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // POST /api/transcripts/[id]/analyze
 // Calls all 3 AI models in parallel, merges results, saves to DB
@@ -21,6 +23,9 @@ export async function POST(
         const body = await req.json().catch(() => ({}))
         const { models = ['gpt', 'claude', 'gemini'], researchContext } = body
 
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
         // Fetch transcript
         const transcript = await prisma.transcript.findUnique({
             where: { id: params.id },
@@ -30,7 +35,8 @@ export async function POST(
             return NextResponse.json({ error: 'Transcript not found' }, { status: 404 })
         }
 
-        // Mark as analyzing
+        // Mark as analyzing + record start time
+        const analysisStartTime = Date.now()
         await prisma.transcript.update({
             where: { id: params.id },
             data: { status: 'ANALYZING' }
@@ -47,6 +53,12 @@ export async function POST(
         if (project.researchQuestion) projectContextPieces.push(`Research Question: ${project.researchQuestion}`);
         if (project.coreOntology) projectContextPieces.push(`Core Ontology / Known Concepts: ${project.coreOntology}`);
         
+        // Read AI Settings from project (cast to any to handle stale TS IDE cache)
+        const projectAny = project as any;
+        const aiSettings = (projectAny.aiSettings && typeof projectAny.aiSettings === 'object' ? projectAny.aiSettings : {}) as any;
+        const defaultModel = aiSettings.defaultModel || 'gpt-4o-mini';
+        const scoringModel = aiSettings.scoringModel || 'gpt-4o-mini';
+
         const combinedProjectContext = projectContextPieces.join('\n');
         const finalResearchContext = [
             combinedProjectContext ? `[GLOBAL PROJECT CONTEXT]\n${combinedProjectContext}\n` : '',
@@ -55,7 +67,7 @@ export async function POST(
 
         // Call selected AI models in parallel
         const [gptResult, claudeResult, geminiResult] = await Promise.allSettled([
-            models.includes('gpt') ? analyzeWithGPT(transcript.content, finalResearchContext, metadataRaw, summary) : Promise.resolve(null),
+            models.includes('gpt') ? analyzeWithGPT(transcript.content, finalResearchContext, metadataRaw, summary, defaultModel) : Promise.resolve(null),
             models.includes('claude') ? analyzeWithClaude(transcript.content, finalResearchContext, metadataRaw, summary) : Promise.resolve(null),
             models.includes('gemini') ? analyzeWithGemini(transcript.content, finalResearchContext, metadataRaw, summary) : Promise.resolve(null),
         ])
@@ -111,7 +123,7 @@ export async function POST(
 
                 // Can do Promise.all for suggestions too since models are independent (max 3 models)
                 await Promise.all(Object.entries(seg.models).map(async ([modelName, modelData]) => {
-                    const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label);
+                    const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label, scoringModel);
                     const scoringWithMeta = {
                         ...scoring,
                         theme: modelData.theme || seg.consensusTheme || null,
@@ -143,21 +155,45 @@ export async function POST(
             data: { status: 'REVIEWING' }
         })
 
-        // Log audit event
+        const durationMs = Date.now() - analysisStartTime
+        const projectId = transcript.dataset.projectId
+
+        // Log audit event with timing, model, project, user
         await prisma.auditLog.create({
             data: {
+                projectId,
+                userId,
                 eventType: 'AI_ANALYSIS_COMPLETE',
                 entityType: 'Transcript',
                 entityId: params.id,
                 newValue: JSON.stringify({
+                    transcriptTitle: transcript.title,
                     modelsUsed: results.filter(Boolean).map(r => r!.model),
                     segmentsFound: savedSegments.length,
+                    durationMs,
+                    durationLabel: `${Math.round(durationMs / 1000)}s`,
+                    defaultModel,
+                    scoringModel,
                 }),
             }
         })
 
         // Auto clean the highlights using contextual intel
         const droppedCount = await autoCleanHighlights(params.id)
+
+        // Log auto-clean result
+        if (droppedCount > 0) {
+            await prisma.auditLog.create({
+                data: {
+                    projectId,
+                    eventType: 'AUTO_CLEAN_COMPLETE',
+                    entityType: 'Transcript',
+                    entityId: params.id,
+                    note: `Auto-clean removed ${droppedCount} low-quality highlight(s) from "${transcript.title}"`,
+                    newValue: JSON.stringify({ droppedCount, transcriptTitle: transcript.title })
+                }
+            })
+        }
 
         const { revalidatePath } = require('next/cache')
         revalidatePath(`/projects/${transcript.dataset.projectId}/transcripts/${transcript.id}`)
