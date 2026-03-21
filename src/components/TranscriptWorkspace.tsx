@@ -78,6 +78,18 @@ export default function TranscriptWorkspace({
     const [analyzingStep, setAnalyzingStep] = useState(0)
     const [mounted, setMounted] = useState(false)
 
+    // Track time spent reading the transcript
+    useEffect(() => {
+        const startTime = Date.now();
+        return () => {
+            const timeSpentSecs = Math.floor((Date.now() - startTime) / 1000);
+            if (timeSpentSecs >= 3 && typeof window !== 'undefined') {
+                const data = new Blob([JSON.stringify({ durationSeconds: timeSpentSecs })], { type: 'application/json' });
+                navigator.sendBeacon(`/api/transcripts/${transcript.id}/log-view`, data);
+            }
+        };
+    }, [transcript.id]);
+
     const [isEditingText, setIsEditingText] = useState(false)
     const [editedContent, setEditedContent] = useState(transcript.content)
     const [isSaving, setIsSaving] = useState(false)

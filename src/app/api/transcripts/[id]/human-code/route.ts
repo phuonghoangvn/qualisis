@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
     try {
         const body = await req.json()
         const { projectId, text, codeName, startIndex, endIndex } = body
+
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
 
         // Find or create CodebookEntry
         let codeEntry = await prisma.codebookEntry.findFirst({
@@ -19,6 +24,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
                     type: 'HUMAN',
                     examplesIn: '',
                     examplesOut: ''
+                }
+            })
+            // Audit Log code creation
+            await prisma.auditLog.create({
+                data: {
+                    projectId,
+                    userId,
+                    eventType: 'HUMAN_CODE_CREATED',
+                    entityType: 'CodebookEntry',
+                    entityId: codeEntry.id,
+                    newValue: JSON.stringify({ name: codeName }),
                 }
             })
         }
@@ -38,6 +54,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             data: {
                 segmentId: segment.id,
                 codebookEntryId: codeEntry.id,
+            }
+        })
+
+        // Audit Log segment highlighted
+        await prisma.auditLog.create({
+            data: {
+                projectId,
+                userId,
+                eventType: 'HUMAN_HIGHLIGHT_ADDED',
+                entityType: 'Segment',
+                entityId: segment.id,
+                note: `Manually coded as "${codeName}"`,
+                newValue: JSON.stringify({ text: text.substring(0, 100) + '...' })
             }
         })
 

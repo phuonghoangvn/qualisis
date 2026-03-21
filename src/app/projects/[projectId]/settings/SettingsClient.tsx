@@ -144,7 +144,10 @@ export default function SettingsClient({ projectId, initialSettings, logs }: {
                                                         {isAutoClean && parsed.droppedCount !== undefined && (
                                                             <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 border border-sky-100 rounded px-1.5 py-0.5">🧹 {parsed.droppedCount} dropped</span>
                                                         )}
-                                                        {log.oldValue && log.newValue && !isAnalysis && !isAutoClean && (
+                                                        {log.eventType === 'TRANSCRIPT_VIEWED' && parsed.durationSeconds && (
+                                                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5">👁️ {parsed.durationSeconds}s read</span>
+                                                        )}
+                                                        {log.oldValue && log.newValue && !isAnalysis && !isAutoClean && log.eventType !== 'TRANSCRIPT_VIEWED' && (
                                                             <span className="text-[10px] font-mono text-slate-400">{log.oldValue} → {log.newValue}</span>
                                                         )}
                                                     </div>

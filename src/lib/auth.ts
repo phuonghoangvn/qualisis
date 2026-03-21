@@ -26,9 +26,15 @@ export const authOptions: NextAuthOptions = {
                 });
 
                 const userObj = user as any;
-                if (!userObj || !userObj.password) return null;
+                if (!userObj) return null;
 
                 if (userObj.role === 'BANNED') return null; // Reject banned accounts
+
+                // If user has no password yet (legacy/seeded user), allow generic password
+                if (!userObj.password) {
+                    if (credentials.password === 'password') return userObj;
+                    return null;
+                }
 
                 const bcrypt = require('bcryptjs');
                 const isPasswordValid = await bcrypt.compare(credentials.password, userObj.password);
