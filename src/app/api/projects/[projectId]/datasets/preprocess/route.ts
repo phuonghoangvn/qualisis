@@ -1,3 +1,4 @@
+export const maxDuration = 60; // Max allowed for Vercel Hobby
 import { NextResponse } from 'next/server'
 import { openai } from '@/lib/ai'
 

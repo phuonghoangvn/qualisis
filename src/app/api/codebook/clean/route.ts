@@ -111,13 +111,13 @@ For each code you recommend dropping/merging, provide:
 Return ONLY a JSON array of recommendations. Keep important codes — only flag truly redundant or low-quality ones.
 Return format: [{"codeId":"...", "codeName":"...", "action":"DROP|MERGE", "mergeInto":"...", "reasons":["..."], "confidence":"HIGH|MEDIUM|LOW"}]`
 
-        const res = await openai.chat.completions.create({
-            model: 'gpt-4o',
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
             temperature: 0.2,
             messages: [{ role: 'user', content: prompt }],
         })
 
-        const raw = res.choices[0]?.message?.content ?? '[]'
+        const raw = response.choices[0]?.message?.content ?? '[]'
         const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
         
         try {

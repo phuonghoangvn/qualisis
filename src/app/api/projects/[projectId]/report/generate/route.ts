@@ -1,3 +1,4 @@
+export const maxDuration = 60; // Max allowed for Vercel Hobby
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { openai } from '@/lib/ai'
@@ -48,7 +49,13 @@ export async function POST(
             }
         })
 
-        if (themes.length === 0) {
+        // Filter out codes with 0 assignments
+        const validThemes = themes.map(theme => ({
+            ...theme,
+            codeLinks: theme.codeLinks.filter(link => link.codebookEntry.codeAssignments.length > 0)
+        }))
+
+        if (validThemes.length === 0) {
             return NextResponse.json({ error: 'No themes found. Create themes first.' }, { status: 400 })
         }
 
@@ -57,7 +64,7 @@ export async function POST(
         let title = ''
 
         if (type === 'THEMATIC_SUMMARY' && themeId) {
-            const theme = themes.find(t => t.id === themeId)
+            const theme = validThemes.find(t => t.id === themeId)
             if (!theme) return NextResponse.json({ error: 'Theme not found' }, { status: 404 })
 
             title = theme.name
@@ -98,7 +105,7 @@ Return ONLY the text content, no markdown headers.`
         } else if (type === 'FINDING') {
             title = 'Findings & Interpretation'
 
-            const themeSummaries = themes.map(t => {
+            const themeSummaries = validThemes.map(t => {
                 const codes = t.codeLinks.map(l => l.codebookEntry.name).join(', ')
                 return `- "${t.name}" (${t.codeLinks.length} codes: ${codes})`
             }).join('\n')
@@ -132,7 +139,7 @@ Return ONLY the text content, no markdown headers.`
         } else if (type === 'RECOMMENDATION') {
             title = 'Recommendations & Implications'
 
-            const themeSummaries = themes.map(t => {
+            const themeSummaries = validThemes.map(t => {
                 const codes = t.codeLinks.map(l => l.codebookEntry.name).join(', ')
                 return `- "${t.name}" (codes: ${codes})`
             }).join('\n')
@@ -170,16 +177,16 @@ Return ONLY the text content, no markdown headers.`
         if (!openai) {
             // Fallback when no API key
             const fallbackContent = type === 'THEMATIC_SUMMARY'
-                ? `This section summarizes the theme "${title}". Based on the ${themes.find(t => t.id === themeId)?.codeLinks.length || 0} codes assigned to this theme, participants described experiences related to ${title.toLowerCase()}. [AI generation requires OpenAI API key — this is a placeholder draft for you to edit manually.]`
+                ? `This section summarizes the theme "${title}". Based on the ${validThemes.find(t => t.id === themeId)?.codeLinks.length || 0} codes assigned to this theme, participants described experiences related to ${title.toLowerCase()}. [AI generation requires OpenAI API key — this is a placeholder draft for you to edit manually.]`
                 : type === 'FINDING'
-                ? `The analysis revealed ${themes.length} themes: ${themes.map(t => `"${t.name}"`).join(', ')}. These themes together suggest patterns and relationships that address the research question. [AI generation requires OpenAI API key — this is a placeholder draft for you to edit manually.]`
-                : `Based on the findings, the following recommendations are proposed:\n\n${themes.map(t => `• For stakeholders concerned with "${t.name}": Consider addressing the underlying patterns identified through the ${t.codeLinks.length} associated codes.`).join('\n\n')}\n\n[AI generation requires OpenAI API key — this is a placeholder draft for you to edit manually.]`
+                ? `The analysis revealed ${validThemes.length} themes: ${validThemes.map(t => `"${t.name}"`).join(', ')}. These themes together suggest patterns and relationships that address the research question. [AI generation requires OpenAI API key — this is a placeholder draft for you to edit manually.]`
+                : `Based on the findings, the following recommendations are proposed:\n\n${validThemes.map(t => `• For stakeholders concerned with "${t.name}": Consider addressing the underlying patterns identified through the ${t.codeLinks.length} associated codes.`).join('\n\n')}\n\n[AI generation requires OpenAI API key — this is a placeholder draft for you to edit manually.]`
 
             return NextResponse.json({ title, content: fallbackContent, source: 'fallback' })
         }
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             temperature: 0.5,
             messages: [{ role: 'user', content: prompt }],
         })

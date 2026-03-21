@@ -27,7 +27,14 @@ export async function GET(
             },
             orderBy: { createdAt: 'desc' }
         })
-        return NextResponse.json(themes)
+        
+        // Remove code links that have 0 assignments (orphans)
+        const validThemes = themes.map(theme => ({
+            ...theme,
+            codeLinks: theme.codeLinks.filter(link => link.codebookEntry._count.codeAssignments > 0)
+        }))
+
+        return NextResponse.json(validThemes)
     } catch (e) {
         console.error('Failed to fetch themes:', e)
         return NextResponse.json({ error: 'Failed to fetch themes' }, { status: 500 })

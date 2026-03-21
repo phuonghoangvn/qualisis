@@ -19,7 +19,11 @@ export async function GET(req: Request) {
             },
             orderBy: { createdAt: 'desc' }
         })
-        return NextResponse.json(entries)
+        
+        // Filter out orphan codes (codes that have lost all their highlights/excerpts)
+        const validEntries = entries.filter(e => e._count.codeAssignments > 0)
+        
+        return NextResponse.json(validEntries)
     } catch (e) {
         return NextResponse.json({ error: 'Failed to fetch codebook' }, { status: 500 })
     }

@@ -1,3 +1,4 @@
+export const maxDuration = 60; // Max allowed for Vercel Hobby
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { openai } from '@/lib/ai'
@@ -34,8 +35,10 @@ export async function POST(
             return NextResponse.json({ suggestions: [], message: 'No codes found in this project' })
         }
 
-        // 2. Filter to only unassigned codes (not yet linked to any theme)
-        const unassignedCodes = codebookEntries.filter(c => c.themeLinks.length === 0)
+        // 2. Filter out orphans (0 instances) and keep only unassigned codes (not yet linked to any theme)
+        const unassignedCodes = codebookEntries.filter(c => 
+            c._count.codeAssignments > 0 && c.themeLinks.length === 0
+        )
         
         if (unassignedCodes.length < 2) {
             return NextResponse.json({ 
@@ -205,7 +208,7 @@ Return ONLY the JSON array. No markdown wrappers.`
         }
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             temperature: 0.4,
             messages: [{ role: 'user', content: prompt }],
         })

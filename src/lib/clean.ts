@@ -27,19 +27,18 @@ export async function autoCleanHighlights(transcriptId: string) {
             : "2. Moderate or Low Relevance: If it lacks profound, insightful meaning for a deep psychological or sociological study, DROP it.";
 
         const CLEAN_PROMPT = `
-You are a senior qualitative researcher overseeing the very final stage of coding. Your goal is to be EXTREMELY RUTHLESS in pruning the "Initial Codes" (AI suggestions). You must distill the highlights down to ONLY the most insightful, unique, and highly relevant findings. 
+You are a qualitative research assistant. Your task is ONLY to merge identical/duplicate codes and remove absolute garbage (like empty or purely conversational filler).
 
-Context about the research study:
+Context about the research:
 ${researchContext}
 
-You MUST DROP any code that meets ANY of the following criteria:
-1. Duplicate/Overlapping: If two codes highlight the exact same or very similar point, DROP the weaker one.
-${relevanceRule}
-3. Trivial/Commonplace: If it's a generic, obvious, or unimportant statement (e.g. greetings, wrap-ups), DROP it.
-4. Vague/Lacking Context: If the highlighted text is too short or lacks semantic weight on its own, DROP it.
-5. Low confidence or uncertain.
+DROP a code ONLY IF:
+1. It is an EXACT or NEAR-EXACT duplicate of another code (keep the better one, drop the duplicate).
+2. It contains absolutely NO meaningful information snippet (e.g. just "hello", "yes", or speaker tags).
 
-Rule of thumb: Retain ONLY top-tier, essential quotes. When in doubt, DROP it. You should aim to drop at least 50% - 70% of the initial codes to keep the findings concise.
+DO NOT drop codes just because they seem "moderate" or "low" relevance. Keep them! 
+DO NOT drop codes just because they are short. Keep them!
+Be extremely conservative. You should NOT drop more than 10-20% of the codes. Default to KEEP.
 
 For each code, output if it should be kept or dropped.
 
@@ -81,7 +80,7 @@ CODES TO ANALYZE:
             const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.gpt, null, 2);
             try {
                 const completion = await openai.chat.completions.create({
-                    model: "gpt-4o",
+                    model: "gpt-4o-mini",
                     messages: [{ role: "user", content: promptText }],
                     response_format: { type: "json_object" },
                     temperature: 0.1

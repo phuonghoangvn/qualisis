@@ -183,7 +183,7 @@ export async function generateTranscriptSummary(text: string) {
     if (!openai) return "";
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             temperature: 0.3,
             messages: [
                 { 
@@ -200,7 +200,7 @@ export async function generateTranscriptSummary(text: string) {
     }
 }
 
-export function chunkTranscriptWithOverlap(text: string, maxLen = 4000, overlap = 600) {
+export function chunkTranscriptWithOverlap(text: string, maxLen = 12000, overlap = 1200) {
     const chunks: { text: string; offset: number }[] = [];
     let i = 0;
     while (i < text.length) {
@@ -236,33 +236,40 @@ export async function analyzeWithGPT(transcriptContent: string, researchContext?
     if (!openai) return null
     try {
         const chunks = chunkTranscriptWithOverlap(transcriptContent);
-        const allSuggestions: any[] = [];
         
-        for (const chunk of chunks) {
-            const response = await openai.chat.completions.create({
-                model: 'gpt-4o',
-                temperature: 0.3,
-                messages: [
-                    { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
-                ],
-            })
-            const raw = response.choices[0]?.message?.content ?? '[]'
-            const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        const chunkPromises = chunks.map(async (chunk) => {
             try {
+                const response = await openai!.chat.completions.create({
+                    model: 'gpt-4o-mini',
+                    temperature: 0.3,
+                    messages: [
+                        { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
+                    ],
+                });
+                const raw = response.choices[0]?.message?.content ?? '[]';
+                const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
                 const parsed = JSON.parse(cleaned);
+                
+                const validSuggestions: any[] = [];
                 if (Array.isArray(parsed)) {
                     for (const p of parsed) {
                         const quote = stripSpeakerTag(p.text || '');
                         if (!quote) continue;
                         const pos = resolveIndex(transcriptContent, quote, chunk.offset);
                         if (!pos) continue; // skip hallucinated quotes
-                        allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
+                        validSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
                     }
                 }
+                return validSuggestions;
             } catch (e) {
                 console.error("Failed to parse GPT chunk", e);
+                return [];
             }
-        }
+        });
+
+        const allResults = await Promise.all(chunkPromises);
+        const allSuggestions = allResults.flat();
+        
         return { model: 'GPT-4o', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
         console.error('GPT-4o error:', e)
@@ -275,34 +282,39 @@ export async function analyzeWithClaude(transcriptContent: string, researchConte
     if (!anthropic) return null
     try {
         const chunks = chunkTranscriptWithOverlap(transcriptContent);
-        const allSuggestions: any[] = [];
-
-        for (const chunk of chunks) {
-            const response = await anthropic.messages.create({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 4096,
-                temperature: 0.3,
-                messages: [
-                    { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
-                ],
-            })
-            const raw = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
-            const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        const chunkPromises = chunks.map(async (chunk) => {
             try {
+                const response = await anthropic!.messages.create({
+                    model: 'claude-haiku-4-5-20251001',
+                    max_tokens: 4096,
+                    temperature: 0.3,
+                    messages: [
+                        { role: 'user', content: buildAnalysisPrompt(chunk.text, researchContext, metadata, summary) }
+                    ],
+                });
+                const raw = response.content[0]?.type === 'text' ? response.content[0].text : '[]';
+                const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
                 const parsed = JSON.parse(cleaned);
+                
+                const validSuggestions: any[] = [];
                 if (Array.isArray(parsed)) {
                     for (const p of parsed) {
                         const quote = stripSpeakerTag(p.text || '');
                         if (!quote) continue;
                         const pos = resolveIndex(transcriptContent, quote, chunk.offset);
                         if (!pos) continue;
-                        allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
+                        validSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
                     }
                 }
+                return validSuggestions;
             } catch (e) {
                 console.error("Failed to parse Claude chunk", e);
+                return [];
             }
-        }
+        });
+
+        const allResults = await Promise.all(chunkPromises);
+        const allSuggestions = allResults.flat();
         return { model: 'Claude 4.5 Haiku', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
         console.error('Claude Haiku error:', e)
@@ -319,27 +331,32 @@ export async function analyzeWithGemini(transcriptContent: string, researchConte
             generationConfig: { temperature: 0.3 }
         })
         const chunks = chunkTranscriptWithOverlap(transcriptContent);
-        const allSuggestions: any[] = [];
-
-        for (const chunk of chunks) {
-            const result = await model.generateContent(buildAnalysisPrompt(chunk.text, researchContext, metadata, summary))
-            const raw = result.response.text()
-            const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        const chunkPromises = chunks.map(async (chunk) => {
             try {
+                const result = await model.generateContent(buildAnalysisPrompt(chunk.text, researchContext, metadata, summary));
+                const raw = result.response.text();
+                const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
                 const parsed = JSON.parse(cleaned);
+                
+                const validSuggestions: any[] = [];
                 if (Array.isArray(parsed)) {
                     for (const p of parsed) {
                         const quote = stripSpeakerTag(p.text || '');
                         if (!quote) continue;
                         const pos = resolveIndex(transcriptContent, quote, chunk.offset);
                         if (!pos) continue;
-                        allSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
+                        validSuggestions.push({ ...p, text: quote, startIndex: pos.start, endIndex: pos.end });
                     }
                 }
+                return validSuggestions;
             } catch (e) {
                 console.error("Failed to parse Gemini chunk", e);
+                return [];
             }
-        }
+        });
+
+        const allResults = await Promise.all(chunkPromises);
+        const allSuggestions = allResults.flat();
         return { model: 'Gemini 2.5 Flash', suggestions: deduplicateSuggestions(allSuggestions) }
     } catch (e) {
         console.error('Gemini Flash error:', e)

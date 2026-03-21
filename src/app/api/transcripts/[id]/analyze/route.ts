@@ -1,3 +1,4 @@
+export const maxDuration = 60; // Max allowed for Vercel Hobby
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
@@ -90,44 +91,50 @@ export async function POST(
             })
         }
 
-        // Save merged segments + suggestions to DB sequentially to avoid Neon DB timeout
+        // Save merged segments + suggestions to DB in batches to avoid both Vercel timeout and Neon DB exhaustion
         const savedSegments = []
-        for (let idx = 0; idx < mergedSegments.length; idx++) {
-            const seg = mergedSegments[idx]
-            const segment = await prisma.segment.create({
-                data: {
-                    transcriptId: params.id,
-                    text: seg.text,
-                    startIndex: seg.startIndex,
-                    endIndex: seg.endIndex,
-                    order: idx,
-                }
-            })
+        const BATCH_SIZE = 4; // 4 segments * ~3 models = 12 concurrent DB/API ops
 
-            // Iterate sequentially
-            for (const [modelName, modelData] of Object.entries(seg.models)) {
-                const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label);
-                const scoringWithMeta = {
-                    ...scoring,
-                    theme: modelData.theme || seg.consensusTheme || null,
-                    sentiment: modelData.sentiment || null,
-                };
-                
-                await prisma.aISuggestion.create({
+        for (let i = 0; i < mergedSegments.length; i += BATCH_SIZE) {
+            const batch = mergedSegments.slice(i, i + BATCH_SIZE);
+            
+            await Promise.all(batch.map(async (seg, batchIdx) => {
+                const segment = await prisma.segment.create({
                     data: {
-                        segmentId: segment.id,
-                        label: modelData.label,
-                        explanation: modelData.explanation,
-                        confidence: scoringWithMeta.labelConf,
-                        alternatives: modelData.alternatives || [],
-                        uncertainty: JSON.stringify(scoringWithMeta),
-                        modelProvider: modelName,
-                        promptVersion: researchContext || 'Empty prompt',
-                        status: 'SUGGESTED',
+                        transcriptId: params.id,
+                        text: seg.text,
+                        startIndex: seg.startIndex,
+                        endIndex: seg.endIndex,
+                        order: i + batchIdx,
                     }
-                })
-            }
-            savedSegments.push(segment)
+                });
+
+                // Can do Promise.all for suggestions too since models are independent (max 3 models)
+                await Promise.all(Object.entries(seg.models).map(async ([modelName, modelData]) => {
+                    const scoring = await calculateConfidenceScoresComplex(seg.text, modelData.label);
+                    const scoringWithMeta = {
+                        ...scoring,
+                        theme: modelData.theme || seg.consensusTheme || null,
+                        sentiment: modelData.sentiment || null,
+                    };
+                    
+                    await prisma.aISuggestion.create({
+                        data: {
+                            segmentId: segment.id,
+                            label: modelData.label,
+                            explanation: modelData.explanation,
+                            confidence: scoringWithMeta.labelConf,
+                            alternatives: modelData.alternatives || [],
+                            uncertainty: JSON.stringify(scoringWithMeta),
+                            modelProvider: modelName,
+                            promptVersion: researchContext || 'Empty prompt',
+                            status: 'SUGGESTED',
+                        }
+                    });
+                }));
+
+                savedSegments.push(segment);
+            }));
         }
 
         // Mark transcript as reviewed (analysis done)
