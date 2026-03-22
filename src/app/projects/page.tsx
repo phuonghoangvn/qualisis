@@ -1,5 +1,8 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import CreateProjectButton from '@/components/CreateProjectButton'
 import DeleteProjectButton from '@/components/DeleteProjectButton'
 import GlobalSignOutButton from '@/components/GlobalSignOutButton'
@@ -8,7 +11,19 @@ import { Network, Home, Settings, Plus, FolderOpen, FileText } from 'lucide-reac
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsDashboard() {
+    const session = await getServerSession(authOptions)
+    const userId = session?.user ? (session.user as any).id : null
+
+    if (!userId) {
+        redirect('/login')
+    }
+
     const projects = await prisma.project.findMany({
+        where: {
+            members: {
+                some: { userId }
+            }
+        },
         include: {
             datasets: {
                 include: { _count: { select: { transcripts: true } } }
