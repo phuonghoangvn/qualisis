@@ -1,12 +1,32 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function DELETE(
     request: Request,
     { params }: { params: { projectId: string } }
 ) {
     try {
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const projectId = params.projectId
+
+        // Verify the user is a member of this project
+        const member = await prisma.projectMember.findUnique({
+            where: {
+                projectId_userId: { projectId, userId }
+            }
+        })
+
+        if (!member) {
+            return NextResponse.json({ error: 'Unauthorized: You are not a member of this project' }, { status: 403 })
+        }
 
         // Delete in order to avoid FK constraint violations
         // 1. Clear CodebookEntry self-references first

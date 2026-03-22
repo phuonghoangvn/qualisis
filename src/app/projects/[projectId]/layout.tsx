@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import Sidebar from '@/components/Sidebar'
+import { verifyProjectAccess } from '@/lib/project-auth'
 
 export default async function ProjectLayout({
     children,
@@ -8,6 +9,13 @@ export default async function ProjectLayout({
     children: React.ReactNode
     params: { projectId: string }
 }) {
+    // Determine if user has permission
+    const hasAccess = await verifyProjectAccess(params.projectId);
+    
+    if (!hasAccess) {
+        return <div className="p-8">Access Denied or Project not found</div>
+    }
+
     const project = await prisma.project.findUnique({
         where: { id: params.projectId },
         include: {

@@ -1,10 +1,24 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
-// GET /api/projects — list all projects
+// GET /api/projects — list user's projects
 export async function GET() {
     try {
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const projects = await prisma.project.findMany({
+            where: {
+                members: {
+                    some: { userId }
+                }
+            },
             include: {
                 _count: { select: { datasets: true, themes: true } },
                 datasets: {
@@ -24,6 +38,13 @@ export async function GET() {
 // POST /api/projects — create new project  
 export async function POST(req: Request) {
     try {
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const body = await req.json()
         const project = await prisma.project.create({
             data: {
@@ -31,6 +52,12 @@ export async function POST(req: Request) {
                 description: body.description,
                 coreOntology: body.coreOntology,
                 researchQuestion: body.researchQuestion,
+                members: {
+                    create: {
+                        userId,
+                        role: 'ADMIN'
+                    }
+                }
             }
         })
         return NextResponse.json(project, { status: 201 })
