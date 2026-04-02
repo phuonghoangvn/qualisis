@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import CreateProjectButton from '@/components/CreateProjectButton'
 import DeleteProjectButton from '@/components/DeleteProjectButton'
+import { UserDropdown } from '@/components/UserDropdown'
 import GlobalSignOutButton from '@/components/GlobalSignOutButton'
 import { Network, Home, Settings, Plus, FolderOpen, FileText } from 'lucide-react'
 
@@ -34,72 +35,91 @@ export default async function ProjectsDashboard() {
 
     return (
         <div className="flex h-screen w-full bg-slate-50/50 overflow-hidden">
-            {/* LEFT SIDEBAR (Home Version) */}
-            <aside className="w-1/5 min-w-[250px] max-w-[300px] border-r border-slate-200/60 bg-slate-50 flex flex-col z-20 flex-shrink-0">
-                <div className="p-6 border-b border-slate-200/60 flex-shrink-0">
-                    <h1 className="font-extrabold text-xl text-slate-800 flex items-center gap-2 tracking-tight">
-                        <Network className="w-6 h-6 text-indigo-600" />
-                        QualiSIS
-                    </h1>
-                    <p className="text-[11px] font-medium text-slate-500 mt-1 uppercase tracking-widest">
-                        Traceable AI Workstation
-                    </p>
-                </div>
+            {/* MAIN CONTENT (No Sidebar for Dashboard) */}
+            <main className="flex-1 flex flex-col h-full bg-slate-50/50 overflow-y-auto relative w-full">
+                {/* Header Navbar */}
+                <div className="h-16 border-b border-slate-200/60 bg-white/80 backdrop-blur-md flex items-center justify-between px-8 flex-shrink-0 sticky top-0 z-50 w-full shadow-sm">
+                    {/* Logo Area */}
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0 text-white font-bold shadow-sm">
+                            <Network className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-extrabold text-slate-800 tracking-tight leading-tight">QualiSIS</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Traceable AI Workstation</span>
+                        </div>
+                    </div>
 
-                <div className="p-4 flex-1 overflow-y-auto">
-                    <nav className="space-y-1.5">
-                        <Link href="/projects" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg bg-white text-indigo-700 shadow-sm border border-slate-200 transition-all">
-                            <Home className="w-4 h-4" /> Home / Projects
-                        </Link>
-                    </nav>
-                </div>
-
-                <div className="mt-auto p-4 border-t border-slate-200/60 flex flex-col gap-2 flex-shrink-0">
-                    <Link href="/profile" className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition-all rounded-lg border border-transparent hover:border-indigo-100">
-                        <Settings className="w-4 h-4" /> Profile & Settings
-                    </Link>
-                    <GlobalSignOutButton />
-                </div>
-            </aside>
-
-            {/* MAIN CONTENT */}
-            <main className="flex-1 flex flex-col h-full bg-slate-50/50 overflow-y-auto relative">
-                {/* Header */}
-                <div className="h-16 border-b border-slate-200/60 bg-white/80 backdrop-blur-md flex items-center justify-between px-8 flex-shrink-0 sticky top-0 z-10 w-full">
-                    <h2 className="text-lg font-bold text-slate-800 tracking-tight">Projects Dashboard</h2>
-                    <CreateProjectButton />
+                    {/* Actions Area */}
+                    <div className="flex items-center gap-5">
+                        <CreateProjectButton />
+                        <div className="h-6 w-px bg-slate-200"></div>
+                        <UserDropdown />
+                    </div>
                 </div>
 
                 <div className="p-10 max-w-6xl mx-auto w-full">
-                    {/* Hero Section */}
-                    <div className="mb-10">
-                        <h1 className="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">Projects Overview</h1>
-                        <p className="text-slate-500 font-medium">Manage your qualitative research projects and datasets.</p>
+                    {/* Hero Section (Soft, Airy & Animated) */}
+                    <div className="mb-12 relative overflow-hidden rounded-3xl bg-white border border-indigo-50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-[fade-in_0.5s_ease-out]">
+                        {/* Soft background glow */}
+                        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-indigo-50/50 rounded-full blur-3xl pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-purple-50/50 rounded-full blur-3xl pointer-events-none"></div>
+                        
+                        <div className="p-12 relative z-10">
+                            <h1 className="text-[28px] font-extrabold mb-3 tracking-tight text-slate-800">
+                                Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">QualiSIS</span>
+                            </h1>
+                            <p className="text-slate-500 font-medium text-[15px] mb-8 leading-relaxed max-w-2xl">
+                                Your traceable AI workstation for human-led qualitative research. QualiSIS empowers you to collaborate with AI—accelerating the coding process, mapping themes, and drafting reports—while you retain full analytical control and traceability back to source quotes.
+                            </p>
+                            
+                            {/* Workflow Steps - Soft Cards */}
+                            <div className="grid grid-cols-4 gap-5 text-left">
+                                {[
+                                    { step: 1, title: 'Create Project', desc: 'Setup workspace & data' },
+                                    { step: 2, title: 'Human-AI Coding', desc: 'Review AI suggestions' },
+                                    { step: 3, title: 'Map Themes', desc: 'Synthesize codebook' },
+                                    { step: 4, title: 'Draft Report', desc: 'Evidence-backed narrative' },
+                                ].map((s, i) => (
+                                    <div 
+                                        key={i} 
+                                        className="bg-slate-50 border border-slate-100 rounded-2xl p-4 transition-all hover:shadow-md hover:border-indigo-100 group relative overflow-hidden"
+                                        style={{ animation: `fade-in-up 0.5s ease-out ${(i + 1) * 0.1}s both` }}
+                                    >
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 to-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        <div className="text-indigo-400 font-black text-[10px] mb-1.5 uppercase tracking-widest">Step {s.step}</div>
+                                        <div className="text-slate-800 font-extrabold text-[13px] leading-tight mb-1">{s.title}</div>
+                                        <div className="text-slate-400 text-[11px] font-medium leading-tight">{s.desc}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Your Projects</h2>
                     </div>
 
                     {/* Projects Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Always show Create New Project Card first */}
-                        {/* Note: This is a visually large button that matches the design. We will use a Client component wrapper or just link to the button's action */}
-                        {/* For simplicity we will just render the button logic inside CreateProjectButton. But to make this clickable card trigger modal, we can let CreateProjectButton accept a children prop! */}
-                        {/* Actually, I will just make the card trigger router.push('/projects/new') or similar, but since CreateProjectButton handles modal, let's keep it simple. */}
-                        <div className="relative">
+                        <div className="relative animate-[fade-in-up_0.5s_ease-out_0.5s_both]">
                             <CreateProjectCardTrigger />
                         </div>
 
-                        {projects.map(p => {
+                        {projects.map((p, index) => {
                             const totalTranscripts = p.datasets.reduce((sum, ds) => sum + ds._count.transcripts, 0)
                             return (
                                 <div 
                                     key={p.id}
-                                    className="bg-white border text-left border-slate-200 rounded-2xl p-6 hover:shadow-md hover:border-indigo-300 transition-all group relative overflow-hidden h-64 flex flex-col"
+                                    className="bg-white border text-left border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group relative overflow-hidden h-64 flex flex-col"
+                                    style={{ animation: `fade-in-up 0.5s ease-out ${0.5 + (index * 0.1)}s both` }}
                                 >
                                     <Link href={`/projects/${p.id}`} className="absolute inset-0 z-0" aria-label={`View ${p.name}`} />
                                     <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
                                     
                                     <DeleteProjectButton projectId={p.id} projectName={p.name} />
                                     
-                                    <h3 className="relative z-10 font-bold text-slate-800 text-lg mb-2 pr-8 pointer-events-none">{p.name}</h3>
+                                    <h3 className="relative z-10 font-bold text-slate-800 text-lg mb-2 pr-8 pointer-events-none group-hover:text-indigo-700 transition-colors">{p.name}</h3>
                                     <p className="relative z-10 text-slate-500 text-sm line-clamp-3 mb-auto h-16 pointer-events-none">
                                         {p.description || "No description provided."}
                                     </p>
@@ -107,13 +127,13 @@ export default async function ProjectsDashboard() {
                                     <div className="relative z-10 flex items-center justify-between text-sm text-slate-500 border-t border-slate-100 pt-4 mt-auto w-full pointer-events-none">
                                         <div className="flex gap-4">
                                             <span className="flex items-center gap-1.5 font-medium" title="Datasets">
-                                                <FolderOpen className="w-4 h-4" /> {p.datasets.length}
+                                                <FolderOpen className="w-4 h-4 text-slate-400" /> {p.datasets.length}
                                             </span>
                                             <span className="flex items-center gap-1.5 font-medium" title="Transcripts">
-                                                <FileText className="w-4 h-4" /> {totalTranscripts}
+                                                <FileText className="w-4 h-4 text-slate-400" /> {totalTranscripts}
                                             </span>
                                         </div>
-                                        <span className="text-xs font-medium">
+                                        <span className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
                                             {p.updatedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </span>
                                     </div>
@@ -122,6 +142,17 @@ export default async function ProjectsDashboard() {
                         })}
                     </div>
                 </div>
+
+                <style dangerouslySetInnerHTML={{__html: `
+                    @keyframes fade-in {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes fade-in-up {
+                        from { opacity: 0; transform: translateY(15px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                `}} />
             </main>
         </div>
     )

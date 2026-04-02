@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import TranscriptWorkspace from '@/components/TranscriptWorkspace'
 
 export const dynamic = 'force-dynamic'
@@ -41,10 +42,12 @@ export default async function TranscriptPage({
     )
 
     return (
-        <TranscriptWorkspace
-            transcript={transcript as any}
-            projectId={params.projectId}
-            stats={{ totalHighlights, assignedCodes, pendingReview }}
-        />
+        <Suspense>
+            <TranscriptWorkspace
+                transcript={transcript as any}
+                projectId={params.projectId}
+                stats={{ totalHighlights, assignedCodes, pendingReview }}
+            />
+        </Suspense>
     )
 }

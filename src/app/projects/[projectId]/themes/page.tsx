@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import ThematicMatrixView from '@/components/ThematicMatrixView'
 
 type CodeEntry = {
     id: string
@@ -9,6 +10,7 @@ type CodeEntry = {
     type: string
     instances: number
     definition?: string
+    participants?: { id: string, name: string }[]
 }
 
 type ThemeSuggestion = {
@@ -24,7 +26,10 @@ type ThemeData = {
     id: string
     name: string
     description: string | null
+    memo: string | null
     status: string
+    positionX?: number | null
+    positionY?: number | null
     codeLinks: {
         codebookEntry: {
             id: string
@@ -32,24 +37,282 @@ type ThemeData = {
             type: string
             definition?: string | null
             examplesIn?: string | null
+            examplesOut?: string | null
+            memo?: string | null
             _count: { codeAssignments: number }
+            participants?: { id: string, name: string }[]
         }
     }[]
+    participantsCount?: number
 }
 
-// ─── CodebookRow: Fetches sample excerpt + sentiment for each code ───
-function CodebookRow({ theme, link, isFirstInTheme, themeRowSpan, onTrace, projectId }: {
+// Generate consistent background and text colors based on participant name or ID
+function getParticipantColor(name: string) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colors = [
+        'bg-blue-100 text-blue-700 border-blue-200',
+        'bg-purple-100 text-purple-700 border-purple-200',
+        'bg-pink-100 text-pink-700 border-pink-200',
+        'bg-orange-100 text-orange-700 border-orange-200',
+        'bg-teal-100 text-teal-700 border-teal-200',
+        'bg-cyan-100 text-cyan-700 border-cyan-200',
+        'bg-lime-100 text-lime-700 border-lime-200',
+        'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+    ];
+    return colors[Math.abs(hash) % colors.length];
+}
+
+// ─── CSV Export helper ──────────────────────────────────────────────────────
+function escapeCell(val: string | null | undefined): string {
+    const s = (val ?? '').replace(/\r?\n/g, ' ').replace(/\t/g, ' ')
+    // Wrap in quotes if contains comma, quote or newline
+    return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function exportCodebookCSV(themes: ThemeData[], filename = 'codebook.csv') {
+    const headers = ['Theme', 'Theme Description', 'Code', 'Code Definition', 'Frequency', 'Participants', 'Participants Count']
+    const rows: string[][] = []
+
+    for (const theme of themes) {
+        // Count unique participants across all codes in this theme
+        const themeParticipantSet = new Set<string>()
+        theme.codeLinks.forEach(l => (l.codebookEntry.participants || []).forEach(p => themeParticipantSet.add(p.name)))
+
+        for (const link of theme.codeLinks) {
+            const participants = (link.codebookEntry.participants || []).map(p => p.name).join('; ')
+            rows.push([
+                theme.name,
+                theme.description || '',
+                link.codebookEntry.name,
+                link.codebookEntry.definition || '',
+                String(link.codebookEntry._count?.codeAssignments || 0),
+                participants,
+                String((link.codebookEntry.participants || []).length),
+            ])
+        }
+
+        if (theme.codeLinks.length === 0) {
+            rows.push([theme.name, theme.description || '', '', '', '', '', ''])
+        }
+    }
+
+    const csvContent = [headers, ...rows]
+        .map(row => row.map(escapeCell).join(','))
+        .join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+}
+
+function pColor(name: string) {
+    const palette = [
+        { bg: '#e0e7ff', text: '#4338ca' }, { bg: '#fce7f3', text: '#be185d' },
+        { bg: '#fef3c7', text: '#b45309' }, { bg: '#d1fae5', text: '#065f46' },
+        { bg: '#ede9fe', text: '#6d28d9' }, { bg: '#cffafe', text: '#0e7490' },
+        { bg: '#fee2e2', text: '#b91c1c' }, { bg: '#d9f99d', text: '#365314' },
+    ]
+    let hash = 0
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+    return palette[Math.abs(hash) % palette.length]
+}
+function pInitials(name: string) {
+    return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)
+}
+
+// ─── ThemeCell: merged rowspan cell with name, description, reflection, status ─
+function ThemeCell({ theme, rowSpan, projectId, onUpdate }: { theme: ThemeData; rowSpan: number; projectId: string; onUpdate: () => void }) {
+    const [description, setDescription] = useState(theme.description || '')
+    const [status, setStatus] = useState(theme.status || 'DRAFT')
+    const [editingField, setEditingField] = useState<'description' | null>(null)
+    const [draft, setDraft] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [savedField, setSavedField] = useState<'description' | null>(null) // for flash ✓
+
+    const themeParticipantSet = new Set<string>()
+    theme.codeLinks.forEach(l => (l.codebookEntry.participants || []).forEach(p => {
+        if (!p.name.toLowerCase().includes('dataset') && p.name !== 'All') {
+            themeParticipantSet.add(p.id)
+        }
+    }))
+    const participantCount = themeParticipantSet.size
+
+    const startEdit = (field: 'description') => {
+        setDraft(description)
+        setEditingField(field)
+        setSavedField(null)
+    }
+
+    const save = async (field: 'description', value: string) => {
+        setSaving(true)
+        try {
+            const res = await fetch(`/api/projects/${projectId}/themes/${theme.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: value })
+            })
+            if (res.ok) {
+                setDescription(value)
+                setEditingField(null)
+                // Flash "Saved ✓" for 2s
+                setSavedField(field)
+                setTimeout(() => setSavedField(null), 2000)
+                // Refresh parent to keep everything in sync
+                onUpdate()
+            } else {
+                const err = await res.json()
+                console.error('Save failed details:', err)
+                alert(`Khong the luu: ${err.error || 'Unknown error'}\nDetails: ${err.details || 'Check console'}`)
+            }
+        } catch (e: any) {
+            console.error('Save error connection:', e)
+            alert('Loi ket noi khi luu description: ' + e.message)
+        }
+        setSaving(false)
+    }
+
+    const cycleStatus = async () => {
+        const next = status === 'DRAFT' ? 'ACTIVE' : status === 'ACTIVE' ? 'FINALIZED' : 'DRAFT'
+        try {
+            await fetch(`/api/projects/${projectId}/themes/${theme.id}`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: next })
+            })
+            setStatus(next)
+        } catch {}
+    }
+
+    const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
+        DRAFT:     { bg: '#f1f5f9', text: '#64748b', label: 'Draft' },
+        ACTIVE:    { bg: '#dbeafe', text: '#1d4ed8', label: 'Active' },
+        FINALIZED: { bg: '#dcfce7', text: '#15803d', label: 'Finalized ✓' },
+    }
+    const st = STATUS_STYLE[status] ?? STATUS_STYLE.DRAFT
+
+    return (
+        <td className="px-5 py-4 border-b border-r border-slate-100 align-top group/theme" rowSpan={rowSpan}>
+            {/* Theme name + status badge */}
+            <div className="flex items-start justify-between gap-1.5 mb-1">
+                <span className="text-[13px] font-extrabold text-slate-800 leading-snug">{theme.name}</span>
+                <button
+                    onClick={cycleStatus}
+                    className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all cursor-pointer hover:opacity-80"
+                    style={{ background: st.bg, color: st.text }}
+                    title="Click to advance: Draft → Active → Finalized"
+                >
+                    {st.label}
+                </button>
+            </div>
+
+            {/* Stats */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                <span className="text-[9px] text-slate-400 font-semibold">{theme.codeLinks.length} code{theme.codeLinks.length !== 1 ? 's' : ''}</span>
+                {participantCount > 0 && (
+                    <span
+                        className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                        style={{
+                            background: participantCount >= 3 ? '#d1fae5' : participantCount === 2 ? '#fef3c7' : '#fee2e2',
+                            color: participantCount >= 3 ? '#065f46' : participantCount === 2 ? '#92400e' : '#991b1b'
+                        }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        {participantCount} pax
+                    </span>
+                )}
+            </div>
+
+            {/* Description */}
+            <InlineEditField
+                value={description}
+                placeholder="Describe what this theme represents..."
+                isEditing={editingField === 'description'}
+                onStartEdit={() => startEdit('description')}
+                draft={draft} setDraft={setDraft}
+                onSave={() => save('description', draft)}
+                onCancel={() => setEditingField(null)}
+                saving={saving && editingField === 'description'}
+                saved={savedField === 'description'}
+                emptyClass="opacity-0 group-hover/theme:opacity-100"
+                emptyLabel="+ Add description"
+            />
+
+
+        </td>
+    )
+}
+
+// ─── Reusable inline edit field ───────────────────────────────────────────────
+function InlineEditField({
+    value, placeholder, isEditing, onStartEdit, draft, setDraft, onSave, onCancel,
+    saving, saved = false, emptyClass = '', emptyLabel, rows = 2
+}: {
+    value: string; placeholder: string; isEditing: boolean
+    onStartEdit: () => void; draft: string; setDraft: (v: string) => void
+    onSave: () => void; onCancel: () => void; saving: boolean; saved?: boolean
+    emptyClass?: string; emptyLabel?: string; rows?: number
+}) {
+    if (isEditing) return (
+        <div>
+            <textarea
+                autoFocus value={draft} onChange={e => setDraft(e.target.value)}
+                placeholder={placeholder} rows={rows}
+                className="w-full text-[11px] text-slate-700 bg-white border border-indigo-300 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 leading-relaxed"
+            />
+            <div className="flex gap-1.5 mt-1 items-center">
+                <button onClick={onSave} disabled={saving}
+                    className="text-[10px] font-bold px-2.5 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                >
+                    {saving ? (
+                        <><svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Saving…</>
+                    ) : 'Save'}
+                </button>
+                <button onClick={onCancel} className="text-[10px] font-bold px-2.5 py-1 border border-slate-200 text-slate-500 rounded-md hover:bg-slate-50 transition-colors">Cancel</button>
+            </div>
+        </div>
+    )
+    if (value) return (
+        <div className="group/field flex items-start gap-1">
+            <p className="text-[11px] text-slate-600 leading-relaxed flex-1">{value}</p>
+            <button onClick={onStartEdit} className="opacity-0 group-hover/field:opacity-100 flex-shrink-0 transition-opacity text-slate-300 hover:text-indigo-500 mt-0.5" title="Edit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            </button>
+        </div>
+    )
+    return (
+        <button onClick={onStartEdit} className={`flex items-center gap-1 text-[10px] text-slate-300 hover:text-indigo-500 transition-colors ${emptyClass}`}>
+            {emptyLabel ?? `+ ${placeholder.split('…')[0]}`}
+        </button>
+    )
+}
+
+
+// ─── CodebookRow: Theme | Code + Definition | Freq | Excerpt ──
+function CodebookRow({ theme, link, isFirstInTheme, themeRowSpan, onTrace, projectId, onUpdate }: {
     theme: ThemeData
     link: ThemeData['codeLinks'][0]
     isFirstInTheme: boolean
     themeRowSpan: number
     onTrace: (codeId: string, codeName: string) => void
     projectId: string
+    onUpdate: () => void
 }) {
     const router = useRouter()
-    const [excerpt, setExcerpt] = useState<{ text: string; transcriptId: string; transcriptName: string; projectId: string } | null>(null)
-    const [sentiment, setSentiment] = useState<string | null>(null)
+    const [excerpt, setExcerpt] = useState<{ text: string; transcriptId: string; transcriptName: string; projectId: string; segmentId: string } | null>(null)
     const [loaded, setLoaded] = useState(false)
+
+    // Definition editing state — seed from existing data
+    const [definition, setDefinition] = useState(link.codebookEntry.definition || '')
+    const [isEditingDef, setIsEditingDef] = useState(false)
+    const [defDraft, setDefDraft] = useState('')
+    const [defSaving, setDefSaving] = useState(false)
+    const defTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => {
         let cancelled = false
@@ -58,10 +321,10 @@ function CodebookRow({ theme, link, isFirstInTheme, themeRowSpan, onTrace, proje
                 const res = await fetch(`/api/codebook/${link.codebookEntry.id}/quotes`)
                 if (res.ok && !cancelled) {
                     const data = await res.json()
-                    // Get the first quote as sample excerpt
                     if (Array.isArray(data) && data.length > 0 && data[0].quotes?.length > 0) {
                         setExcerpt({
                             text: data[0].quotes[0].text,
+                            segmentId: data[0].quotes[0].segmentId,
                             transcriptId: data[0].transcriptId,
                             transcriptName: data[0].transcriptName,
                             projectId: data[0].projectId
@@ -69,82 +332,142 @@ function CodebookRow({ theme, link, isFirstInTheme, themeRowSpan, onTrace, proje
                     }
                 }
             } catch {}
-
-            // Try to extract sentiment from the AI suggestion uncertainty JSON
-            try {
-                const sugRes = await fetch(`/api/codebook/${link.codebookEntry.id}/sentiment`)
-                if (sugRes.ok && !cancelled) {
-                    const sentData = await sugRes.json()
-                    if (sentData.sentiment) setSentiment(sentData.sentiment)
-                }
-            } catch {}
-
             if (!cancelled) setLoaded(true)
         }
         fetchData()
         return () => { cancelled = true }
     }, [link.codebookEntry.id])
 
-    const sentimentColor = sentiment === 'Positive' || sentiment === 'POSITIVE'
-        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-        : sentiment === 'Negative' || sentiment === 'NEGATIVE'
-        ? 'bg-rose-50 text-rose-700 border-rose-200'
-        : 'bg-slate-50 text-slate-600 border-slate-200'
+    const startEditDef = () => {
+        setDefDraft(definition)
+        setIsEditingDef(true)
+    }
 
-    const sentimentLabel = sentiment === 'POSITIVE' ? 'Positive' : sentiment === 'NEGATIVE' ? 'Negative' : sentiment === 'NEUTRAL' ? 'Neutral' : sentiment || '—'
+    const saveDef = async (value: string) => {
+        setDefSaving(true)
+        try {
+            const res = await fetch(`/api/codebook/${link.codebookEntry.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ definition: value })
+            })
+            if (res.ok) setDefinition(value)
+        } catch {}
+        setDefSaving(false)
+        setIsEditingDef(false)
+    }
+
+    const participants = link.codebookEntry.participants || []
+    const freq = link.codebookEntry._count?.codeAssignments || 0
 
     return (
-        <tr className="hover:bg-slate-50/50 transition-colors group">
+        <tr className="hover:bg-slate-50/50 transition-colors group align-top">
+            {/* Theme column — merged rows */}
             {isFirstInTheme && (
-                <td className="px-6 py-4 border-b border-r border-slate-200 align-top" rowSpan={themeRowSpan}>
-                    <span className="text-[13px] font-extrabold text-slate-800 leading-snug block">{theme.name}</span>
-                </td>
+                <ThemeCell theme={theme} rowSpan={themeRowSpan} projectId={projectId} onUpdate={onUpdate} />
             )}
-            <td className="px-6 py-4 border-b border-r border-slate-200">
-                <span className="font-semibold text-slate-700 text-[13px] leading-snug">{link.codebookEntry.name}</span>
+
+            {/* Code + Definition column */}
+            <td className="px-5 py-3.5 border-b border-r border-slate-100">
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-[13px] leading-snug">{link.codebookEntry.name}</span>
+                        {/* Single-source warning: if only 1 participant mentioned this code */}
+                        {participants.length === 1 && (
+                            <span
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200"
+                                title="Only 1 participant mentioned this code — consider whether it's too specific or needs more evidence"
+                            >
+                                Single source
+                            </span>
+                        )}
+                    </div>
+                    {/* Freq badge */}
+                    <span className="flex-shrink-0 text-[10px] font-extrabold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full" title={`${freq} quote${freq !== 1 ? 's' : ''} assigned`}>
+                        {freq}×
+                    </span>
+                </div>
+
+                {/* Definition area */}
+                {isEditingDef ? (
+                    <div className="mt-1.5">
+                        <textarea
+                            autoFocus
+                            value={defDraft}
+                            onChange={e => setDefDraft(e.target.value)}
+                            placeholder="Describe what this code means, when to apply it..."
+                            rows={3}
+                            className="w-full text-[11px] text-slate-700 bg-white border border-indigo-300 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 leading-relaxed"
+                        />
+                        <div className="flex gap-1.5 mt-1.5">
+                            <button
+                                onClick={() => saveDef(defDraft)}
+                                disabled={defSaving}
+                                className="text-[10px] font-bold px-2.5 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                            >
+                                {defSaving ? 'Saving…' : 'Save'}
+                            </button>
+                            <button
+                                onClick={() => setIsEditingDef(false)}
+                                className="text-[10px] font-bold px-2.5 py-1 border border-slate-200 text-slate-500 rounded-md hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                ) : definition ? (
+                    <div className="group/def flex items-start gap-1.5 mt-1">
+                        <p className="text-[11px] text-slate-500 leading-relaxed flex-1 italic">{definition}</p>
+                        <button
+                            onClick={startEditDef}
+                            className="opacity-0 group-hover/def:opacity-100 flex-shrink-0 transition-opacity text-slate-300 hover:text-indigo-500"
+                            title="Edit definition"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={startEditDef}
+                        className="mt-1 flex items-center gap-1 text-[10px] text-slate-300 hover:text-indigo-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        Add definition
+                    </button>
+                )}
             </td>
-            <td className="px-6 py-4 border-b border-r border-slate-200">
+
+            {/* Sample Excerpt column */}
+            <td className="px-5 py-3.5 border-b border-slate-100">
                 {!loaded ? (
-                    <span className="text-[11px] text-slate-300 italic">Loading...</span>
+                    <span className="text-[11px] text-slate-300 italic">Loading…</span>
                 ) : excerpt ? (
                     <div className="flex items-start justify-between gap-2">
-                        <p className="text-[12px] text-slate-600 leading-relaxed line-clamp-3 italic">"{excerpt.text}"</p>
+                        <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-3 italic">"{excerpt.text}"</p>
                         <button
-                            onClick={() => {
-                                router.push(`/projects/${excerpt.projectId}/transcripts/${excerpt.transcriptId}`)
-                            }}
-                            title={`Go to source: ${excerpt.transcriptName}`}
+                            onClick={() => router.push(`/projects/${excerpt.projectId}/transcripts/${excerpt.transcriptId}${excerpt.segmentId ? `?segment=${excerpt.segmentId}` : ''}`)}
+                            title={`Source: ${excerpt.transcriptName}`}
                             className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md hover:bg-indigo-100"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                             Trace
                         </button>
                     </div>
                 ) : (
-                    <span className="text-[11px] text-slate-300 italic">No excerpt available</span>
-                )}
-            </td>
-            <td className="px-6 py-4 border-b border-slate-200 text-center">
-                {loaded && sentiment ? (
-                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${sentimentColor}`}>
-                        {sentimentLabel}
-                    </span>
-                ) : loaded ? (
-                    <span className="text-[11px] text-slate-300">—</span>
-                ) : (
-                    <span className="text-[11px] text-slate-300 italic">...</span>
+                    <span className="text-[11px] text-slate-300 italic">No excerpt yet</span>
                 )}
             </td>
         </tr>
     )
 }
 
+
 export default function ThemesPage() {
     const params = useParams()
     const router = useRouter()
     const projectId = params.projectId as string
 
-    const [activeTab, setActiveTab] = useState('Builder')
+    const [activeTab, setActiveTab] = useState('Theme Map')
     const [unassignedCodes, setUnassignedCodes] = useState<CodeEntry[]>([])
     const [themes, setThemes] = useState<ThemeData[]>([])
     const [themeSuggestions, setThemeSuggestions] = useState<ThemeSuggestion[]>([])
@@ -153,6 +476,13 @@ export default function ThemesPage() {
     const [acceptingId, setAcceptingId] = useState<number | null>(null)
     // Selected theme in Thematic Map for drill-down
     const [mapSelectedTheme, setMapSelectedTheme] = useState<ThemeData | null>(null)
+
+    // Panel collapse states
+    const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true)
+    const [isRightPanelOpen, setIsRightPanelOpen] = useState(true)
+
+    // Theme Modal states (used for both create and edit)
+    const [newThemeModal, setNewThemeModal] = useState({ open: false, id: undefined as string | undefined, name: '', description: '' })
 
     // Prompt editor state for theme suggestions
     const DEFAULT_THEME_PROMPT = `Group these codes into meaningful THEMES based on:
@@ -179,61 +509,11 @@ Rules:
     const [tracingQuotes, setTracingQuotes] = useState<any[]>([])
     const [tracingLoading, setTracingLoading] = useState(false)
 
-    // Code Clean states
-    type CleanSuggestion = {
-        codeId: string
-        codeName: string
-        action: 'DROP' | 'MERGE'
-        mergeInto?: string
-        reasons: string[]
-        confidence: string
-        instances?: number
-    }
-    const [cleanSuggestions, setCleanSuggestions] = useState<CleanSuggestion[]>([])
-    const [cleanLoading, setCleanLoading] = useState(false)
-    const [showCleanPanel, setShowCleanPanel] = useState(false)
 
-    // Run code cleaning analysis
-    const runCodeClean = async () => {
-        setCleanLoading(true)
-        setShowCleanPanel(true)
-        try {
-            const res = await fetch('/api/codebook/clean', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId })
-            })
-            if (res.ok) {
-                const data = await res.json()
-                setCleanSuggestions(data.suggestions || [])
-            }
-        } catch (e) {
-            console.error('Clean error:', e)
-        }
-        setCleanLoading(false)
-    }
 
-    // Apply a clean action (drop or merge)
-    const applyCleanAction = async (suggestion: CleanSuggestion) => {
-        try {
-            if (suggestion.action === 'DROP') {
-                // Delete the code from codebook
-                await fetch(`/api/codebook/${suggestion.codeId}`, { method: 'DELETE' })
-            } else if (suggestion.action === 'MERGE' && suggestion.mergeInto) {
-                // Move assignments to target code, then delete source
-                await fetch(`/api/codebook/${suggestion.codeId}/merge`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ targetId: suggestion.mergeInto })
-                })
-            }
-            // Remove from suggestions list
-            setCleanSuggestions(prev => prev.filter(s => s.codeId !== suggestion.codeId))
-            fetchData()
-        } catch (e) {
-            console.error('Apply clean action error:', e)
-        }
-    }
+
+
+
 
     // Code Drag & Drop Helpers
     const handleDragStart = (e: React.DragEvent, payload: { codeId: string, fromThemeId?: string }) => {
@@ -284,6 +564,33 @@ Rules:
             })
             fetchData()
         } catch (err) {}
+    }
+
+    // Save a new or updated theme via modal
+    const saveTheme = async () => {
+        if (!newThemeModal.name.trim()) return
+        
+        if (newThemeModal.id) {
+            await fetch(`/api/projects/${projectId}/themes/${newThemeModal.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    name: newThemeModal.name.trim(),
+                    description: newThemeModal.description.trim()
+                })
+            })
+        } else {
+            await fetch(`/api/projects/${projectId}/themes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    name: newThemeModal.name.trim(),
+                    description: newThemeModal.description.trim()
+                })
+            })
+        }
+        setNewThemeModal({ open: false, id: undefined, name: '', description: '' })
+        fetchData()
     }
 
     // Delete a theme
@@ -340,7 +647,8 @@ Rules:
                     name: c.name,
                     type: c.type === 'RAW' ? (c.name ? 'AI-ASSISTED' : 'MANUAL') : c.type,
                     instances: c._count?.codeAssignments ?? 0,
-                    definition: c.definition
+                    definition: c.definition,
+                    participants: c.participants
                 }))
 
             // Infer type from how the codebook entry was created
@@ -432,18 +740,9 @@ Rules:
                 {/* Header */}
                 <div className="flex-shrink-0 border-b border-slate-200 bg-white">
                     <div className="px-8 flex items-center justify-between h-20">
-                        <h1 className="text-[22px] font-extrabold tracking-tight">Themes</h1>
+                        <h1 className="text-[22px] font-extrabold tracking-tight">② Themes & Analysis</h1>
                         <button
-                            onClick={() => {
-                                const name = prompt('Enter theme name:')
-                                if (name?.trim()) {
-                                    fetch(`/api/projects/${projectId}/themes`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ name: name.trim() })
-                                    }).then(() => fetchData())
-                                }
-                            }}
+                            onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '' })}
                             className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-900 transition-colors shadow-sm"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -453,15 +752,15 @@ Rules:
                     
                     <div className="px-8 flex items-center justify-between">
                         <div className="flex items-center space-x-8">
-                            {['Builder', 'Thematic Map', 'Codebook'].map(tab => (
+                            {['Theme Map', 'Network & Matrix'].map(tab => (
                                 <button 
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
                                     className={`py-4 text-[13px] font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === tab ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                                 >
-                                    {tab === 'Builder' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Builder' ? "text-indigo-600" : "text-slate-400"}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>}
-                                    {tab === 'Thematic Map' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Thematic Map' ? "text-indigo-600" : "text-slate-400"}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>}
-                                    {tab === 'Codebook' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Codebook' ? "text-indigo-600" : "text-slate-400"}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>}
+                                    {tab === 'Theme Map' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Theme Map' ? "text-indigo-600" : "text-slate-400"}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>}
+                                    {tab === 'Network & Matrix' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Network & Matrix' ? "text-indigo-600" : "text-slate-400"}><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>}
+
                                     {tab}
                                 </button>
                             ))}
@@ -473,77 +772,38 @@ Rules:
                 <div className="flex-1 overflow-hidden relative">
                 {/* Builder Layout — fills the space */}
                 <div className="absolute inset-0 flex overflow-hidden">
+                    {/* Left Panel: collapsed icon */}
+                    {!isLeftPanelOpen && activeTab === 'Theme Map' && (
+                        <div className="w-12 border-r border-slate-200 bg-slate-50 flex flex-col items-center py-4 flex-shrink-0 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => setIsLeftPanelOpen(true)} title="Expand codes panel">
+                            <div className="flex flex-col items-center gap-2 mt-16">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-bold text-slate-500 uppercase tracking-widest">{unassignedCodes.length} Codes</div>
+                            </div>
+                        </div>
+                    )}
                     {/* Left Panel: Unassigned Codes */}
+                    {isLeftPanelOpen && activeTab === 'Theme Map' && (
                     <div 
                         className="w-[300px] border-r border-slate-200 bg-slate-50/50 flex flex-col flex-shrink-0"
                         onDragOver={handleDragOver}
                         onDrop={handleDropOnUnassigned}
                     >
-                        <div className="p-4 border-b border-slate-200/50 flex items-center justify-between">
-                            <h2 className="text-sm font-bold flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        <div className="p-4 border-b border-slate-200/50 flex items-center justify-between bg-white">
+                            <h2 className="text-sm font-extrabold flex items-center gap-2 text-slate-800">
+                                <button onClick={() => setIsLeftPanelOpen(false)} title="Collapse panel" className="text-slate-400 hover:text-slate-600 p-0.5 rounded hover:bg-slate-100 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                                </button>
                                 Unassigned Codes
                             </h2>
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={runCodeClean}
-                                    disabled={cleanLoading || unassignedCodes.length === 0}
-                                    className="text-[10px] font-bold text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2 py-1 rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1"
-                                    title="AI code cleanup: duplicates, low-quality, mergeable"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                    {cleanLoading ? '...' : 'Clean'}
-                                </button>
+
                                 <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-sm">
                                     {unassignedCodes.length}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Code Clean Panel */}
-                        {showCleanPanel && (
-                            <div className="border-b border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 max-h-[50%] overflow-y-auto custom-scrollbar flex-shrink-0">
-                                <div className="px-3 py-2 flex items-center justify-between border-b border-orange-100">
-                                    <span className="text-[10px] font-extrabold text-orange-700 uppercase tracking-widest flex items-center gap-1">
-                                        ✦ Code Cleanup ({cleanSuggestions.length})
-                                    </span>
-                                    <button onClick={() => setShowCleanPanel(false)} className="text-orange-400 hover:text-orange-700 text-xs">✕</button>
-                                </div>
-                                {cleanLoading ? (
-                                    <div className="flex items-center justify-center py-6 text-orange-500">
-                                        <svg className="w-4 h-4 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                        <span className="text-[11px] font-semibold">Analyzing codes...</span>
-                                    </div>
-                                ) : cleanSuggestions.length === 0 ? (
-                                    <div className="p-3 text-center">
-                                        <p className="text-[11px] font-semibold text-orange-600">All codes look good! ✓</p>
-                                        <p className="text-[10px] text-orange-400 mt-0.5">No duplicates or low-quality codes detected.</p>
-                                    </div>
-                                ) : (
-                                    <div className="p-2 space-y-1.5">
-                                        {cleanSuggestions.map(cs => (
-                                            <div key={cs.codeId} className="bg-white border border-orange-200 rounded-lg p-2 shadow-sm">
-                                                <div className="flex items-start justify-between gap-1 mb-1">
-                                                    <span className="text-[11px] font-bold text-slate-800 leading-tight">{cs.codeName}</span>
-                                                    <span className={`text-[8px] font-extrabold px-1 py-0.5 rounded flex-shrink-0 ${cs.action === 'DROP' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{cs.action}</span>
-                                                </div>
-                                                <ul className="mb-1.5">
-                                                    {(cs.reasons || []).slice(0, 2).map((r, i) => (
-                                                        <li key={i} className="text-[9px] text-slate-500">• {r}</li>
-                                                    ))}
-                                                </ul>
-                                                <div className="flex gap-1">
-                                                    <button onClick={() => applyCleanAction(cs)} className={`flex-1 text-[9px] font-bold py-0.5 rounded transition-colors ${cs.action === 'DROP' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
-                                                        {cs.action === 'DROP' ? '✕ Drop' : '↗ Merge'}
-                                                    </button>
-                                                    <button onClick={() => setCleanSuggestions(prev => prev.filter(s => s.codeId !== cs.codeId))} className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Keep</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+
 
                         <div className="p-4 flex-1 overflow-y-auto custom-scrollbar space-y-3">
                             <p className="text-xs text-slate-400 mb-4 font-medium">Drag codes to themes on the right</p>
@@ -586,13 +846,19 @@ Rules:
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                                             </button>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[11px] font-medium text-slate-500">{code.instances} instances</span>
-                                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${code.type === 'MANUAL' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                                                    {code.type}
-                                                </span>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    {code.participants?.map(p => (
+                                                        <span key={p.id} className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${getParticipantColor(p.name)}`} title={`From transcript: ${p.name}`}>
+                                                            <span className="w-1 h-1 rounded-full bg-current opacity-75"></span>
+                                                            {p.name.length > 10 ? p.name.substring(0, 10) + '...' : p.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <span className="text-[10px] font-medium text-slate-400 whitespace-nowrap ml-2">{code.instances} instances</span>
                                             </div>
+                                            <div className="flex items-center justify-end">
                                             <button 
                                                 onClick={() => openTrace(code.id, code.name)} 
                                                 className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
@@ -602,11 +868,13 @@ Rules:
                                                 Trace
                                             </button>
                                         </div>
+                                        </div>
                                     </div>
                                 ))
                             )}
                         </div>
                     </div>
+                    )}
 
                     {/* Center Panel: Built Themes */}
                     <div className="flex-1 bg-slate-50 relative flex flex-col overflow-hidden">
@@ -623,16 +891,7 @@ Rules:
                                         Click &quot;+ New Theme&quot; to create your first category, then drag codes from the left panel.
                                     </p>
                                     <button
-                                        onClick={() => {
-                                            const name = prompt('Enter theme name:')
-                                            if (name?.trim()) {
-                                                fetch(`/api/projects/${projectId}/themes`, {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ name: name.trim() })
-                                                }).then(() => fetchData())
-                                            }
-                                        }}
+                                        onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '' })}
                                         className="bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 mx-auto w-full max-w-[200px]"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -652,7 +911,14 @@ Rules:
                                         >
                                             <div className="flex items-center justify-between mb-3">
                                                 <h3 className="text-sm font-extrabold text-slate-800">{theme.name}</h3>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '' })}
+                                                        title="Edit theme"
+                                                        className="opacity-0 group-hover/card:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                                    </button>
                                                     <button
                                                         onClick={() => deleteTheme(theme.id, theme.name)}
                                                         title="Delete theme"
@@ -677,9 +943,17 @@ Rules:
                                                             e.stopPropagation()
                                                             handleDragStart(e, { codeId: link.codebookEntry.id, fromThemeId: theme.id })
                                                         }}
-                                                        className="group flex items-center gap-1 bg-white border border-indigo-200 text-indigo-700 text-[10px] font-semibold pl-2 pr-1 py-1 rounded-md shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-400"
+                                                        className="group flex items-center gap-1.5 bg-white border border-indigo-200 text-indigo-700 text-[10px] font-semibold pl-1.5 pr-1 py-1 rounded-md shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-400"
                                                     >
-                                                        {link.codebookEntry.name}
+                                                        <div className="flex items-center gap-1">
+                                                            {link.codebookEntry.participants?.map(p => (
+                                                                <span key={p.id} className={`flex items-center gap-1 text-[8px] font-bold px-1 py-0.5 rounded border ${getParticipantColor(p.name)}`} title={`From transcript: ${p.name}`}>
+                                                                    <span className="w-1 h-1 rounded-full bg-current opacity-75"></span>
+                                                                    <span>{p.name.length > 10 ? p.name.substring(0, 10) + '...' : p.name}</span>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                        <span className="ml-1">{link.codebookEntry.name}</span>
                                                         <div className="flex gap-0.5 border-l border-indigo-100 pl-1 ml-1">
                                                             <button 
                                                                 onClick={(e) => {
@@ -710,8 +984,14 @@ Rules:
                                                     </span>
                                                 ))}
                                             </div>
-                                            <div className="text-[11px] font-medium text-slate-400">
-                                                {theme.codeLinks?.length || 0} codes assigned
+                                            <div className="flex items-center justify-between mt-1">
+                                                <div className="text-[11px] font-medium text-slate-400">
+                                                    {theme.codeLinks?.length || 0} codes assigned
+                                                </div>
+                                                <div className="flex items-center gap-1 bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded border border-slate-200 shadow-sm" title="Total unique participants in this theme">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                    {theme.participantsCount || 0} participants
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -720,243 +1000,33 @@ Rules:
                         )}
                     </div>
                 </div>
-                {/* Thematic Map Tab */}
-                {activeTab === 'Thematic Map' && (() => {
-                    const PALETTE = [
-                        { border: 'border-indigo-300', text: 'text-indigo-500', dot: 'bg-indigo-500', light: 'bg-indigo-50' },
-                        { border: 'border-pink-300', text: 'text-pink-500', dot: 'bg-pink-500', light: 'bg-pink-50' },
-                        { border: 'border-amber-300', text: 'text-amber-500', dot: 'bg-amber-500', light: 'bg-amber-50' },
-                        { border: 'border-emerald-300', text: 'text-emerald-500', dot: 'bg-emerald-500', light: 'bg-emerald-50' },
-                        { border: 'border-violet-300', text: 'text-violet-500', dot: 'bg-violet-500', light: 'bg-violet-50' },
-                        { border: 'border-cyan-300', text: 'text-cyan-500', dot: 'bg-cyan-500', light: 'bg-cyan-50' },
-                        { border: 'border-rose-300', text: 'text-rose-500', dot: 'bg-rose-500', light: 'bg-rose-50' },
-                    ]
-                    const maxCodes = Math.max(1, ...themes.map(t => t.codeLinks?.length || 0))
-                    return (
-                        <div className="absolute inset-0 bg-white z-20 flex flex-col overflow-hidden">
-                            {/* Header */}
-                            <div className="flex-shrink-0 px-6 py-3 border-b border-slate-200 flex items-center justify-between bg-white">
-                                <div>
-                                    <h2 className="text-base font-extrabold text-slate-800">Thematic Map</h2>
-                                    <p className="text-[11px] text-slate-400">Click a bubble to explore codes &amp; original quotes</p>
-                                </div>
-                                <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full">{themes.length} themes · {assignedCount} codes</span>
-                            </div>
-                            <div className="flex-1 flex overflow-hidden">
-                                {/* Canvas */}
-                                <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 relative overflow-hidden">
-                                    {/* Subtle grid */}
-                                    <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_0.8px,transparent_0.8px)] [background-size:24px_24px] opacity-40" />
-                                    
-                                    {themes.length === 0 ? (
-                                        <div className="flex items-center justify-center h-full">
-                                            <p className="text-sm font-bold text-slate-300">No themes yet — create some in Builder</p>
-                                        </div>
-                                    ) : (() => {
-                                        // Circular layout around center
-                                        const cx = 50, cy = 48 // center %
-                                        const radius = themes.length <= 3 ? 28 : themes.length <= 5 ? 32 : 35
-                                        const angleStep = (2 * Math.PI) / themes.length
-                                        const startAngle = -Math.PI / 2 // start from top
-                                        
-                                        const nodePositions = themes.map((_, i) => ({
-                                            x: cx + radius * Math.cos(startAngle + i * angleStep),
-                                            y: cy + radius * Math.sin(startAngle + i * angleStep),
-                                        }))
-
-                                        // Find connections: themes that share code-name keywords
-                                        const connections: Array<{ from: number; to: number; strength: number }> = []
-                                        for (let i = 0; i < themes.length; i++) {
-                                            for (let j = i + 1; j < themes.length; j++) {
-                                                const words1 = themes[i].codeLinks?.flatMap(l => l.codebookEntry.name.toLowerCase().split(/\s+/)) || []
-                                                const words2Set = new Set(themes[j].codeLinks?.flatMap(l => l.codebookEntry.name.toLowerCase().split(/\s+/)) || [])
-                                                const shared = words1.filter(w => words2Set.has(w) && w.length > 3).length
-                                                if (shared > 0) connections.push({ from: i, to: j, strength: Math.min(shared, 4) })
-                                            }
-                                        }
-
-                                        return (
-                                            <>
-                                                {/* SVG Connections Layer */}
-                                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-[1]">
-                                                    <defs>
-                                                        <filter id="glow">
-                                                            <feGaussianBlur stdDeviation="2" result="blur"/>
-                                                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                                                        </filter>
-                                                    </defs>
-                                                    {/* Lines from center to each node */}
-                                                    {nodePositions.map((pos, idx) => {
-                                                        const isSelected = mapSelectedTheme?.id === themes[idx].id
-                                                        return (
-                                                            <line
-                                                                key={`center-${idx}`}
-                                                                x1={`${cx}%`} y1={`${cy}%`}
-                                                                x2={`${pos.x}%`} y2={`${pos.y}%`}
-                                                                stroke={isSelected ? '#6366f1' : '#cbd5e1'}
-                                                                strokeWidth={isSelected ? 2.5 : 1.5}
-                                                                strokeDasharray={isSelected ? 'none' : '6 4'}
-                                                                opacity={isSelected ? 0.8 : 0.5}
-                                                                className="transition-all duration-300"
-                                                            />
-                                                        )
-                                                    })}
-                                                    {/* Connections between related themes */}
-                                                    {connections.map((conn, ci) => (
-                                                        <line
-                                                            key={`conn-${ci}`}
-                                                            x1={`${nodePositions[conn.from].x}%`}
-                                                            y1={`${nodePositions[conn.from].y}%`}
-                                                            x2={`${nodePositions[conn.to].x}%`}
-                                                            y2={`${nodePositions[conn.to].y}%`}
-                                                            stroke="#a78bfa"
-                                                            strokeWidth={conn.strength * 0.8}
-                                                            strokeDasharray="4 6"
-                                                            opacity={0.35}
-                                                        />
-                                                    ))}
-                                                </svg>
-
-                                                {/* Central hub */}
-                                                <div
-                                                    className="absolute z-[2] flex flex-col items-center"
-                                                    style={{ top: `${cy}%`, left: `${cx}%`, transform: 'translate(-50%, -50%)' }}
-                                                >
-                                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-200 flex items-center justify-center border-2 border-white">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
-                                                        </svg>
-                                                    </div>
-                                                    <p className="text-[9px] font-extrabold text-indigo-500 mt-1.5 uppercase tracking-wider">Research</p>
-                                                </div>
-
-                                                {/* Theme nodes */}
-                                                {themes.map((theme, idx) => {
-                                                    const count = theme.codeLinks?.length || 0
-                                                    const p = PALETTE[idx % PALETTE.length]
-                                                    const pos = nodePositions[idx]
-                                                    const ratio = count / maxCodes
-                                                    const size = Math.round(64 + ratio * 48)
-                                                    const isSelected = mapSelectedTheme?.id === theme.id
-                                                    const colorHex = ['#6366f1','#ec4899','#f59e0b','#10b981','#8b5cf6','#06b6d4','#f43f5e'][idx % 7]
-                                                    return (
-                                                        <div
-                                                            key={theme.id}
-                                                            className="absolute z-[3] flex flex-col items-center cursor-pointer group"
-                                                            style={{ top: `${pos.y}%`, left: `${pos.x}%`, transform: 'translate(-50%, -50%)' }}
-                                                            onClick={() => setMapSelectedTheme(isSelected ? null : theme)}
-                                                        >
-                                                            {/* Glow ring on selected */}
-                                                            {isSelected && (
-                                                                <div 
-                                                                    className="absolute rounded-full animate-ping opacity-20"
-                                                                    style={{ width: size + 16, height: size + 16, backgroundColor: colorHex }}
-                                                                />
-                                                            )}
-                                                            <div
-                                                                className={`rounded-full flex flex-col items-center justify-center shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl ${
-                                                                    isSelected ? 'ring-4 ring-offset-2 scale-110' : ''
-                                                                }`}
-                                                                style={{ 
-                                                                    width: size, height: size,
-                                                                    background: `linear-gradient(135deg, ${colorHex}15, ${colorHex}30)`,
-                                                                    border: `${count === 0 ? 2 : count < 3 ? 3 : 4}px solid ${colorHex}`,
-                                                                    boxShadow: isSelected ? `0 0 0 4px ${colorHex}40` : undefined,
-                                                                }}
-                                                            >
-                                                                <span style={{ color: colorHex }} className="font-extrabold text-xl leading-none">{count}</span>
-                                                                <span className="text-[8px] text-slate-400 font-bold mt-0.5">codes</span>
-                                                            </div>
-                                                            <div className="mt-2 text-center max-w-[120px]">
-                                                                <p className={`text-[10px] font-extrabold leading-tight ${isSelected ? 'text-indigo-600' : 'text-slate-700'}`}>
-                                                                    {theme.name.length > 22 ? theme.name.slice(0, 20) + '…' : theme.name}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </>
-                                        )
-                                    })()}
-                                </div>
-
-                                {/* Right panel: legend or detail */}
-                                <div className="w-72 border-l border-slate-200 bg-white flex flex-col overflow-hidden">
-                                    {mapSelectedTheme ? (
-                                        <>
-                                            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                                                <div>
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Theme</p>
-                                                    <h3 className="text-sm font-extrabold text-slate-800 mt-0.5">{mapSelectedTheme.name}</h3>
-                                                </div>
-                                                <button onClick={() => setMapSelectedTheme(null)} className="w-7 h-7 flex items-center justify-center rounded-full border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                                </button>
-                                            </div>
-                                            {mapSelectedTheme.description && (
-                                                <p className="px-4 py-2 text-[11px] text-slate-500 border-b border-slate-100 leading-relaxed">{mapSelectedTheme.description}</p>
-                                            )}
-                                            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                                                {mapSelectedTheme.codeLinks?.length === 0 ? (
-                                                    <p className="text-xs text-slate-300 italic text-center py-8">No codes assigned yet</p>
-                                                ) : mapSelectedTheme.codeLinks?.map(link => (
-                                                    <div key={link.codebookEntry.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 hover:border-indigo-200 transition-colors group">
-                                                        <div className="flex items-start justify-between">
-                                                            <p className="text-[12px] font-bold text-slate-700 leading-snug">{link.codebookEntry.name}</p>
-                                                            <button
-                                                                onClick={() => openTrace(link.codebookEntry.id, link.codebookEntry.name)}
-                                                                title="View original quotes"
-                                                                className="flex-shrink-0 ml-2 flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 bg-white border border-indigo-100 px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
-                                                                Trace
-                                                            </button>
-                                                        </div>
-                                                        {link.codebookEntry.definition && (
-                                                            <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{link.codebookEntry.definition}</p>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="bg-[#1C1A3A] px-4 py-3 text-white flex gap-2 items-center text-xs font-bold flex-shrink-0">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                                                All Themes ({themes.length})
-                                            </div>
-                                            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                                                {themes.map((theme, idx) => {
-                                                    const count = theme.codeLinks?.length || 0
-                                                    const p = PALETTE[idx % PALETTE.length]
-                                                    return (
-                                                        <button key={theme.id} onClick={() => setMapSelectedTheme(theme)} className="w-full flex items-start gap-3 bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors text-left">
-                                                            <div className={`w-2.5 h-2.5 rounded-full ${p.dot} mt-0.5 flex-shrink-0`} />
-                                                            <div className="min-w-0">
-                                                                <p className="text-[11px] font-bold text-slate-800 truncate">{theme.name}</p>
-                                                                <p className="text-[9px] text-slate-400 mt-0.5">{count} code{count !== 1 ? 's' : ''} · Click to explore</p>
-                                                            </div>
-                                                        </button>
-                                                    )
-                                                })}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )
-                })()}
+                {/* Analysis Views Tab */}
+                {activeTab === 'Network & Matrix' && (
+                    <ThematicMatrixView
+                        themes={themes}
+                        assignedCount={assignedCount}
+                    />
+                )}
 
                 {/* Codebook Tab */}
                 {activeTab === 'Codebook' && (
                     <div className="absolute inset-0 bg-white z-20 flex flex-col overflow-hidden">
                         <div className="flex-shrink-0 px-6 py-3 border-b border-slate-200 flex items-center justify-between">
                             <div>
-                                <h2 className="text-base font-extrabold text-slate-800">Codebook for themes</h2>
-                                <p className="text-[11px] text-slate-400">Structured codebook — Theme, Code, Sample Excerpt, Sentiment</p>
+                                <h2 className="text-base font-extrabold text-slate-800">Codebook</h2>
+                                <p className="text-[11px] text-slate-400">Click a code to view or add its definition. Hover a row for actions.</p>
                             </div>
-                            <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full">{themes.length} themes · {assignedCount} codes</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full">{themes.length} themes · {assignedCount} codes</span>
+                                <button
+                                    onClick={() => exportCodebookCSV(themes, `codebook_${projectId}.csv`)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                                    title="Export codebook to CSV (opens in Excel, Numbers, Google Sheets)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                    Export CSV
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto">
                             {themes.length === 0 ? (
@@ -966,30 +1036,30 @@ Rules:
                             ) : (
                                 <div className="border-b border-slate-200">
                                     <table className="w-full text-left text-sm text-slate-600">
-                                        <thead className="bg-slate-50 sticky top-0 z-10">
-                                            <tr>
-                                                <th className="px-6 py-3 border-b border-r border-slate-200 w-[18%] text-xs font-bold uppercase tracking-wide text-slate-500">Theme</th>
-                                                <th className="px-6 py-3 border-b border-r border-slate-200 w-[24%] text-xs font-bold uppercase tracking-wide text-slate-500">Code</th>
-                                                <th className="px-6 py-3 border-b border-r border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">Sample Excerpt</th>
-                                                <th className="px-6 py-3 border-b border-slate-200 w-[100px] text-xs font-bold uppercase tracking-wide text-slate-500 text-center">Sentiment</th>
+                                        <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                            <tr className="bg-slate-50">
+                                                <th className="px-5 py-3 border-b border-r border-slate-200 w-[18%] text-[10px] font-bold uppercase tracking-wide text-slate-400">Theme</th>
+                                                <th className="px-5 py-3 border-b border-r border-slate-200 text-[10px] font-bold uppercase tracking-wide text-slate-400">Code · Definition</th>
+                                                <th className="px-5 py-3 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wide text-slate-400">Sample Excerpt</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {themes.flatMap((theme) =>
                                                 theme.codeLinks && theme.codeLinks.length > 0 ? theme.codeLinks.map((link, lIdx) => (
-                                                    <CodebookRow 
-                                                        key={link.codebookEntry.id}
+                                                    <CodebookRow
+                                                        key={`${theme.id}-${link.codebookEntry.id}`}
                                                         theme={theme}
                                                         link={link}
                                                         isFirstInTheme={lIdx === 0}
                                                         themeRowSpan={theme.codeLinks.length}
                                                         onTrace={(codeId, codeName) => openTrace(codeId, codeName)}
                                                         projectId={projectId}
+                                                        onUpdate={fetchData}
                                                     />
                                                 )) : [
                                                     <tr key={`empty-${theme.id}`}>
-                                                        <td className="px-6 py-4 border-b border-r border-slate-200 font-extrabold text-slate-700 text-[13px]">{theme.name}</td>
-                                                        <td colSpan={3} className="px-6 py-4 border-b border-slate-200 text-[12px] italic text-slate-300">No codes assigned yet</td>
+                                                        <ThemeCell theme={theme} rowSpan={1} projectId={projectId} onUpdate={fetchData} />
+                                                        <td colSpan={2} className="px-5 py-4 border-b border-slate-100 text-[12px] italic text-slate-300">No codes assigned yet</td>
                                                     </tr>
                                                 ]
                                             )}
@@ -1003,14 +1073,32 @@ Rules:
                 </div>
             </div>
 
-            {/* Right Panel: AI Suggestions — only on Builder tab */}
-            {activeTab === 'Builder' && <div className="w-[360px] bg-slate-50 flex flex-col flex-shrink-0 border-l border-slate-200 z-10">
-                <div className="p-6 pb-4 bg-[#3E3A86] text-white">
-                    <h2 className="text-[17px] font-extrabold flex items-center gap-2 mb-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-300"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
-                        AI Theme Suggestions
-                    </h2>
-                    <p className="text-xs text-indigo-200/80 font-medium">Based on code co-occurrence</p>
+            {/* Right Panel: AI Suggestions — collapsed icon */}
+            {activeTab === 'Theme Map' && !isRightPanelOpen && (
+                <div className="w-12 bg-[#3E3A86] flex flex-col items-center py-4 flex-shrink-0 cursor-pointer hover:bg-[#4a479b] transition-colors" onClick={() => setIsRightPanelOpen(true)} title="Expand AI suggestions">
+                    <div className="flex flex-col items-center gap-2 mt-16">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-300"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                        <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-extrabold text-indigo-300 uppercase tracking-widest">AI Suggestions</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Right Panel: AI Suggestions — expanded */}
+            {activeTab === 'Theme Map' && isRightPanelOpen && (
+            <div className="w-[360px] bg-slate-50 flex flex-col flex-shrink-0 border-l border-slate-200 z-10">
+                <div className="px-6 py-4 bg-[#3E3A86] text-white">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <h2 className="text-[17px] font-extrabold flex items-center gap-2 mb-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-300"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                                AI Theme Suggestions
+                            </h2>
+                            <p className="text-xs text-indigo-200/80 font-medium ml-7">Based on code co-occurrence</p>
+                        </div>
+                        <button onClick={() => setIsRightPanelOpen(false)} title="Collapse panel" className="text-indigo-200 hover:text-white p-1 rounded hover:bg-white/10 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Prompt Editor Toggle */}
@@ -1167,7 +1255,49 @@ Rules:
                         </div>
                     </div>
                 </div>
-            </div>}
+            </div>
+            )}
+
+            {/* New Theme Modal */}
+            {newThemeModal.open && (
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-extrabold text-slate-800 mb-1">{newThemeModal.id ? 'Edit Theme' : 'Create New Theme'}</h3>
+                        <p className="text-xs text-slate-500 mb-5">Themes are categories that organize your initial codes.</p>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-widest mb-1.5">Theme Name</label>
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={newThemeModal.name}
+                                    onChange={e => setNewThemeModal({ ...newThemeModal, name: e.target.value })}
+                                    onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveTheme() }}
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                                    placeholder="e.g. Navigation & Wayfinding"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-widest mb-1.5">Description (Optional)</label>
+                                <textarea
+                                    value={newThemeModal.description}
+                                    onChange={e => setNewThemeModal({ ...newThemeModal, description: e.target.value })}
+                                    className="w-full h-24 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-medium text-slate-600"
+                                    placeholder="What does this theme represent? Explain the central concept..."
+                                />
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 mt-6">
+                            <button onClick={() => setNewThemeModal({ open: false, id: undefined, name: '', description: '' })} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={saveTheme} disabled={!newThemeModal.name.trim()} className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                                {newThemeModal.id ? 'Save Changes' : 'Create Theme'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Trace Quotes Modal */}
             {tracingCode && (
@@ -1229,9 +1359,9 @@ Rules:
                                                             </div>
                                                             <button 
                                                                 onClick={() => {
-                                                                    router.push(`/projects/${tq.projectId}/transcripts/${tq.transcriptId}`)
+                                                                    router.push(`/projects/${tq.projectId}/transcripts/${tq.transcriptId}?segment=${q.segmentId}`)
                                                                 }}
-                                                                className="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded shadow-sm hover:bg-indigo-100 hover:text-indigo-800 transition-all flex items-center gap-1"
+                                                                className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded shadow-sm hover:bg-indigo-100 hover:text-indigo-800 transition-all flex items-center gap-1"
                                                             >
                                                                 Go to source
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>

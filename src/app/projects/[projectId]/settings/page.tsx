@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import SettingsClient from './SettingsClient'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export default async function SettingsPage({ params }: { params: { projectId: string } }) {
     const project = await prisma.project.findUnique({
@@ -8,6 +10,17 @@ export default async function SettingsPage({ params }: { params: { projectId: st
     })
 
     if (!project) notFound()
+
+    const session = await getServerSession(authOptions)
+    let userProfile = { name: '', email: '' }
+    if (session?.user?.email) {
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email }
+        })
+        if (user) {
+            userProfile = { name: user.name || '', email: user.email || '' }
+        }
+    }
 
     // Fetch logs (last 100 for simplicity)
     const logs = await prisma.auditLog.findMany({
@@ -41,8 +54,10 @@ export default async function SettingsPage({ params }: { params: { projectId: st
 
                     <SettingsClient 
                         projectId={params.projectId} 
+                        project={project}
                         initialSettings={aiSettings} 
                         logs={logs as any[]} 
+                        userProfile={userProfile}
                     />
                 </div>
             </div>

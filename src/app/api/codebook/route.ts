@@ -13,15 +13,40 @@ export async function GET(req: Request) {
                 _count: { select: { codeAssignments: true } },
                 themeLinks: { include: { theme: true } },
                 codeAssignments: { 
-                    select: { aiSuggestionId: true },
-                    take: 1
+                    select: { 
+                        aiSuggestionId: true,
+                        segment: { 
+                            select: { 
+                                transcript: {
+                                    select: { id: true, title: true }
+                                }
+                            } 
+                        }
+                    }
                 }
             },
             orderBy: { createdAt: 'desc' }
         })
         
-        // Filter out orphan codes (codes that have lost all their highlights/excerpts)
-        const validEntries = entries.filter(e => e._count.codeAssignments > 0)
+        // Filter out orphan codes and extract unique participants
+        const validEntries = entries.filter(e => e._count.codeAssignments > 0).map(e => {
+            const participantsMap = new Map<string, {id: string, name: string}>()
+            
+            for (const ca of e.codeAssignments) {
+                const tr = ca.segment?.transcript
+                if (tr && !participantsMap.has(tr.id)) {
+                    participantsMap.set(tr.id, { id: tr.id, name: tr.title })
+                }
+            }
+            
+            // Remove codeAssignments to save bandwidth
+            const { codeAssignments, ...rest } = e as any
+            
+            return {
+                ...rest,
+                participants: Array.from(participantsMap.values())
+            }
+        })
         
         return NextResponse.json(validEntries)
     } catch (e) {

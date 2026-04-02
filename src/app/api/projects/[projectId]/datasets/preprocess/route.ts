@@ -51,7 +51,7 @@ Text to analyze:
 ${content.substring(0, 8000)}`
 
             const detectRes = await openai.chat.completions.create({
-                model: 'gpt-4o',
+                model: 'gpt-4o-mini',
                 temperature: 0.1,
                 messages: [{ role: 'user', content: detectPrompt }],
             })
@@ -70,7 +70,7 @@ Return ONLY the translated text, no wrappers.
 
 ${content}`
                         const fullRes = await openai.chat.completions.create({
-                            model: 'gpt-4o',
+                            model: 'gpt-4o-mini',
                             temperature: 0.1,
                             messages: [{ role: 'user', content: fullTranslatePrompt }],
                         })
@@ -108,7 +108,7 @@ Original transcript:
 ${processedContent}`
 
                 const speakerRes = await openai.chat.completions.create({
-                    model: 'gpt-4o',
+                    model: 'gpt-4o-mini',
                     temperature: 0.1,
                     messages: [{ role: 'user', content: speakerPrompt }],
                 })

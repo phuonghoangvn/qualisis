@@ -68,7 +68,7 @@ export async function POST(
             const promptText = CLEAN_PROMPT + JSON.stringify(suggestionsByModel.gpt, null, 2);
             try {
                 const completion = await openai.chat.completions.create({
-                    model: "gpt-4o",
+                    model: "gpt-4o-mini",
                     messages: [{ role: "user", content: promptText }],
                     response_format: { type: "json_object" },
                     temperature: 0.2

@@ -2,6 +2,10 @@ import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import UploadDatasetWrapper from '@/components/UploadDatasetWrapper'
+import DeleteTranscriptButton from '@/components/DeleteTranscriptButton'
+import DeleteDatasetButton from '@/components/DeleteDatasetButton'
+import EditDatasetTitle from '@/components/EditDatasetTitle'
+import EditTranscriptTitle from '@/components/EditTranscriptTitle'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,19 +75,21 @@ export default async function ProjectDashboard({
                 ) : (
                     <div className="max-w-4xl mx-auto space-y-8 w-full p-8">
                         {project.datasets.map(dataset => (
-                            <section key={dataset.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                            <section key={dataset.id} className="group/dataset bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                                 <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                            <span>📂</span> {dataset.name}
-                                        </h2>
+                                    <div className="flex-1 min-w-0 mr-4">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xl">📂</span>
+                                            <EditDatasetTitle datasetId={dataset.id} initialName={dataset.name} />
+                                        </div>
                                         {dataset.description && (
-                                            <p className="text-xs text-slate-500 mt-1">{dataset.description}</p>
+                                            <p className="text-xs text-slate-500 mt-1 pl-8">{dataset.description}</p>
                                         )}
                                     </div>
                                     <span className="text-xs font-semibold px-2 py-1 bg-white border border-slate-200 text-slate-500 rounded-lg shadow-sm">
                                         {dataset.transcripts.length} Transcripts
                                     </span>
+                                    <DeleteDatasetButton datasetId={dataset.id} datasetName={dataset.name} />
                                 </div>
                                 
                                 <div className="divide-y divide-slate-100">
@@ -93,27 +99,32 @@ export default async function ProjectDashboard({
                                         </div>
                                     ) : (
                                         dataset.transcripts.map(t => (
-                                            <Link 
-                                                key={t.id} 
-                                                href={`/projects/${project.id}/transcripts/${t.id}`}
-                                                className="block px-6 py-4 hover:bg-indigo-50/50 transition-colors group"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h4 className="font-semibold text-slate-800 text-[15px] group-hover:text-indigo-700 transition-colors">
-                                                            {t.title}
-                                                        </h4>
-                                                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                                                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span>{t.status}</span>
-                                                            {t._count.segments > 0 && <span>{t._count.segments} segments</span>}
-                                                            <span>Added {t.createdAt.toLocaleDateString()}</span>
+                                            <div key={t.id} className="group relative flex items-center bg-white hover:bg-indigo-50/50 transition-colors border-b border-slate-100 last:border-0 pl-6 py-4">
+                                                {/* Background Clickable Link overlay */}
+                                                <Link 
+                                                    href={`/projects/${project.id}/transcripts/${t.id}`}
+                                                    className="absolute inset-0 z-0"
+                                                />
+                                                
+                                                <div className="flex-1 min-w-0 pr-4 relative z-10 pointer-events-none">
+                                                    <div className="flex items-center justify-between pointer-events-auto">
+                                                        <div className="w-full">
+                                                            <div className="-ml-3 mb-1 w-max">
+                                                                <EditTranscriptTitle transcriptId={t.id} initialTitle={t.title} />
+                                                            </div>
+                                                            <div className="flex items-center gap-4 mt-1 ml-3 text-xs text-slate-500 pointer-events-none">
+                                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span>{t.status}</span>
+                                                                {t._count.segments > 0 && <span>{t._count.segments} segments</span>}
+                                                                <span>Added {t.createdAt.toLocaleDateString()}</span>
+                                                            </div>
                                                         </div>
+
                                                     </div>
-                                                    <span className="text-indigo-400 group-hover:translate-x-1 transition-transform">
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                                    </span>
                                                 </div>
-                                            </Link>
+                                                <div className="pr-6 flex items-center justify-center relative z-10 pointer-events-auto">
+                                                    <DeleteTranscriptButton transcriptId={t.id} transcriptTitle={t.title} />
+                                                </div>
+                                            </div>
                                         ))
                                     )}
                                 </div>

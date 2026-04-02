@@ -17,6 +17,7 @@ export default function HumanHighlightTooltip({
     const [selection, setSelection] = useState<{ text: string; range: Range } | null>(null)
     const [showModal, setShowModal] = useState(false)
     const [codeName, setCodeName] = useState('')
+    const [codeDescription, setCodeDescription] = useState('')
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -54,6 +55,7 @@ export default function HumanHighlightTooltip({
         setTooltip(null)
         setShowModal(true)
         setCodeName('')
+        setCodeDescription('')
         setTimeout(() => inputRef.current?.focus(), 50)
     }
 
@@ -78,6 +80,7 @@ export default function HumanHighlightTooltip({
                     projectId,
                     text: selection.text,
                     codeName: codeName.trim(),
+                    codeDescription: codeDescription.trim(),
                     startIndex,
                     endIndex
                 })
@@ -126,8 +129,17 @@ export default function HumanHighlightTooltip({
                             value={codeName}
                             onChange={e => setCodeName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && applyCode()}
-                            placeholder="e.g. Emotional Exhaustion"
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="Code Name (e.g. Emotional Exhaustion)"
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-purple-500 font-bold text-slate-800"
+                        />
+                        <textarea
+                            value={codeDescription}
+                            onChange={e => setCodeDescription(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) applyCode()
+                            }}
+                            placeholder="Optional description / definition for this code..."
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none h-20 text-slate-600"
                         />
                         <div className="flex gap-2">
                             <button

@@ -63,3 +63,30 @@ export async function DELETE(
         return NextResponse.json({ error: 'Failed to delete code' }, { status: 500 })
     }
 }
+
+// PATCH /api/codebook/[codeId] — update definition, inclusion/exclusion criteria, memo
+export async function PATCH(
+    req: Request,
+    { params }: { params: { codeId: string } }
+) {
+    try {
+        const body = await req.json()
+        const { definition, examplesIn, examplesOut, memo } = body
+
+        const updated = await prisma.codebookEntry.update({
+            where: { id: params.codeId },
+            data: {
+                ...(definition !== undefined ? { definition } : {}),
+                ...(examplesIn !== undefined ? { examplesIn } : {}),
+                ...(examplesOut !== undefined ? { examplesOut } : {}),
+                ...(memo !== undefined ? { memo } : {}),
+            },
+            select: { id: true, definition: true, examplesIn: true, examplesOut: true, memo: true }
+        })
+
+        return NextResponse.json(updated)
+    } catch (e) {
+        console.error('PATCH codebook entry error:', e)
+        return NextResponse.json({ error: 'Failed to update code' }, { status: 500 })
+    }
+}

@@ -21,7 +21,20 @@ export async function GET(
                                 type: true,
                                 definition: true,
                                 examplesIn: true,
-                                _count: { select: { codeAssignments: true } }
+                                examplesOut: true,
+                                _count: { select: { codeAssignments: true } },
+                                codeAssignments: {
+                                    take: 3,
+                                    select: {
+                                        segment: { 
+                                            select: {
+                                                id: true,
+                                                text: true,
+                                                transcript: { select: { id: true, title: true } }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -30,11 +43,52 @@ export async function GET(
             orderBy: { createdAt: 'desc' }
         })
         
-        // Remove code links that have 0 assignments (orphans)
-        const validThemes = themes.map(theme => ({
-            ...theme,
-            codeLinks: theme.codeLinks.filter(link => link.codebookEntry._count.codeAssignments > 0)
-        }))
+        // Remove code links that have 0 assignments (orphans) and compute participants
+        const validThemes = themes.map(theme => {
+            const themeParticipantMap = new Map<string, {id: string, name: string}>()
+
+            const validLinks = theme.codeLinks.filter(link => link.codebookEntry._count.codeAssignments > 0).map(link => {
+                const codeParticipantMap = new Map<string, {id: string, name: string}>()
+                const sampleQuotes: { segmentId: string; text: string; participantName: string; transcriptId: string }[] = []
+
+                for (const ca of link.codebookEntry.codeAssignments) {
+                    const tr = ca.segment?.transcript
+                    if (tr) {
+                        if (!codeParticipantMap.has(tr.id)) {
+                            codeParticipantMap.set(tr.id, { id: tr.id, name: tr.title })
+                        }
+                        if (!themeParticipantMap.has(tr.id)) {
+                            themeParticipantMap.set(tr.id, { id: tr.id, name: tr.title })
+                        }
+                    }
+                    if (ca.segment?.text && sampleQuotes.length < 2) {
+                        sampleQuotes.push({
+                            segmentId: ca.segment.id,
+                            text: ca.segment.text,
+                            participantName: ca.segment.transcript?.title || '',
+                            transcriptId: ca.segment.transcript?.id || ''
+                        })
+                    }
+                }
+
+                // Strip codeAssignments from the final output payload to save bandwidth
+                const { codeAssignments, ...restCodeEntry } = link.codebookEntry as any
+                return {
+                    ...link,
+                    codebookEntry: {
+                        ...restCodeEntry,
+                        participants: Array.from(codeParticipantMap.values()),
+                        sampleQuotes
+                    }
+                }
+            })
+
+            return {
+                ...theme,
+                codeLinks: validLinks,
+                participantsCount: themeParticipantMap.size
+            }
+        })
 
         return NextResponse.json(validThemes)
     } catch (e) {

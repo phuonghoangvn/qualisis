@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 export async function POST(req: Request, { params }: { params: { id: string } }) {
     try {
         const body = await req.json()
-        const { projectId, text, codeName, startIndex, endIndex } = body
+        const { projectId, text, codeName, codeDescription, startIndex, endIndex } = body
 
         const session = await getServerSession(authOptions)
         const userId = session?.user ? (session.user as any).id : null
@@ -22,6 +22,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
                     projectId,
                     name: codeName,
                     type: 'HUMAN',
+                    definition: codeDescription || '',
                     examplesIn: '',
                     examplesOut: ''
                 }

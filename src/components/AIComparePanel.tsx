@@ -138,171 +138,81 @@ export default function AIComparePanel({
                 {segment.suggestions.map(sg => {
                     const style = getModelStyle(sg.modelProvider)
                     return (
-                        <div key={sg.id} className={`border ${style.border} ${style.bg} rounded-xl overflow-hidden`}>
-                            <div className="flex items-center gap-2 px-3 py-2.5">
+                        <div key={sg.id} className={`bg-white border ${style.border} rounded-xl overflow-hidden shadow-sm`}>
+                            {/* Card Header */}
+                            <div className={`flex items-center gap-2 px-3 py-2.5 ${style.bg} border-b ${style.border} bg-opacity-70`}>
                                 <span className={`w-2 h-2 rounded-full ${style.dot} flex-shrink-0`} />
-                                <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                                     {sg.modelProvider ?? 'AI'}
                                 </span>
                                 <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded border ${confidenceColor[sg.confidence]}`}>
                                     {sg.confidence}
                                 </span>
                             </div>
-                            <div className="px-3 pb-3">
-                                <p className="text-sm font-semibold text-slate-800 mb-1.5">{sg.label}</p>
-                                <details className="group">
-                                    <summary className={`text-[11px] font-medium ${style.text} cursor-pointer flex items-center gap-1 select-none list-none`}>
-                                        <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                        Why this code?
-                                    </summary>
-                                    <div className="mt-2 bg-white/70 p-2 rounded border border-slate-100">
-                                        <p className="text-xs text-slate-600 leading-relaxed">
-                                            {sg.explanation}
-                                        </p>
-                                        <div className="mt-2 text-[9px] text-slate-400 font-mono tracking-wider truncate">
-                                            Prompt: {sg.promptVersion || 'quali-init-v2.1'} • {sg.createdAt ? new Date(sg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now'}
-                                        </div>
+
+                            {/* Card Body */}
+                            <div className="p-4 pt-3 space-y-4">
+                                {/* Code Title Area */}
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2 border-b border-indigo-50 pb-1.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-500"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-wider">AI-Generated Code</span>
                                     </div>
-                                    {sg.alternatives.length > 0 && (
-                                        <div className="mt-1.5 flex flex-wrap gap-1">
-                                            <span className="text-[10px] text-slate-400">Alt:</span>
+                                    <h4 className="text-[14px] font-extrabold text-slate-800 leading-snug">{sg.label}</h4>
+                                </div>
+                                
+                                {/* Explanation Area */}
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block tracking-wider">Why this code?</span>
+                                    <p className="text-[13px] text-slate-600 leading-relaxed font-medium bg-slate-50 p-3 rounded-lg border border-slate-100 shadow-sm">
+                                        {sg.explanation}
+                                    </p>
+                                </div>
+                                
+                                {/* Detailed Confidence Explanation */}
+                                <div className={`p-3.5 rounded-xl border shadow-sm ${
+                                    sg.confidence === 'HIGH' ? 'bg-emerald-50/50 border-emerald-100 text-emerald-800' :
+                                    sg.confidence === 'MEDIUM' ? 'bg-amber-50/50 border-amber-100 text-amber-800' :
+                                    'bg-rose-50/50 border-rose-100 text-rose-800'
+                                }`}>
+                                    <div className="flex items-center gap-1.5 mb-3 border-b border-amber-100/50 pb-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                        <span className="text-[11px] font-extrabold uppercase tracking-wider">AI Confidence Score: {finalScore}%</span>
+                                    </div>
+                                    
+                                    <div className="text-[11px] leading-relaxed opacity-90 p-2.5 bg-white/60 rounded-md border border-amber-100/30 text-slate-700">
+                                        <p className="mb-1">
+                                            This score indicates that the AI is <strong>{finalScore}% confident</strong> in the thematic match between its suggested code and the participant's context.
+                                        </p>
+                                        <p>
+                                            A higher score typically means the AI found direct textual evidence, while lower scores indicate it relied on broader inference. <em>Regardless of the score, human review is essential to ensure nuanced interpretation.</em>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {sg.alternatives.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-slate-100">
+                                        <span className="text-[10px] uppercase font-extrabold text-slate-400 mb-2 block">Alternative Themes</span>
+                                        <div className="flex flex-wrap gap-1.5">
                                             {sg.alternatives.map(a => (
-                                                <span key={a} className="text-[10px] bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{a}</span>
+                                                <span key={a} className="text-[11px] font-medium bg-slate-50 border border-slate-200 text-slate-600 px-2 py-0.5 rounded">{a}</span>
                                             ))}
                                         </div>
-                                    )}
-                                </details>
+                                    </div>
+                                )}
+
+                                {sg.promptVersion && (
+                                    <div className="mt-3 text-[9px] text-slate-400 font-mono tracking-wider truncate border-t border-slate-100 pt-2">
+                                        Prompt: {sg.promptVersion}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )
                 })}
-
-                {/* Consensus */}
-                <div className="pt-3 border-t border-slate-200">
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Consensus Verdict</p>
-                    <div className={`text-sm font-semibold rounded-xl p-3 border ${allAgree ? 'text-violet-800 bg-violet-50 border-violet-200' : 'text-amber-800 bg-amber-50 border-amber-200'}`}>
-                        {allAgree ? `✓ All models agree: "${topLabel}"` : `⚠ Disagreement. Majority: "${topLabel}"`}
-                    </div>
-                </div>
-
-                {/* Confidence Details */}
-                <div className="pt-3 border-t border-slate-200 mt-2">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                            Confidence Scoring
-                        </span>
-                        <span className={`${confColors.text} font-bold ${confColors.bg} px-2 py-0.5 rounded border ${confColors.border} flex items-center gap-1 text-[11px]`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${confColors.dot}`}></div>
-                            {finalScore}% ({labelConf})
-                        </span>
-                    </div>
-                    {/* Model selector dropdown */}
-                    {segment.suggestions.length > 1 && (
-                        <div className="mb-2">
-                            <select
-                                value={selectedConfModel}
-                                onChange={e => setSelectedConfModel(Number(e.target.value))}
-                                className="w-full text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer appearance-none"
-                                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
-                            >
-                                {segment.suggestions.map((sg, idx) => {
-                                    const sgU = typeof sg.uncertainty === 'string' ? JSON.parse(sg.uncertainty || '{}') : (sg.uncertainty || {})
-                                    const sgScore = sgU.finalScore ?? '?'
-                                    return (
-                                        <option key={sg.id} value={idx}>
-                                            {sg.modelProvider ?? 'AI'} — {sg.confidence} ({sgScore}%)
-                                        </option>
-                                    )
-                                })}
-                            </select>
-                        </div>
-                    )}
-                    <details className="group">
-                        <summary className="flex items-center justify-end cursor-pointer list-none select-none">
-                            <span className="text-[11px] text-indigo-500 font-medium group-open:hidden">View Details</span>
-                            <span className="text-[11px] text-indigo-500 font-medium hidden group-open:inline">Hide Details</span>
-                        </summary>
-                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 space-y-2 mt-2">
-                            <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-slate-500 font-medium">Token probability <span className="text-[9px] text-slate-400 font-normal">(25%)</span></span>
-                                <span className="text-slate-700 font-mono font-medium">{tokenProb}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-slate-500 font-medium">Run consistency <span className="text-[9px] text-slate-400 font-normal">(25%)</span></span>
-                                <span className="text-slate-700 font-mono font-medium">{consis}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-slate-500 font-medium">Semantic similarity <span className="text-[9px] text-slate-400 font-normal">(20%)</span></span>
-                                <span className="text-slate-700 font-mono font-medium">{semSim}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-slate-500 font-medium">Self-assessment <span className="text-[9px] text-slate-400 font-normal">(20%)</span></span>
-                                <span className="text-slate-700 font-mono font-medium">{selfAss}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px] items-start">
-                                <span className="text-slate-500 font-medium">Heuristics <span className="text-[9px] text-slate-400 font-normal">(10%)</span></span>
-                                <span className={`${flags.length > 0 ? 'text-amber-600' : 'text-emerald-600'} text-right max-w-[140px] leading-tight font-medium flex-col flex items-end gap-1`}>
-                                    <div className="flex items-center gap-1">
-                                        {flags.length > 0 ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                        )}
-                                        {flags.length > 0 ? 'Flags detected' : 'Passed'}
-                                    </div>
-                                    {flags.map((f, i) => <div key={i} className="text-[9px] bg-white border border-slate-200 text-slate-500 px-1 py-0.5 rounded shadow-sm">{f}</div>)}
-                                </span>
-                            </div>
-                        </div>
-                    </details>
-                </div>
-
-                {/* Run Audit Trail */}
-                <div className="pt-3 border-t border-slate-200 mt-2">
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
-                        Run Audit Trail
-                    </p>
-                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 space-y-2 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-slate-200"></div>
-                        <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500 font-medium">Run ID</span>
-                            <span className="text-slate-700 font-mono font-bold">run_a7f2c1</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500 font-medium">Timestamp</span>
-                            <span className="text-slate-700 font-bold">{segment.suggestions[0]?.createdAt ? new Date(segment.suggestions[0].createdAt).toLocaleString('en-US', {month:'short', day:'numeric', hour: '2-digit', minute:'2-digit'}) : 'Just now'}</span>
-                        </div>
-                        <div className="flex flex-col gap-1.5 text-[11px]">
-                            <details className="group">
-                                <summary className="flex items-center justify-between cursor-pointer list-none select-none">
-                                    <span className="text-slate-500 font-medium">System Prompt</span>
-                                    <span className="text-indigo-500 font-medium group-open:hidden">View Details</span>
-                                    <span className="text-indigo-500 font-medium hidden group-open:inline">Hide Details</span>
-                                </summary>
-                                <div className="mt-2 text-[10px] bg-white p-2.5 rounded border border-slate-200 text-slate-600 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto custom-scrollbar leading-relaxed">
-                                    {segment.suggestions[0]?.promptVersion || 'quali-init-v2.1'}
-                                </div>
-                            </details>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500 font-medium">Temperature</span>
-                            <span className="text-slate-700 font-bold">0.3</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-150">
-                            <span className="text-slate-500 font-medium">Coded by</span>
-                            <div className="flex gap-1 items-center">
-                                {Array.from(new Set(segment.suggestions.map(s => s.modelProvider))).map(provider => (
-                                    <span key={provider} className="bg-white border text-slate-600 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px] text-[9px]">{provider}</span>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
+
+
 
             {/* Decision footer */}
             <div className="p-4 bg-white border-t border-slate-200 flex-shrink-0">
@@ -316,14 +226,24 @@ export default function AIComparePanel({
                             </svg>
                             {decided.action === 'ACCEPT' ? `✓ Accepted: "${decided.label}"` : `✏ Overridden: "${decided.label}"`}
                         </div>
-                        <button 
-                            onClick={() => submitDecision('RESTORE')}
-                            disabled={loading}
-                            className="bg-white border border-slate-300 text-slate-700 text-xs font-bold py-2 rounded-xl hover:bg-slate-50 transition flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                            Undo decision (Restore)
-                        </button>
+                        <div className="flex items-center gap-2 mt-1">
+                            <button 
+                                onClick={() => submitDecision('RESTORE')}
+                                disabled={loading}
+                                className="flex-1 bg-white border border-slate-300 text-slate-700 text-[11px] font-bold py-2 rounded-xl hover:bg-slate-50 transition flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                                Restore to Pending
+                            </button>
+                            <button 
+                                onClick={() => submitDecision('REJECT')}
+                                disabled={loading}
+                                className="flex-1 bg-white border border-rose-200 text-rose-600 text-[11px] font-bold py-2 rounded-xl hover:bg-rose-50 transition flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                Revoke Code
+                            </button>
+                        </div>
                     </div>
                 ) : overrideMode ? (
                     <>
@@ -375,7 +295,7 @@ export default function AIComparePanel({
                                 disabled={loading}
                                 className="bg-white border border-red-200 text-red-600 text-xs font-bold py-2 rounded-xl hover:bg-red-50 transition flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
                             >
-                                ✕ Reject All
+                                ✕ Reject Suggestion
                             </button>
                         </div>
                     </div>

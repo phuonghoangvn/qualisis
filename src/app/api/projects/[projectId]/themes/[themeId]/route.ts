@@ -43,20 +43,27 @@ export async function PATCH(
     try {
         const { themeId, projectId } = params
         const body = await req.json()
-        const { name, description, status } = body
+        const { name, description, memo, status, positionX, positionY } = body
 
         const theme = await prisma.theme.update({
             where: { id: themeId, projectId },
             data: {
                 ...(name !== undefined && { name }),
                 ...(description !== undefined && { description }),
+                ...(memo !== undefined && { memo }),
                 ...(status !== undefined && { status }),
+                ...(positionX !== undefined && { positionX }),
+                ...(positionY !== undefined && { positionY }),
             }
         })
 
         return NextResponse.json(theme)
-    } catch (e) {
+    } catch (e: any) {
         console.error('Failed to update theme:', e)
-        return NextResponse.json({ error: 'Failed to update theme' }, { status: 500 })
+        return NextResponse.json({ 
+            error: 'Failed to update theme', 
+            details: e.message,
+            code: e.code 
+        }, { status: 500 })
     }
 }

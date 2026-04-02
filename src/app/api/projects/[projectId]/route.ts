@@ -3,6 +3,88 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
+export async function GET(
+    request: Request,
+    { params }: { params: { projectId: string } }
+) {
+    try {
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const project = await prisma.project.findUnique({
+            where: { id: params.projectId },
+            include: {
+                datasets: { select: { id: true, transcripts: { select: { id: true } } } }
+            }
+        })
+        
+        if (!project) {
+            return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+        }
+
+        // Calculate participant count
+        let participantCount = 0
+        project.datasets.forEach(d => {
+            participantCount += d.transcripts.length
+        })
+
+        return NextResponse.json({ ...project, participantCount })
+    } catch (error) {
+        console.error('Error fetching project:', error)
+        return NextResponse.json({ error: 'Failed to fetch project' }, { status: 500 })
+    }
+}
+
+export async function PATCH(
+    request: Request,
+    { params }: { params: { projectId: string } }
+) {
+    try {
+        const session = await getServerSession(authOptions)
+        const userId = session?.user ? (session.user as any).id : null
+
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const projectId = params.projectId
+        const json = await request.json()
+        const { name, description, coreOntology, researchQuestion } = json
+
+        // Update the project
+        const updatedProject = await prisma.project.update({
+            where: { id: projectId },
+            data: {
+                name,
+                description,
+                coreOntology,
+                researchQuestion
+            }
+        })
+
+        // Log the action
+        await prisma.auditLog.create({
+            data: {
+                projectId,
+                userId,
+                eventType: 'PROJECT_UPDATED',
+                entityType: 'Project',
+                entityId: projectId,
+                note: `Updated project details: ${Object.keys(json).join(', ')}`
+            }
+        })
+
+        return NextResponse.json(updatedProject)
+    } catch (error) {
+        console.error('Error updating project:', error)
+        return NextResponse.json({ error: 'Failed to update project' }, { status: 500 })
+    }
+}
+
 export async function DELETE(
     request: Request,
     { params }: { params: { projectId: string } }

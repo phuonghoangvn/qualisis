@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import AIComparePanel from './AIComparePanel'
 import HumanCodePanel from './HumanCodePanel'
 import HumanHighlightTooltip from './HumanHighlightTooltip'
+import MassReviewModal from './MassReviewModal'
 import { DEFAULT_PROMPT } from '@/lib/ai'
 import { buildSystematicPrompt } from '@/lib/prompts'
+import ConfirmModal from './ConfirmModal'
 
 type Suggestion = {
     id: string
@@ -59,6 +61,7 @@ export default function TranscriptWorkspace({
     stats: Stats
 }) {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [segments, setSegments] = useState<Segment[]>(transcript.segments)
     const [stats, setStats] = useState(initialStats)
     const [analysisRun, setAnalysisRun] = useState(transcript.segments.length > 0)
@@ -77,6 +80,47 @@ export default function TranscriptWorkspace({
     const [showModelPicker, setShowModelPicker] = useState(false)
     const [analyzingStep, setAnalyzingStep] = useState(0)
     const [mounted, setMounted] = useState(false)
+    const [showMassReview, setShowMassReview] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | null>(null)
+    const [showEditConfirm, setShowEditConfirm] = useState(false)
+
+    const handleDecision = useCallback(async (segId: string, action: string, label?: string) => {
+        // Find the segment to get its suggestions
+        const seg = segments.find(s => s.id === segId)
+        if (!seg) return
+
+        // Map action names to API action names
+        const apiAction = action === 'ACCEPT' ? 'ACCEPT' : action === 'REJECT' ? 'REJECT' : action === 'RESTORE' ? 'RESTORE' : 'OVERRIDE'
+
+        // Call API for each suggestion in the segment (mirrors AIComparePanel behavior)
+        const suggestionsToReview = seg.suggestions.filter(sg => sg.status !== 'REJECTED' || action === 'RESTORE')
+        await Promise.allSettled(
+            suggestionsToReview.map(sg =>
+                fetch(`/api/segments/${segId}/review`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: apiAction, customLabel: label, suggestionId: sg.id }),
+                })
+            )
+        )
+
+        // Update local state after API calls succeed
+        setSegments(prev => prev.map(s =>
+            s.id === segId
+                ? {
+                    ...s,
+                    suggestions: s.suggestions.map(sg => ({
+                        ...sg,
+                        status: action === 'ACCEPT' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : action === 'RESTORE' ? 'SUGGESTED' : 'MODIFIED'
+                    }))
+                }
+                : s
+        ))
+        setStats(prev => ({
+            ...prev,
+            assignedCodes: action === 'RESTORE' ? Math.max(0, prev.assignedCodes - 1) : (action !== 'REJECT' ? prev.assignedCodes + 1 : prev.assignedCodes),
+            pendingReview: action === 'RESTORE' ? prev.pendingReview + 1 : Math.max(0, prev.pendingReview - 1),
+        }))
+    }, [segments]);
 
     // Track time spent reading the transcript
     useEffect(() => {
@@ -119,6 +163,36 @@ export default function TranscriptWorkspace({
     useEffect(() => {
         setMounted(true)
     }, [])
+
+    // ── Deep-link: scroll to segment from ?segment= query param ──────────────
+    useEffect(() => {
+        const targetSegId = searchParams?.get('segment')
+        if (!targetSegId || !mounted) return
+
+        // Retry a few times because the segment elements render async
+        let attempts = 0
+        const tryScroll = () => {
+            const el = document.querySelector(`[data-segment-id="${targetSegId}"]`) as HTMLElement | null
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                // Flash animation: golden ring that fades out
+                el.style.transition = 'box-shadow 0.2s ease, outline 0.2s ease'
+                el.style.outline = '2.5px solid #f59e0b'
+                el.style.outlineOffset = '3px'
+                el.style.borderRadius = '4px'
+                setTimeout(() => {
+                    el.style.outline = ''
+                    el.style.outlineOffset = ''
+                }, 2000)
+            } else if (attempts < 10) {
+                attempts++
+                setTimeout(tryScroll, 300)
+            }
+        }
+        // Small delay to let React finish rendering the transcript
+        const t = setTimeout(tryScroll, 400)
+        return () => clearTimeout(t)
+    }, [mounted, searchParams])
 
     useEffect(() => {
         if (!isAnalyzing) {
@@ -340,9 +414,9 @@ export default function TranscriptWorkspace({
                     inlineStyle.backgroundColor = 'rgba(168, 85, 247, 0.2)';
                     underlineColor = '#a855f7';
                 } else if (accepted) {
-                    inlineStyle.backgroundColor = 'rgba(52, 211, 153, 0.2)';
-                    activeColors.length = 0; activeColors.push('#10b981');
-                    underlineColor = '#10b981';
+                    inlineStyle.backgroundColor = 'rgba(99, 102, 241, 0.2)'; // Indigo
+                    activeColors.length = 0; activeColors.push('#6366f1');
+                    underlineColor = '#6366f1';
                 } else if (overridden) {
                     inlineStyle.backgroundColor = 'rgba(167, 139, 250, 0.2)';
                     activeColors.length = 0; activeColors.push('#a855f7');
@@ -392,7 +466,7 @@ export default function TranscriptWorkspace({
                             className={cls}
                             style={inlineStyle}
                             data-segment-id={seg.id}
-                            title={isHuman ? `Human Code: ${label}` : `${label} (${modelProviders.join(', ')})`}
+                            title={isHuman ? `Human Code: ${label} (Click to edit)` : `${accepted ? 'AI Accepted' : 'AI Pending'}: ${label} (Click to review)`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (isHuman) {
@@ -402,6 +476,11 @@ export default function TranscriptWorkspace({
                                 }
                             }}
                         >
+                            {(accepted || isHuman) && actualStart === ds.startIndex && (
+                                <span className={`inline-flex items-center justify-center text-white rounded-full w-[13px] h-[13px] mr-1.5 align-middle shadow-sm ${isHuman ? 'bg-purple-500' : 'bg-indigo-500'}`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                </span>
+                            )}
                             <span className="whitespace-pre-wrap">{textToRender}</span>
                         </span>
                     );
@@ -467,9 +546,12 @@ export default function TranscriptWorkspace({
                                 if (isEditingText) {
                                     saveEditedContent();
                                 } else {
-                                    if (segments.length > 0 && !window.confirm("Editing the transcript may misalign existing highlights. Are you sure you want to proceed?")) return;
-                                    setEditedContent(transcript.content);
-                                    setIsEditingText(true);
+                                    if (segments.length > 0) {
+                                        setShowEditConfirm(true);
+                                    } else {
+                                        setEditedContent(transcript.content);
+                                        setIsEditingText(true);
+                                    }
                                 }
                             }}
                             disabled={isSaving || isAnalyzing}
@@ -548,7 +630,7 @@ export default function TranscriptWorkspace({
                                     </div>
                                     <div className="border-t border-slate-100 pt-3 flex flex-col gap-2">
                                         <div className="flex items-center justify-between px-1">
-                                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Research Instructions</label>
+                                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Custom AI Lens & Instructions</label>
                                             <div className="flex items-center gap-2">
                                                 <button 
                                                     onClick={() => setShowFullPrompt(!showFullPrompt)}
@@ -567,10 +649,10 @@ export default function TranscriptWorkspace({
                                         <textarea
                                             value={researchContext}
                                             onChange={e => setResearchContext(e.target.value)}
-                                            placeholder="Inform the AI about your research goals to improve thematic coding..."
+                                            placeholder="Tell the AI what to focus on (e.g., 'Focus specifically on negative emotional responses', or 'Analyze through the lens of Cognitive Behavioral Therapy')..."
                                             className="w-full h-28 text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-y font-medium custom-scrollbar leading-relaxed"
                                         />
-                                        <p className="text-[9px] text-slate-400 px-0.5">↑ Your research instructions are injected into the full systematic prompt below</p>
+                                        <p className="text-[9px] text-slate-400 px-0.5">↑ Give the AI a specific analytical lens. This is injected into the systematic prompt below.</p>
                                         
                                         {showFullPrompt && (
                                             <div className="mt-2">
@@ -621,32 +703,14 @@ export default function TranscriptWorkspace({
             {/* ── Right: Panel ── */}
             <div className="w-80 flex-shrink-0 flex flex-col bg-slate-50 border-l border-slate-200 overflow-hidden">
                 {activePanel === null && (
-                    <EmptyPanel analysisRun={analysisRun} onRunAnalysis={runAnalysis} isAnalyzing={isAnalyzing} stats={stats} />
+                    <EmptyPanel analysisRun={analysisRun} onRunAnalysis={runAnalysis} isAnalyzing={isAnalyzing} stats={stats} onOpenMassReview={(t) => setShowMassReview(t)} />
                 )}
                 {activePanel?.type === 'ai' && (
                     <AIComparePanel
                         key={activePanel.segment.id}
                         segment={activePanel.segment}
                         onClose={() => setActivePanel(null)}
-                        onDecision={(segId: string, action: string, label?: string) => {
-                            // Optimistic update: mark segment suggestions
-                            setSegments(prev => prev.map(s =>
-                                s.id === segId
-                                    ? {
-                                        ...s,
-                                        suggestions: s.suggestions.map(sg => ({
-                                            ...sg,
-                                            status: action === 'ACCEPT' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : action === 'RESTORE' ? 'SUGGESTED' : 'MODIFIED'
-                                        }))
-                                    }
-                                    : s
-                            ))
-                            setStats(prev => ({
-                                ...prev,
-                                assignedCodes: action === 'RESTORE' ? Math.max(0, prev.assignedCodes - 1) : (action !== 'REJECT' ? prev.assignedCodes + 1 : prev.assignedCodes),
-                                pendingReview: action === 'RESTORE' ? prev.pendingReview + 1 : Math.max(0, prev.pendingReview - 1),
-                            }))
-                        }}
+                        onDecision={handleDecision}
                     />
                 )}
                 {activePanel?.type === 'human' && (
@@ -722,6 +786,39 @@ export default function TranscriptWorkspace({
                 </div>,
                 document.body
             )}
+
+            {/* Mass Review Modal */}
+            {showMassReview !== null && (
+                <MassReviewModal 
+                    segments={segments}
+                    initialTab={showMassReview}
+                    transcriptTitle={transcript.title}
+                    onClose={() => setShowMassReview(null)}
+                    onDecision={handleDecision}
+                    onTrace={(segId) => {
+                        setShowMassReview(null);
+                        const el = document.querySelector(`[data-segment-id="${segId}"]`) as HTMLElement;
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            el.click(); // Open the side panel for this segment
+                        }
+                    }}
+                />
+            )}
+
+            <ConfirmModal
+                isOpen={showEditConfirm}
+                title="Edit Transcript"
+                message="Editing the transcript may misalign existing highlights. Are you sure you want to proceed?"
+                confirmText="Proceed"
+                isDestructive={true}
+                onConfirm={() => {
+                    setShowEditConfirm(false);
+                    setEditedContent(transcript.content);
+                    setIsEditingText(true);
+                }}
+                onCancel={() => setShowEditConfirm(false)}
+            />
         </div>
     )
 }
@@ -744,62 +841,66 @@ function LegendDot({ color, label }: { color: string; label: string }) {
     )
 }
 
-function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats }: {
+function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats, onOpenMassReview }: {
     analysisRun: boolean
     onRunAnalysis: () => void
     isAnalyzing: boolean
     stats?: Stats
+    onOpenMassReview: (tab: 'ALL' | 'PENDING' | 'ACCEPTED') => void
 }) {
     if (analysisRun && stats) {
         return (
             <div className="flex-1 flex flex-col bg-slate-50/50 relative overflow-y-auto">
                 <div className="p-8 pb-12 text-center flex flex-col items-center">
-                    <div className="w-16 h-16 rounded-3xl bg-indigo-50 flex items-center justify-center mb-6 shadow-sm border border-indigo-100/50 text-indigo-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mouse-pointer-click"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9 1.2"/><path d="m21.3 13.7-2.6-1.5"/><path d="M22 22l-7.7-7.7"/><path d="m14.6 10.5 7.4-7.4"/></svg>
+                    <div className="w-16 h-16 rounded-3xl bg-indigo-50 flex items-center justify-center mb-6 shadow-sm border border-indigo-100/50 text-indigo-500 relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mouse-pointer-click animate-pulse"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9 1.2"/><path d="m21.3 13.7-2.6-1.5"/><path d="M22 22l-7.7-7.7"/><path d="m14.6 10.5 7.4-7.4"/></svg>
+                        <div className="absolute -left-3 animate-bounce">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400"><path d="m15 18-6-6 6-6"/></svg>
+                        </div>
                     </div>
-                    <h3 className="text-base font-extrabold text-slate-800 tracking-tight mb-2">Select a Segment</h3>
-                    <p className="text-[13px] font-medium text-slate-500 leading-relaxed mb-8">
-                        Click a highlighted quote or drag to select new text to begin thematic coding.
+                    <h3 className="text-base font-extrabold text-slate-800 tracking-tight mb-2">Review in Document</h3>
+                    <p className="text-[13px] font-medium text-slate-500 leading-relaxed mb-8 px-4">
+                        Click on any <span className="inline-block px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-600 rounded-sm text-[11px] font-bold mx-1 italic shadow-sm hover:bg-amber-100 cursor-help transition-colors">highlighted text</span> in the transcript on the left to review its AI suggestions individually, or just select new text to code by yourself.
                     </p>
                 </div>
 
                 <div className="px-6 pb-6">
                     <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-4 px-2">Transcript Progress</p>
                     <div className="space-y-3">
-                        <div className="bg-white border text-left border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                        <div className="bg-white border text-left border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group" onClick={() => onOpenMassReview('ALL')}>
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center font-bold flex-shrink-0">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center font-bold flex-shrink-0 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-highlighter"><path d="m8 16 2.05-2.05a5.55 5.55 0 0 0-7.85-7.85L5 3"/><path d="m14 8 2.3 2.3c.9.9 2.5.9 3.4 0l.6-.6c.9-.9.9-2.5 0-3.4l-2.3-2.3"/><path d="m21 21-1-1"/><path d="m16 8 4 4"/><path d="M4 16h6v5H4v-5Z"/></svg>
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h4 className="text-[13px] font-bold text-slate-800 truncate">Total Highlights</h4>
-                                    <p className="text-[10px] text-slate-500 font-medium truncate">Quotes identified</p>
+                                    <p className="text-[10px] text-indigo-500 font-bold truncate group-hover:underline">Click to view all</p>
                                 </div>
                             </div>
                             <span className="text-xl font-extrabold text-indigo-700 pl-4">{stats.totalHighlights}</span>
                         </div>
                         
-                        <div className="bg-white border text-left border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                        <div className="bg-white border text-left border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 transition-all group" onClick={() => onOpenMassReview('ACCEPTED')}>
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold flex-shrink-0">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold flex-shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle-2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h4 className="text-[13px] font-bold text-slate-800 truncate">Assigned Codes</h4>
-                                    <p className="text-[10px] text-slate-500 font-medium truncate">Human & AI verified</p>
+                                    <p className="text-[10px] text-emerald-600 font-bold truncate group-hover:underline">Click to view accepted</p>
                                 </div>
                             </div>
                             <span className="text-xl font-extrabold text-emerald-700 pl-4">{stats.assignedCodes}</span>
                         </div>
 
-                        <div className="bg-white border text-left border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                        <div className="bg-white border text-left border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer hover:border-amber-300 hover:bg-amber-50/30 transition-all group" onClick={() => onOpenMassReview('PENDING')}>
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center font-bold flex-shrink-0">
+                                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center font-bold flex-shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-clock"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h4 className="text-[13px] font-bold text-slate-800 truncate">Pending AI Review</h4>
-                                    <p className="text-[10px] text-slate-500 font-medium truncate">Awaiting your approval</p>
+                                    <p className="text-[10px] text-amber-600 font-bold truncate group-hover:underline">Click to mass review</p>
                                 </div>
                             </div>
                             <span className="text-xl font-extrabold text-amber-600 pl-4">{stats.pendingReview}</span>
@@ -831,7 +932,9 @@ function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats }: {
                                 <span className="text-slate-600">All models agree</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
-                                <span className="w-3.5 h-3.5 rounded bg-emerald-100 border border-emerald-400 flex-shrink-0" />
+                                <span className="w-3.5 h-3.5 rounded bg-indigo-50 border border-indigo-400 flex-shrink-0 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                </span>
                                 <span className="text-slate-600">Accepted</span>
                             </div>
                         </div>

@@ -1,27 +1,35 @@
 'use client'
 import { useState } from 'react'
 
-export default function SettingsClient({ projectId, initialSettings, logs }: { 
+export default function SettingsClient({ projectId, project, initialSettings, logs, userProfile }: { 
     projectId: string, 
+    project: any,
     initialSettings: any, 
-    logs: any[] 
+    logs: any[],
+    userProfile?: { name: string, email: string }
 }) {
-    const [activeTab, setActiveTab] = useState<'API' | 'LOGS'>('API')
-    const [settings, setSettings] = useState(initialSettings || {})
+    const [activeTab, setActiveTab] = useState<'DETAILS' | 'LOGS'>('DETAILS')
     const [saving, setSaving] = useState(false)
+    const [projectData, setProjectData] = useState({
+        name: project.name || '',
+        description: project.description || '',
+        coreOntology: project.coreOntology || '',
+        researchQuestion: project.researchQuestion || ''
+    })
 
-    const handleSave = async () => {
+    const handleSaveProject = async () => {
         setSaving(true)
         try {
-            await fetch(`/api/projects/${projectId}/settings`, {
+            const res = await fetch(`/api/projects/${projectId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ aiSettings: settings })
+                body: JSON.stringify(projectData)
             })
-            alert('Settings saved successfully!')
+            if (!res.ok) throw new Error('Failed to update')
+            alert('Project updated successfully!')
         } catch (e) {
             console.error(e)
-            alert('Failed to save settings')
+            alert('Failed to update project')
         } finally {
             setSaving(false)
         }
@@ -31,10 +39,10 @@ export default function SettingsClient({ projectId, initialSettings, logs }: {
         <div className="flex flex-col gap-6">
             <div className="flex items-center gap-2 border-b border-slate-200">
                 <button 
-                    onClick={() => setActiveTab('API')}
-                    className={`px-4 py-3 text-sm font-extrabold transition-colors border-b-2 ${activeTab === 'API' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                    onClick={() => setActiveTab('DETAILS')}
+                    className={`px-4 py-3 text-sm font-extrabold transition-colors border-b-2 ${activeTab === 'DETAILS' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                 >
-                    AI Engines & Rules
+                    Project Detail
                 </button>
                 <button 
                     onClick={() => setActiveTab('LOGS')}
@@ -44,57 +52,73 @@ export default function SettingsClient({ projectId, initialSettings, logs }: {
                 </button>
             </div>
 
-            {activeTab === 'API' && (
+            {activeTab === 'DETAILS' && (
                 <div className="space-y-6">
-                    <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 flex flex-col gap-4">
-                        <div>
-                            <h3 className="text-sm font-bold text-slate-800 mb-1 flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
-                                Default Suggestion Engline
-                            </h3>
-                            <p className="text-[11px] text-slate-500">The primary model used to initially tag highlights</p>
-                            <select 
-                                value={settings.defaultModel || 'gpt-4o-mini'}
-                                onChange={e => setSettings({ ...settings, defaultModel: e.target.value })}
-                                className="mt-2 w-full max-w-sm rounded-lg border-slate-300 text-sm focus:ring-indigo-500 focus:border-indigo-500 p-2 border"
-                            >
-                                <option value="gpt-4o-mini">GPT-4o Mini (Cost-effective, Fast)</option>
-                                <option value="gpt-4o">GPT-4o (High-Accuracy, Expensive)</option>
-                                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (Nuanced)</option>
-                            </select>
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Project Name</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full rounded-xl border border-slate-300 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 p-3 bg-white transition-all shadow-sm"
+                                    value={projectData.name}
+                                    onChange={e => setProjectData({ ...projectData, name: e.target.value })}
+                                    placeholder="Enter project name..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Description</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full rounded-xl border border-slate-300 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 p-3 bg-white transition-all shadow-sm"
+                                    value={projectData.description}
+                                    onChange={e => setProjectData({ ...projectData, description: e.target.value })}
+                                    placeholder="Brief summary of the study..."
+                                />
+                            </div>
                         </div>
-                        
-                        <div className="pt-4 border-t border-slate-200">
-                            <h3 className="text-sm font-bold text-slate-800 mb-1 flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-                                Scoring / Validation Engine
-                            </h3>
-                            <p className="text-[11px] text-slate-500">The model that cross-checks other AI suggestions to calculate confidence scores (0-100%).</p>
-                            <select 
-                                value={settings.scoringModel || 'gpt-4o-mini'}
-                                onChange={e => setSettings({ ...settings, scoringModel: e.target.value })}
-                                className="mt-2 w-full max-w-sm rounded-lg border-slate-300 text-sm focus:ring-indigo-500 focus:border-indigo-500 p-2 border"
-                            >
-                                <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
-                                <option value="gpt-4o">GPT-4o (Strict/Rigorous Scoring)</option>
-                            </select>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Research Topic / Focus</label>
+                            <textarea 
+                                className="w-full rounded-xl border border-slate-300 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 p-3 bg-white transition-all shadow-sm min-h-[100px]"
+                                value={projectData.coreOntology}
+                                onChange={e => setProjectData({ ...projectData, coreOntology: e.target.value })}
+                                placeholder="Define the core domain, ontology, or specific topic being researched..."
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Research Question(s)</label>
+                            <textarea 
+                                className="w-full rounded-xl border border-slate-300 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 p-3 bg-white transition-all shadow-sm min-h-[100px]"
+                                value={projectData.researchQuestion}
+                                onChange={e => setProjectData({ ...projectData, researchQuestion: e.target.value })}
+                                placeholder="What critical questions is this research trying to answer?"
+                            />
                         </div>
                     </div>
 
-                    <button 
-                        onClick={handleSave} 
-                        disabled={saving}
-                        className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md transition-all flex items-center gap-2"
-                    >
-                        {saving ? 'Saving...' : 'Save Configuration'}
-                    </button>
-                    <p className="text-[10px] text-slate-400 font-medium">Any changes apply only to future Analysis / AI runs within this project.</p>
+                    <div className="flex justify-end">
+                        <button 
+                            onClick={handleSaveProject}
+                            disabled={saving}
+                            className="px-8 py-3 bg-indigo-600 text-white text-sm font-extrabold rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {saving ? (
+                                <>
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    Updating...
+                                </>
+                            ) : 'Save Project Details'}
+                        </button>
+                    </div>
                 </div>
             )}
 
             {activeTab === 'LOGS' && (
                 <div className="space-y-4">
-                    <p className="text-xs text-slate-500 font-medium mb-2">A read-only trail of all significant actions and AI runs within this project.</p>
+                    <p className="text-xs text-slate-500 font-medium mb-2 pl-1">A read-only trail of all significant actions within this project.</p>
                     {logs.length === 0 ? (
                         <div className="p-12 text-center text-slate-300 text-sm flex flex-col items-center gap-3">
                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
@@ -120,7 +144,7 @@ export default function SettingsClient({ projectId, initialSettings, logs }: {
                                     : 'bg-slate-100 text-slate-500'
 
                                 return (
-                                    <div key={log.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-colors">
+                                    <div key={log.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-colors shadow-sm">
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex items-start gap-3 min-w-0">
                                                 <span className={`mt-0.5 flex-shrink-0 px-2 py-0.5 rounded-md font-extrabold uppercase tracking-wider text-[9px] ${badgeColor}`}>

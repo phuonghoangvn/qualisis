@@ -584,14 +584,14 @@ export function mergeAndComputeConsensus(results: Array<{ model: string; suggest
     return merged
 }
 
-export async function clusterThematicCodesWithClaude(uniqueLabels: string[]) {
-    if (!anthropic || uniqueLabels.length < 2) return null;
+export async function clusterThematicCodesWithGPT(uniqueLabels: string[]) {
+    if (!openai || uniqueLabels.length < 2) return null;
 
     try {
-        const response = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 3000,
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
             temperature: 0.1,
+            response_format: { type: "json_object" },
             messages: [
                 {
                     role: 'user',
@@ -614,13 +614,13 @@ Do not include any Markdown tags or explanations.`
             ],
         });
 
-        const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
+        const rawText = response.choices[0]?.message?.content || '{}';
         const jsonString = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         
         return JSON.parse(jsonString) as Record<string, string>;
 
     } catch (error) {
-        console.error("Claude Clustering Error:", error);
+        console.error("GPT Clustering Error:", error);
         return null;
     }
 }
