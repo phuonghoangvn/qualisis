@@ -26,7 +26,18 @@ export default function LoginPage() {
             })
 
             if (res?.error) {
-                setError('Invalid email or password')
+                // Check if the account exists but is BANNED (awaiting approval)
+                const checkRes = await fetch('/api/auth/check-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                })
+                const checkData = await checkRes.json()
+                if (checkData.banned) {
+                    setError('BANNED')
+                } else {
+                    setError('Invalid email or password')
+                }
             } else {
                 router.push('/projects')
                 router.refresh()
@@ -61,10 +72,21 @@ export default function LoginPage() {
                 <div className="bg-white py-8 px-4 shadow sm:rounded-2xl sm:px-10 border border-slate-200">
                     <form className="space-y-6" onSubmit={handleSubmit}>
                         {error && (
-                            <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm font-medium border border-red-100 flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-                                {error}
-                            </div>
+                            error === 'BANNED' ? (
+                                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm">
+                                    <p className="font-bold text-amber-800 mb-1">Access Pending Approval</p>
+                                    <p className="text-amber-700 leading-relaxed">
+                                        Your account is awaiting admin approval. Please contact{' '}
+                                        <a href="mailto:hoangnnp01@gmail.com" className="font-bold underline">hoangnnp01@gmail.com</a>
+                                        {' '}to request access.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm font-medium border border-red-100 flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                                    {error}
+                                </div>
+                            )
                         )}
 
                         <div>

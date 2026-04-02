@@ -43,7 +43,7 @@ model User {
   password      String?
   emailVerified DateTime?
   image         String?
-  role          UserRole  @default(RESEARCHER)
+  role          UserRole  @default(BANNED)
 
   accounts       Account[]
   sessions       Session[]

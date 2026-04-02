@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -9,6 +8,7 @@ export default function RegisterPage() {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
+    const [isPending, setIsPending] = useState(false)
 
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
@@ -31,26 +31,45 @@ export default function RegisterPage() {
             if (!res.ok) {
                 setError(data.error || 'Registration failed')
                 setIsLoading(false)
-            } else {
-                // Auto login after registration
-                const signInRes = await signIn('credentials', {
-                    email,
-                    password,
-                    redirect: false,
-                })
-
-                if (signInRes?.error) {
-                    setError('Account created, but could not sign in automatically. Please go to Login.')
-                    setIsLoading(false)
-                } else {
-                    router.push('/projects')
-                    router.refresh()
-                }
+            } else if (data.pending) {
+                // Account created but awaiting approval
+                setIsPending(true)
+                setIsLoading(false)
             }
         } catch (e: any) {
             setError('An unexpected error occurred. Please try again.')
             setIsLoading(false)
         }
+    }
+
+    if (isPending) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+                <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                    <div className="bg-white py-10 px-8 shadow sm:rounded-2xl border border-slate-200 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto mb-5">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12 19.79 19.79 0 0 1 1.93 3.26 2 2 0 0 1 3.91 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                            </svg>
+                        </div>
+                        <h2 className="text-xl font-extrabold text-slate-900 mb-2">Account Pending Approval</h2>
+                        <p className="text-slate-500 text-sm leading-relaxed mb-6">
+                            Your account has been created successfully. Access to QualiSIS is by invitation only and requires admin approval.
+                        </p>
+                        <a
+                            href="mailto:hoangnnp01@gmail.com?subject=QualiSIS Access Request&body=Hi, I just registered an account and would like to request access. My name is {name} and my email is {email}."
+                            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                            Contact hoangnnp01@gmail.com
+                        </a>
+                        <p className="mt-4 text-xs text-slate-400">
+                            Once approved, you can <Link href="/login" className="text-indigo-500 font-semibold hover:underline">sign in here</Link>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -135,6 +154,12 @@ export default function RegisterPage() {
                                 {isLoading ? 'Creating account...' : 'Create account'}
                             </button>
                         </div>
+
+                        <p className="text-center text-xs text-slate-400 leading-relaxed">
+                            Access to QualiSIS is by invitation only. After registration, contact{' '}
+                            <a href="mailto:hoangnnp01@gmail.com" className="text-indigo-500 font-semibold">hoangnnp01@gmail.com</a>
+                            {' '}to request access.
+                        </p>
                     </form>
                 </div>
             </div>
