@@ -82,17 +82,31 @@ export async function POST(
             })
             const projectId = transcriptData?.dataset.projectId
 
+            const finalDefinition = note 
+                ? `${suggestion.explanation}\n\n[Researcher Note]: ${note}` 
+                : suggestion.explanation;
+
             if (!codebookEntry && projectId) {
                 codebookEntry = await prisma.codebookEntry.create({
                     data: {
                         projectId,
                         name: finalLabel,
-                        definition: suggestion.explanation,
+                        definition: finalDefinition,
                         type: 'RAW',
                         examplesIn: `"${suggestion.segment.text.substring(0, 100)}"`,
                         examplesOut: '',
                     }
                 })
+            } else if (codebookEntry && note) {
+                // If it already exists, append the new note to its definition
+                if (!codebookEntry.definition?.includes(note)) {
+                    await prisma.codebookEntry.update({
+                        where: { id: codebookEntry.id },
+                        data: {
+                            definition: `${codebookEntry.definition || ''}\n\n[Additional Review Note]: ${note}`.trim()
+                        }
+                    })
+                }
             }
 
             if (codebookEntry) {

@@ -80,12 +80,13 @@ model Project {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  members      ProjectMember[]
-  datasets     Dataset[]
-  codebooks    CodebookEntry[]
-  themes       Theme[]
-  reportBlocks ReportSection[]
-  auditLogs    AuditLog[]
+  members        ProjectMember[]
+  datasets       Dataset[]
+  codebooks      CodebookEntry[]
+  themes         Theme[]
+  reportBlocks   ReportSection[]
+  auditLogs      AuditLog[]
+  knowledgeEdges KnowledgeEdge[]
 }
 
 model ProjectMember {
@@ -293,4 +294,17 @@ model AuditLog {
 
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+// Free-form knowledge graph edges — connect ANY two nodes (theme-xxx, code-xxx, participant-xxx)
+model KnowledgeEdge {
+  id           String   @id @default(cuid())
+  projectId    String
+  sourceNodeId String   // Prefixed node ID: "theme-xxx" | "code-xxx"
+  targetNodeId String
+  relationType String   // SUPPORTS, CONTRADICTS, CAUSES, MITIGATES, RELATED_TO, SUBTHEME_OF, BELONGS_TO
+  description  String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

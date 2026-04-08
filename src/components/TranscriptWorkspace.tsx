@@ -83,7 +83,7 @@ export default function TranscriptWorkspace({
     const [showMassReview, setShowMassReview] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | null>(null)
     const [showEditConfirm, setShowEditConfirm] = useState(false)
 
-    const handleDecision = useCallback(async (segId: string, action: string, label?: string) => {
+    const handleDecision = useCallback(async (segId: string, action: string, label?: string, note?: string) => {
         // Find the segment to get its suggestions
         const seg = segments.find(s => s.id === segId)
         if (!seg) return
@@ -98,7 +98,7 @@ export default function TranscriptWorkspace({
                 fetch(`/api/segments/${segId}/review`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: apiAction, customLabel: label, suggestionId: sg.id }),
+                    body: JSON.stringify({ action: apiAction, customLabel: label, suggestionId: sg.id, note }),
                 })
             )
         )

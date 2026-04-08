@@ -146,17 +146,19 @@ export async function calculateConfidenceScoresComplex(segmentText: string, labe
         const semanticSimScore = Math.max(0, semSim); 
         const selfAssessScore = selfAssess / 5.0; 
 
-        const finalScore = (
-            (tokenProbScore * 0.25) +
-            (consistencyScore * 0.25) +
-            (semanticSimScore * 0.20) +
-            (selfAssessScore * 0.20) +
-            (heuristicScore * 0.10)
+        // Divide equally (1/3 each) to perfectly align with the UI's 3-card structure
+        const baseScore = (
+            (semanticSimScore * (1 / 3)) +
+            (consistencyScore * (1 / 3)) +
+            (selfAssessScore * (1 / 3))
         ) * 100;
 
+        // Heuristics applied as an independent multiplier so it penalizes bad segments without skewing good ones
+        const finalScore = baseScore * heuristicScore;
+
         let labelConf = 'LOW';
-        if (finalScore >= 80) labelConf = 'HIGH';
-        else if (finalScore >= 60) labelConf = 'MEDIUM';
+        if (finalScore >= 70) labelConf = 'HIGH';
+        else if (finalScore >= 50) labelConf = 'MEDIUM';
 
         if (tokenProbScore < 0.6) flags.push("Low generation probability");
         if (consistency.agreeCount < 2) flags.push("Low reproducibility");

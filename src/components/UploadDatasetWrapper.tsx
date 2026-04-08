@@ -17,8 +17,6 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
     const [loading, setLoading] = useState(false)
     const [preprocessing, setPreprocessing] = useState(false)
     const [preprocessSteps, setPreprocessSteps] = useState<string[]>([])
-    const [autoTranslate, setAutoTranslate] = useState(true)
-    const [autoSpeakerDetect, setAutoSpeakerDetect] = useState(true)
     const router = useRouter()
 
     useEffect(() => {
@@ -83,38 +81,7 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
         setPreprocessSteps([])
         
         try {
-            let processedContent = fileContent
-            
-            // Step 1: Preprocess if either option is enabled
-            if (autoTranslate || autoSpeakerDetect) {
-                setPreprocessing(true)
-                setPreprocessSteps(['🔄 Starting preprocessing...'])
-                
-                try {
-                    const ppRes = await fetch(`/api/projects/${projectId}/datasets/preprocess`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            content: fileContent,
-                            options: { autoTranslate, autoSpeakerDetect }
-                        })
-                    })
-                    
-                    if (ppRes.ok) {
-                        const ppData = await ppRes.json()
-                        processedContent = ppData.processedContent || fileContent
-                        setPreprocessSteps(ppData.steps?.map((s: string) => `✅ ${s}`) || ['✅ Done'])
-                    } else {
-                        setPreprocessSteps(['⚠️ Preprocessing unavailable, uploading original'])
-                    }
-                } catch {
-                    setPreprocessSteps(['⚠️ Preprocessing failed, uploading original'])
-                }
-                
-                setPreprocessing(false)
-            }
-
-            // Step 2: Upload
+            // Upload
             const datasetName = `Dataset: ${title}`
             const metadataPayload = {
                 columns,
@@ -128,7 +95,7 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
                 body: JSON.stringify({ 
                     datasetName, 
                     files: [
-                        { title, content: processedContent, metadata: metadataPayload }
+                        { title, content: fileContent, metadata: metadataPayload }
                     ]
                 })
             })
@@ -286,48 +253,7 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
                                 </div>
                             </div>
 
-                            {/* Preprocessing Options */}
-                            <div className="mb-6 bg-gradient-to-r from-indigo-50/50 to-violet-50/50 border border-indigo-100 rounded-xl p-4">
-                                <p className="text-[11px] font-extrabold text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                    AI Preprocessing
-                                </p>
-                                <div className="space-y-2.5">
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={autoTranslate} 
-                                            onChange={e => setAutoTranslate(e.target.checked)}
-                                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                                        />
-                                        <div>
-                                            <span className="text-[12px] font-bold text-slate-700 group-hover:text-indigo-700">Auto-translate to English</span>
-                                            <p className="text-[10px] text-slate-400">Detects language and translates non-English transcripts</p>
-                                        </div>
-                                    </label>
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={autoSpeakerDetect} 
-                                            onChange={e => setAutoSpeakerDetect(e.target.checked)}
-                                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                                        />
-                                        <div>
-                                            <span className="text-[12px] font-bold text-slate-700 group-hover:text-indigo-700">Auto-detect speaker labels</span>
-                                            <p className="text-[10px] text-slate-400">Adds INTERVIEWER/PARTICIPANT labels if missing</p>
-                                        </div>
-                                    </label>
-                                </div>
-                                
-                                {/* Preprocessing progress */}
-                                {preprocessSteps.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-indigo-100 space-y-1">
-                                        {preprocessSteps.map((step, i) => (
-                                            <p key={i} className="text-[11px] text-slate-600 font-medium">{step}</p>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+
                             <div className="flex gap-4 justify-end mt-8 pt-6 border-t border-slate-100">
                                 <button
                                     type="button"

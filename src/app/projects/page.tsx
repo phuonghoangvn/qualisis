@@ -59,42 +59,7 @@ export default async function ProjectsDashboard() {
                 </div>
 
                 <div className="p-10 max-w-6xl mx-auto w-full">
-                    {/* Hero Section (Soft, Airy & Animated) */}
-                    <div className="mb-12 relative overflow-hidden rounded-3xl bg-white border border-indigo-50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-[fade-in_0.5s_ease-out]">
-                        {/* Soft background glow */}
-                        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-indigo-50/50 rounded-full blur-3xl pointer-events-none"></div>
-                        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-purple-50/50 rounded-full blur-3xl pointer-events-none"></div>
-                        
-                        <div className="p-12 relative z-10">
-                            <h1 className="text-[28px] font-extrabold mb-3 tracking-tight text-slate-800">
-                                Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">QualiSIS</span>
-                            </h1>
-                            <p className="text-slate-500 font-medium text-[15px] mb-8 leading-relaxed max-w-2xl">
-                                Your traceable AI workstation for human-led qualitative research. QualiSIS empowers you to collaborate with AI—accelerating the coding process, mapping themes, and drafting reports—while you retain full analytical control and traceability back to source quotes.
-                            </p>
-                            
-                            {/* Workflow Steps - Soft Cards */}
-                            <div className="grid grid-cols-4 gap-5 text-left">
-                                {[
-                                    { step: 1, title: 'Create Project', desc: 'Setup workspace & data' },
-                                    { step: 2, title: 'Human-AI Coding', desc: 'Review AI suggestions' },
-                                    { step: 3, title: 'Map Themes', desc: 'Synthesize codebook' },
-                                    { step: 4, title: 'Draft Report', desc: 'Evidence-backed narrative' },
-                                ].map((s, i) => (
-                                    <div 
-                                        key={i} 
-                                        className="bg-slate-50 border border-slate-100 rounded-2xl p-4 transition-all hover:shadow-md hover:border-indigo-100 group relative overflow-hidden"
-                                        style={{ animation: `fade-in-up 0.5s ease-out ${(i + 1) * 0.1}s both` }}
-                                    >
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 to-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                        <div className="text-indigo-400 font-black text-[10px] mb-1.5 uppercase tracking-widest">Step {s.step}</div>
-                                        <div className="text-slate-800 font-extrabold text-[13px] leading-tight mb-1">{s.title}</div>
-                                        <div className="text-slate-400 text-[11px] font-medium leading-tight">{s.desc}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+
 
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Your Projects</h2>

@@ -45,6 +45,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        // Verify the user actually exists in the database (handles old/invalid JWTs)
+        const userExists = await prisma.user.findUnique({ where: { id: userId } })
+        if (!userExists) {
+            return NextResponse.json({ error: 'Session invalid. Please sign out and sign in again.' }, { status: 401 })
+        }
+
         const body = await req.json()
         const project = await prisma.project.create({
             data: {
@@ -61,7 +67,8 @@ export async function POST(req: Request) {
             }
         })
         return NextResponse.json(project, { status: 201 })
-    } catch (e) {
-        return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })
+    } catch (e: any) {
+        console.error('Failed to create project:', e)
+        return NextResponse.json({ error: 'Failed to create project', details: e.message }, { status: 500 })
     }
 }

@@ -31,7 +31,7 @@ type MassReviewModalProps = {
     initialTab: 'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED'
     transcriptTitle: string
     onClose: () => void
-    onDecision: (segmentId: string, action: string, newLabel?: string) => void | Promise<void>
+    onDecision: (segmentId: string, action: string, newLabel?: string, note?: string) => void | Promise<void>
     onTrace: (segmentId: string) => void
 }
 
@@ -41,6 +41,21 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
     const [editLabel, setEditLabel] = useState("");
     const [acceptAllLoading, setAcceptAllLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+
+    // Decision overlay state
+    const [pendingDecision, setPendingDecision] = useState<{ segmentId: string, action: string, label: string } | null>(null);
+    const [decisionMemo, setDecisionMemo] = useState("");
+    const [decisionLoading, setDecisionLoading] = useState(false);
+
+    const submitPendingDecision = async () => {
+        if (!pendingDecision) return;
+        setDecisionLoading(true);
+        await onDecision(pendingDecision.segmentId, pendingDecision.action, pendingDecision.label, decisionMemo);
+        setPendingDecision(null);
+        setDecisionMemo("");
+        setDecisionLoading(false);
+        setEditingRow(null);
+    };
 
     const getConfStyle = (c: string, u?: string | null) => {
         let score = parseInt(c) || 0;
@@ -227,7 +242,51 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
 
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-8 animate-in fade-in duration-200">
-            <div className="bg-white w-full h-full max-w-[1400px] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+            {/* ── Decision Confirmation Overlay ── */}
+            {pendingDecision && (
+                <div className="absolute inset-0 z-[600] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white p-7 rounded-2xl shadow-2xl w-full max-w-[400px] border border-slate-100 flex flex-col items-center">
+                        <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4 border border-indigo-100/50">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5"/><path d="M9 7V2"/><path d="M15 7V2"/><path d="M12 7v5"/><path d="M5 17l4-4"/><path d="M15 13l4 4"/><path d="M22 12h-5"/><path d="M7 12H2"/></svg>
+                        </div>
+                        <h3 className="text-lg font-extrabold text-slate-800 tracking-tight text-center mb-2">
+                            {pendingDecision.action === 'ACCEPT' ? 'Accept AI Code?' : pendingDecision.action === 'REJECT' ? 'Reject AI Code?' : 'Override AI Code?'}
+                        </h3>
+                        <p className="text-[13px] font-bold text-slate-500 mb-6 text-center leading-relaxed">
+                            Label: <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{pendingDecision.label}</span>
+                        </p>
+                        
+                        <div className="w-full text-left mb-7">
+                            <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-2">
+                                Analytical Memo (Optional)
+                            </label>
+                            <textarea
+                                value={decisionMemo}
+                                onChange={e => setDecisionMemo(e.target.value)}
+                                placeholder="Why are you making this decision?"
+                                className="w-full text-sm font-medium p-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all placeholder:text-slate-300 resize-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
+                                rows={3}
+                                autoFocus
+                            />
+                            <p className="text-[10px] text-slate-400 mt-2 font-medium px-1 flex items-start gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 text-indigo-400"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                                This note will be logged to the Theme codebook.
+                            </p>
+                        </div>
+
+                        <div className="flex w-full gap-3">
+                            <button onClick={() => { setPendingDecision(null); setDecisionMemo(''); }} disabled={decisionLoading} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={submitPendingDecision} disabled={decisionLoading} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                                {decisionLoading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Confirm'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-white w-full h-full max-w-[1400px] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 relative">
                 
                 {/* Header */}
                 <div className="px-8 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50 flex-shrink-0">
@@ -301,14 +360,13 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                                         onChange={e => setEditLabel(e.target.value)}
                                                         onKeyDown={e => {
                                                             if (e.key === 'Enter') {
-                                                                if(editLabel.trim()) onDecision(r.segment.id, 'OVERRIDE', editLabel); 
-                                                                setEditingRow(null);
+                                                                if(editLabel.trim()) setPendingDecision({ segmentId: r.segment.id, action: 'OVERRIDE', label: editLabel });
                                                             } else if (e.key === 'Escape') setEditingRow(null);
                                                         }}
                                                         className="border border-indigo-300 rounded px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 w-[180px] shadow-sm"
                                                     />
                                                     <div className="flex items-center gap-1">
-                                                        <button onClick={() => { if(editLabel.trim()) onDecision(r.segment.id, 'OVERRIDE', editLabel); setEditingRow(null); }} className="text-[9px] uppercase tracking-wider font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Save</button>
+                                                        <button onClick={() => { if(editLabel.trim()) setPendingDecision({ segmentId: r.segment.id, action: 'OVERRIDE', label: editLabel }); }} className="text-[9px] uppercase tracking-wider font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Save</button>
                                                         <button onClick={() => setEditingRow(null)} className="text-[9px] uppercase tracking-wider font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">Cancel</button>
                                                     </div>
                                                 </div>
@@ -357,14 +415,14 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                         <div className="flex flex-col gap-2 w-full max-w-[140px] mx-auto">
                                             {(r.suggestion.status === 'SUGGESTED' || r.suggestion.status === 'UNDER_REVIEW') && !r.isHuman ? (
                                                 <>
-                                                    <button onClick={() => onDecision(r.segment.id, 'ACCEPT')} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded shadow-sm text-xs font-bold transition-colors">
+                                                    <button onClick={() => setPendingDecision({ segmentId: r.segment.id, action: 'ACCEPT', label: r.suggestion.label })} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded shadow-sm text-xs font-bold transition-colors">
                                                         Accept
                                                     </button>
                                                     <div className="flex gap-1.5 w-full">
                                                         <button onClick={() => { setEditLabel(r.suggestion.label); setEditingRow(r.segment.id); }} className="flex-1 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-600 rounded text-xs font-bold transition-colors shadow-sm">
                                                             Edit
                                                         </button>
-                                                        <button onClick={() => onDecision(r.segment.id, 'REJECT')} className="flex-1 py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-xs font-bold transition-colors shadow-sm">
+                                                        <button onClick={() => setPendingDecision({ segmentId: r.segment.id, action: 'REJECT', label: r.suggestion.label })} className="flex-1 py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-xs font-bold transition-colors shadow-sm">
                                                             Reject
                                                         </button>
                                                     </div>
@@ -386,7 +444,7 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                                                 <div className="flex items-center justify-center gap-3">
                                                                     <button onClick={() => onDecision(r.segment.id, 'RESTORE')} className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition">Restore</button>
                                                                     <span className="text-slate-200 text-[10px]">|</span>
-                                                                    <button onClick={() => onDecision(r.segment.id, 'REJECT')} className="text-[10px] font-bold text-rose-400 hover:text-rose-600 transition">Revoke</button>
+                                                                    <button onClick={() => setPendingDecision({ segmentId: r.segment.id, action: 'REJECT', label: r.suggestion.label })} className="text-[10px] font-bold text-rose-400 hover:text-rose-600 transition">Revoke</button>
                                                                 </div>
                                                             )}
                                                         </>

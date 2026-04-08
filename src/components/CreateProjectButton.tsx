@@ -28,13 +28,16 @@ export default function CreateProjectButton({ asCard }: { asCard?: boolean }) {
                     researchQuestion: researchQuestions 
                 })
             })
-            if (!res.ok) throw new Error()
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                throw new Error(err.error || 'Failed to create project')
+            }
             
             const project = await res.json()
             setIsOpen(false)
             router.push(`/projects/${project.id}`)
-        } catch (e) {
-            alert('Failed to create project')
+        } catch (e: any) {
+            alert(e.message || 'Failed to create project')
         } finally {
             setLoading(false)
         }
