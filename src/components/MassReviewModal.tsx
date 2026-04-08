@@ -31,7 +31,7 @@ type MassReviewModalProps = {
     initialTab: 'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED'
     transcriptTitle: string
     onClose: () => void
-    onDecision: (segmentId: string, action: string, newLabel?: string, note?: string) => void | Promise<void>
+    onDecision: (segmentId: string, action: string, newLabel?: string, note?: string, suggestionId?: string) => void | Promise<void>
     onTrace: (segmentId: string) => void
 }
 
@@ -43,14 +43,14 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
     const [showConfirm, setShowConfirm] = useState(false);
 
     // Decision overlay state
-    const [pendingDecision, setPendingDecision] = useState<{ segmentId: string, action: string, label: string } | null>(null);
+    const [pendingDecision, setPendingDecision] = useState<{ segmentId: string, action: string, label: string, suggestionId?: string } | null>(null);
     const [decisionMemo, setDecisionMemo] = useState("");
     const [decisionLoading, setDecisionLoading] = useState(false);
 
     const submitPendingDecision = async () => {
         if (!pendingDecision) return;
         setDecisionLoading(true);
-        await onDecision(pendingDecision.segmentId, pendingDecision.action, pendingDecision.label, decisionMemo);
+        await onDecision(pendingDecision.segmentId, pendingDecision.action, pendingDecision.label, decisionMemo, pendingDecision.suggestionId);
         setPendingDecision(null);
         setDecisionMemo("");
         setDecisionLoading(false);
@@ -233,7 +233,8 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
         try {
             // Process sequentially to avoid overwhelming the API
             for (const r of pendingRows) {
-                await onDecision(r.segment.id, 'ACCEPT', r.suggestion.label);
+                // Pass the specific suggestionId so only that one suggestion gets accepted (not all 3 from GPT/Claude/Gemini)
+                await onDecision(r.segment.id, 'ACCEPT', r.suggestion.label, undefined, r.suggestion.id);
             }
         } finally {
             setAcceptAllLoading(false);
@@ -334,7 +335,7 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                             <tr>
                                 <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[15%]">Code / Score</th>
                                 <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[40%]">Excerpt from Transcript</th>
-                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[25%]">AI Explanation</th>
+                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[25%]">Rationale & Memos</th>
                                 <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[20%] text-center">Actions</th>
                             </tr>
                         </thead>
@@ -360,13 +361,13 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                                         onChange={e => setEditLabel(e.target.value)}
                                                         onKeyDown={e => {
                                                             if (e.key === 'Enter') {
-                                                                if(editLabel.trim()) setPendingDecision({ segmentId: r.segment.id, action: 'OVERRIDE', label: editLabel });
+                                                                if(editLabel.trim()) setPendingDecision({ segmentId: r.segment.id, action: 'OVERRIDE', label: editLabel, suggestionId: r.suggestion.id });
                                                             } else if (e.key === 'Escape') setEditingRow(null);
                                                         }}
                                                         className="border border-indigo-300 rounded px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 w-[180px] shadow-sm"
                                                     />
                                                     <div className="flex items-center gap-1">
-                                                        <button onClick={() => { if(editLabel.trim()) setPendingDecision({ segmentId: r.segment.id, action: 'OVERRIDE', label: editLabel }); }} className="text-[9px] uppercase tracking-wider font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Save</button>
+                                                        <button onClick={() => { if(editLabel.trim()) setPendingDecision({ segmentId: r.segment.id, action: 'OVERRIDE', label: editLabel, suggestionId: r.suggestion.id }); }} className="text-[9px] uppercase tracking-wider font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Save</button>
                                                         <button onClick={() => setEditingRow(null)} className="text-[9px] uppercase tracking-wider font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">Cancel</button>
                                                     </div>
                                                 </div>
@@ -398,31 +399,47 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                         </button>
                                     </td>
                                     <td className="px-6 py-5 align-top">
-                                        <p className="text-xs text-slate-500 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all">
-                                            {r.suggestion.explanation || 'No explanation provided.'}
-                                        </p>
-                                        {(r.suggestion.uncertainty && r.suggestion.uncertainty !== 'None' && r.suggestion.uncertainty.toLowerCase() !== 'low') && (
-                                            <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-slate-600 shadow-sm">
-                                                <strong className="flex items-center gap-1.5 uppercase tracking-widest text-[9px] mb-2 font-extrabold text-slate-400">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> 
-                                                    Why did AI suggest this?
-                                                </strong>
-                                                {renderTraceability(r.suggestion.uncertainty)}
+                                        <div className="flex flex-col gap-3">
+                                            {/* AI Rationale */}
+                                            <div>
+                                                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                                                    {r.suggestion.explanation || 'No AI explanation provided.'}
+                                                </p>
+                                                {(r.suggestion.uncertainty && r.suggestion.uncertainty !== 'None' && r.suggestion.uncertainty.toLowerCase() !== 'low') && (
+                                                    <div className="mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-slate-600 shadow-sm">
+                                                        <strong className="flex items-center gap-1.5 uppercase tracking-widest text-[9px] mb-2 font-extrabold text-slate-400">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> 
+                                                            AI Reliance Report
+                                                        </strong>
+                                                        {renderTraceability(r.suggestion.uncertainty)}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+
+                                            {/* Human Memo (if handled) */}
+                                            {r.suggestion.reviewDecision?.note && (
+                                                <div className="bg-purple-50 border border-purple-100 rounded-lg p-3 mt-1">
+                                                    <strong className="flex items-center gap-1.5 uppercase tracking-widest text-[9px] mb-1.5 font-extrabold text-purple-600">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                        Researcher Memo
+                                                    </strong>
+                                                    <p className="text-[11px] text-purple-900 leading-relaxed italic">"{r.suggestion.reviewDecision.note}"</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-5 align-top">
                                         <div className="flex flex-col gap-2 w-full max-w-[140px] mx-auto">
                                             {(r.suggestion.status === 'SUGGESTED' || r.suggestion.status === 'UNDER_REVIEW') && !r.isHuman ? (
                                                 <>
-                                                    <button onClick={() => setPendingDecision({ segmentId: r.segment.id, action: 'ACCEPT', label: r.suggestion.label })} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded shadow-sm text-xs font-bold transition-colors">
+                                                    <button onClick={() => setPendingDecision({ segmentId: r.segment.id, action: 'ACCEPT', label: r.suggestion.label, suggestionId: r.suggestion.id })} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded shadow-sm text-xs font-bold transition-colors">
                                                         Accept
                                                     </button>
                                                     <div className="flex gap-1.5 w-full">
                                                         <button onClick={() => { setEditLabel(r.suggestion.label); setEditingRow(r.segment.id); }} className="flex-1 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-600 rounded text-xs font-bold transition-colors shadow-sm">
                                                             Edit
                                                         </button>
-                                                        <button onClick={() => setPendingDecision({ segmentId: r.segment.id, action: 'REJECT', label: r.suggestion.label })} className="flex-1 py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-xs font-bold transition-colors shadow-sm">
+                                                        <button onClick={() => setPendingDecision({ segmentId: r.segment.id, action: 'REJECT', label: r.suggestion.label, suggestionId: r.suggestion.id })} className="flex-1 py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-xs font-bold transition-colors shadow-sm">
                                                             Reject
                                                         </button>
                                                     </div>

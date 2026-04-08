@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ReactFlow, {
     Background, Controls, MiniMap,
     Handle, Position, MarkerType,
@@ -377,6 +377,11 @@ export default function KnowledgeGraphMap({ projectId }: { projectId: string }) 
     const [showParticipants, setShowParticipants] = useState(true);
     const [modal, setModal] = useState<ModalState>({ open: false, relationType: 'RELATED_TO', description: '' });
 
+    // ── Persist dragged positions across graph refreshes ──────────────────────
+    // When user drags nodes, we save their positions here.
+    // loadGraph will use these saved positions instead of recomputing layout.
+    const savedPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
     // Connect state for point-and-click UX
     const [connectSource, setConnectSource] = useState<string | null>(null);
 
@@ -413,7 +418,8 @@ export default function KnowledgeGraphMap({ projectId }: { projectId: string }) 
             const codeNodes = data.nodes.filter((n: any) => n.type === 'codeNode');
             const participantNodes = data.nodes.filter((n: any) => n.type === 'participantNode');
 
-            const positions = computeLayout(themeNodes, codeNodes, participantNodes, showCodes, showParticipants);
+            // Compute layout for nodes that don't have a saved position yet
+            const computedPositions = computeLayout(themeNodes, codeNodes, participantNodes, showCodes, showParticipants);
 
             const layoutNodes = data.nodes
                 .filter((n: any) => {
@@ -421,11 +427,16 @@ export default function KnowledgeGraphMap({ projectId }: { projectId: string }) 
                     if (n.type === 'participantNode' && !showParticipants) return false;
                     return true;
                 })
-                .map((node: any) => ({
-                    ...node,
-                    position: positions.get(node.id) || { x: 400, y: 400 },
-                    draggable: true,
-                }));
+                .map((node: any) => {
+                    // Prefer the user's last-dragged position if available, fall back to computed layout
+                    const userPos = savedPositionsRef.current.get(node.id);
+                    const position = userPos ?? computedPositions.get(node.id) ?? { x: 400, y: 400 };
+                    return {
+                        ...node,
+                        position,
+                        draggable: true,
+                    };
+                });
 
             const filteredEdges = data.edges.filter((e: any) => {
                 if (e.type === 'belongsToEdge' && !showCodes) return false;
@@ -450,6 +461,19 @@ export default function KnowledgeGraphMap({ projectId }: { projectId: string }) 
     }, [projectId, showCodes, showParticipants, setNodes, setEdges, buildDisplayEdges]);
 
     useEffect(() => { loadGraph(); }, [loadGraph]);
+
+    // Intercept node position changes to persist dragged positions
+    const handleNodesChange = useCallback((changes: any[]) => {
+        // In ReactFlow, `change.position` is only present while dragging (dragging=true).
+        // On drag END event (dragging=false), position is undefined — so we must save
+        // on every event that has a position, not just the final one.
+        changes.forEach(change => {
+            if (change.type === 'position' && change.position) {
+                savedPositionsRef.current.set(change.id, change.position);
+            }
+        });
+        onNodesChange(changes);
+    }, [onNodesChange]);
 
     // Keep edge callbacks fresh
     useEffect(() => {
@@ -654,7 +678,7 @@ export default function KnowledgeGraphMap({ projectId }: { projectId: string }) 
                     }
                 }))}
                 edges={edges}
-                onNodesChange={onNodesChange}
+                onNodesChange={handleNodesChange}
                 onEdgesChange={onEdgesChange}
                 onNodeClick={onNodeClick}
                 onPaneClick={onPaneClick}

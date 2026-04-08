@@ -83,7 +83,7 @@ export default function TranscriptWorkspace({
     const [showMassReview, setShowMassReview] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | null>(null)
     const [showEditConfirm, setShowEditConfirm] = useState(false)
 
-    const handleDecision = useCallback(async (segId: string, action: string, label?: string, note?: string) => {
+    const handleDecision = useCallback(async (segId: string, action: string, label?: string, note?: string, specificSuggestionId?: string) => {
         // Find the segment to get its suggestions
         const seg = segments.find(s => s.id === segId)
         if (!seg) return
@@ -91,8 +91,14 @@ export default function TranscriptWorkspace({
         // Map action names to API action names
         const apiAction = action === 'ACCEPT' ? 'ACCEPT' : action === 'REJECT' ? 'REJECT' : action === 'RESTORE' ? 'RESTORE' : 'OVERRIDE'
 
-        // Call API for each suggestion in the segment (mirrors AIComparePanel behavior)
-        const suggestionsToReview = seg.suggestions.filter(sg => sg.status !== 'REJECTED' || action === 'RESTORE')
+        // If a specific suggestion is targeted (e.g. from mass review), only call API for that one.
+        // Otherwise (AIComparePanel), mirror action across all non-rejected suggestions in the segment.
+        const suggestionsToReview = specificSuggestionId
+            ? seg.suggestions.filter(sg => sg.id === specificSuggestionId)
+            : seg.suggestions.filter(sg => sg.status !== 'REJECTED' || action === 'RESTORE')
+
+        if (suggestionsToReview.length === 0) return
+
         await Promise.allSettled(
             suggestionsToReview.map(sg =>
                 fetch(`/api/segments/${segId}/review`, {
@@ -108,10 +114,14 @@ export default function TranscriptWorkspace({
             s.id === segId
                 ? {
                     ...s,
-                    suggestions: s.suggestions.map(sg => ({
-                        ...sg,
-                        status: action === 'ACCEPT' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : action === 'RESTORE' ? 'SUGGESTED' : 'MODIFIED'
-                    }))
+                    suggestions: s.suggestions.map(sg => {
+                        // Only update the targeted suggestion(s)
+                        if (specificSuggestionId && sg.id !== specificSuggestionId) return sg
+                        return {
+                            ...sg,
+                            status: action === 'ACCEPT' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : action === 'RESTORE' ? 'SUGGESTED' : 'MODIFIED'
+                        }
+                    })
                 }
                 : s
         ))

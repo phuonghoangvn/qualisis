@@ -76,7 +76,7 @@ export default function Sidebar({ project }: { project: Project }) {
                     <span className={isPrepareActive ? 'text-indigo-600' : 'text-slate-400'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
                     </span>
-                    {!collapsed && <span className="text-sm">① Prepare Data</span>}
+                    {!collapsed && <span className="text-sm">① Upload & Prepare</span>}
                 </Link>
 
                 {/* ② Coding */}
@@ -93,7 +93,7 @@ export default function Sidebar({ project }: { project: Project }) {
                             <span className={isCodingActive ? 'text-indigo-600' : 'text-slate-400'}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
                             </span>
-                            {!collapsed && <span className="text-sm">② Coding</span>}
+                            {!collapsed && <span className="text-sm">② Read & Code</span>}
                         </div>
                         {!collapsed && (
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${codingOpen ? 'rotate-180' : ''}`}>
@@ -171,7 +171,7 @@ export default function Sidebar({ project }: { project: Project }) {
                     <span className={isReportActive ? 'text-indigo-600' : 'text-slate-400'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
                     </span>
-                    {!collapsed && <span className="text-sm">⑤ Report</span>}
+                    {!collapsed && <span className="text-sm">⑤ Export Report</span>}
                 </Link>
 
                 {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mt-6 mb-2">Utilities</div>}

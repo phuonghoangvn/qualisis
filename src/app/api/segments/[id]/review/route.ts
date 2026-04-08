@@ -65,7 +65,7 @@ export async function POST(
 
         // If ACCEPT or OVERRIDE: create/update CodeAssignment
         if (action === 'ACCEPT' || action === 'OVERRIDE') {
-            const finalLabel = action === 'OVERRIDE' && customLabel ? customLabel : suggestion.label
+            const finalLabel = customLabel ? customLabel : suggestion.label
 
             // Find or create codebook entry
             let codebookEntry = await prisma.codebookEntry.findFirst({

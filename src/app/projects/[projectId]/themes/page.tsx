@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import ThematicMatrixView from '@/components/ThematicMatrixView'
 import KnowledgeGraphMap from '@/components/KnowledgeGraphMap'
+import ConfirmModal from '@/components/ConfirmModal'
 type CodeEntry = {
     id: string
     name: string
@@ -509,6 +510,38 @@ Rules:
     const [tracingQuotes, setTracingQuotes] = useState<any[]>([])
     const [tracingLoading, setTracingLoading] = useState(false)
 
+    // Observation Code creation panel state
+    const [showObsPanel, setShowObsPanel] = useState(false)
+    const [obsForm, setObsForm] = useState({ label: '', note: '', context: '' })
+    const [obsSaving, setObsSaving] = useState(false)
+
+    // Code Deletion state
+    const [codeToDelete, setCodeToDelete] = useState<{id: string, name: string} | null>(null)
+
+    const createObservationCode = async () => {
+        if (!obsForm.label.trim()) return
+        setObsSaving(true)
+        try {
+            await fetch('/api/codebook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId,
+                    name: obsForm.label.trim(),
+                    definition: obsForm.note.trim() || null,
+                    memo: obsForm.context.trim() || null,
+                    type: 'OBSERVATION',
+                    examplesIn: '',
+                    examplesOut: '',
+                })
+            })
+            setObsForm({ label: '', note: '', context: '' })
+            setShowObsPanel(false)
+            fetchData()
+        } catch {}
+        setObsSaving(false)
+    }
+
 
 
 
@@ -645,25 +678,15 @@ Rules:
                 .map((c: any) => ({
                     id: c.id,
                     name: c.name,
-                    type: c.type === 'RAW' ? (c.name ? 'AI-ASSISTED' : 'MANUAL') : c.type,
+                    // Rely entirely on the type computed and returned by the API
+                    type: c.type,
                     instances: c._count?.codeAssignments ?? 0,
                     definition: c.definition,
                     participants: c.participants
                 }))
 
-            // Infer type from how the codebook entry was created
-            // If it has AI suggestion links, mark as AI-ASSISTED, else MANUAL
-            const enriched = unassigned.map((code: CodeEntry) => {
-                // Find the original code to check assignments
-                const origCode = allCodes.find((c: any) => c.id === code.id)
-                const hasAISuggestion = origCode?.codeAssignments?.some((a: any) => a.aiSuggestionId)
-                return {
-                    ...code,
-                    type: hasAISuggestion ? 'AI-ASSISTED' : 'MANUAL'
-                }
-            })
+            setUnassignedCodes(unassigned)
 
-            setUnassignedCodes(enriched)
         } catch (e) {
             console.error('Failed to fetch data:', e)
         } finally {
@@ -814,7 +837,14 @@ Rules:
                                 Unassigned Codes
                             </h2>
                             <div className="flex items-center gap-2">
-
+                                <button
+                                    onClick={() => setShowObsPanel(true)}
+                                    title="Add an observation code not tied to a specific quote"
+                                    className="flex items-center gap-1 text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 hover:bg-violet-100 px-2 py-1 rounded-lg transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Observation
+                                </button>
                                 <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-sm">
                                     {unassignedCodes.length}
                                 </span>
@@ -844,51 +874,93 @@ Rules:
                                 </div>
                             ) : (
                                 unassignedCodes.map(code => (
-                                    <div 
-                                        key={code.id}
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, { codeId: code.id })}
-                                        className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all cursor-grab active:cursor-grabbing group"
-                                    >
-                                        <div className="flex items-start justify-between mb-2">
-                                            <h3 className="text-[13px] font-bold text-slate-800 leading-snug pr-4">{code.name}</h3>
-                                            <button 
-                                                onClick={() => {
-                                                    if (confirm(`Remove code "${code.name}"? This removes the Codebook Entry. Original quotes will go back to 'Pending AI Review' status in transcripts.`)) {
-                                                        fetch(`/api/codebook/${code.id}`, { method: 'DELETE' }).then(() => fetchData())
-                                                    }
-                                                }}
-                                                className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Remove code"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                            </button>
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                    {code.participants?.map(p => (
-                                                        <span key={p.id} className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${getParticipantColor(p.name)}`} title={`From transcript: ${p.name}`}>
-                                                            <span className="w-1 h-1 rounded-full bg-current opacity-75"></span>
-                                                            {p.name.length > 10 ? p.name.substring(0, 10) + '...' : p.name}
-                                                        </span>
-                                                    ))}
+                                        <div 
+                                            key={code.id}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, { codeId: code.id })}
+                                            className={`bg-white border rounded-xl p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group ${
+                                                code.type === 'OBSERVATION'
+                                                    ? 'border-violet-200 hover:border-violet-400'
+                                                    : 'border-slate-200 hover:border-indigo-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1 mb-1.5">
+                                                        {code.type === 'OBSERVATION' && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                                Observation
+                                                            </span>
+                                                        )}
+                                                        {code.type === 'AI-ASSISTED' && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275z"/></svg>
+                                                                AI Suggested
+                                                            </span>
+                                                        )}
+                                                        {code.type === 'MANUAL' && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                                                Human Created
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <h3 className="text-[13px] font-bold text-slate-800 leading-snug pr-4">{code.name}</h3>
                                                 </div>
-                                                <span className="text-[10px] font-medium text-slate-400 whitespace-nowrap ml-2">{code.instances} instances</span>
+                                                <button 
+                                                    onClick={() => setCodeToDelete({ id: code.id, name: code.name })}
+                                                    className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                                    title="Remove code"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                </button>
                                             </div>
-                                            <div className="flex items-center justify-end">
-                                            <button 
-                                                onClick={() => openTrace(code.id, code.name)} 
-                                                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                                                title="View original quotes"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
-                                                Trace
-                                            </button>
+                                            <div className="flex flex-col gap-2">
+                                                {code.type === 'OBSERVATION' ? (
+                                                    // Observation codes: show the note/definition instead of participant chips
+                                                    code.definition ? (
+                                                        <p className="text-[10px] text-violet-600 italic leading-relaxed line-clamp-2">{code.definition}</p>
+                                                    ) : (
+                                                        <p className="text-[10px] text-slate-300 italic">No reflexive note yet</p>
+                                                    )
+                                                ) : (
+                                                    <div className="flex flex-col gap-2">
+                                                        {code.definition && (
+                                                            <div className="bg-slate-50 border border-slate-100 rounded p-2">
+                                                                <p className="text-[9px] text-slate-500 italic leading-relaxed line-clamp-2" title={code.definition}>
+                                                                    {code.definition.includes('[Researcher Note]') ? code.definition.split('[Researcher Note]')[1].replace(':', '').trim() : code.definition}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                {code.participants?.map(p => (
+                                                                    <span key={p.id} className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${getParticipantColor(p.name)}`} title={`From transcript: ${p.name}`}>
+                                                                        <span className="w-1 h-1 rounded-full bg-current opacity-75"></span>
+                                                                        {p.name.length > 10 ? p.name.substring(0, 10) + '...' : p.name}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                            <span className="text-[10px] font-medium text-slate-400 whitespace-nowrap ml-2">{code.instances} instances</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {code.type !== 'OBSERVATION' && (
+                                                    <div className="flex items-center justify-end mt-1">
+                                                        <button 
+                                                            onClick={() => openTrace(code.id, code.name)} 
+                                                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                                            title="View original quotes"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
+                                                            Trace
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        </div>
-                                    </div>
-                                ))
+                                    ))
                             )}
                         </div>
                     </div>
@@ -1390,6 +1462,121 @@ Rules:
                     </div>
                 </div>
             )}
+
+            {/* ── Observation Code Creation Panel ── */}
+            {showObsPanel && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowObsPanel(false)}>
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-slate-200"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-violet-50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-[14px] font-extrabold text-violet-900">New Observation Code</h3>
+                                    <p className="text-[10px] text-violet-500 font-medium">Capture latent meanings not tied to a specific quote</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowObsPanel(false)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </div>
+
+                        {/* Form */}
+                        <div className="p-6 space-y-4">
+                            {/* Code Label */}
+                            <div>
+                                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-1.5">
+                                    Code Label <span className="text-rose-400">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={obsForm.label}
+                                    onChange={e => setObsForm(f => ({ ...f, label: e.target.value }))}
+                                    onKeyDown={e => { if (e.key === 'Enter' && obsForm.label.trim()) createObservationCode() }}
+                                    placeholder="E.g., Nervous body language, Unspoken grief…"
+                                    className="w-full text-[13px] font-medium border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent text-slate-800 placeholder:text-slate-300 bg-slate-50 focus:bg-white transition-colors"
+                                />
+                            </div>
+
+                            {/* Reflexive Note */}
+                            <div>
+                                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-1.5">
+                                    Reflexive Note <span className="font-normal text-slate-300 normal-case">(optional)</span>
+                                </label>
+                                <textarea
+                                    value={obsForm.note}
+                                    onChange={e => setObsForm(f => ({ ...f, note: e.target.value }))}
+                                    placeholder="Why are you coding this? What evidence — verbal, non-verbal, or contextual — supports this observation?"
+                                    rows={3}
+                                    className="w-full text-[12px] font-medium border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent text-slate-700 placeholder:text-slate-300 bg-slate-50 focus:bg-white transition-colors resize-none leading-relaxed"
+                                />
+                                <p className="text-[9px] text-slate-400 mt-1 px-1">📌 Saved to the Codebook definition. Supports reflexivity in your research write-up.</p>
+                            </div>
+
+                            {/* Context */}
+                            <div>
+                                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-1.5">
+                                    Context — Participant / Setting <span className="font-normal text-slate-300 normal-case">(optional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={obsForm.context}
+                                    onChange={e => setObsForm(f => ({ ...f, context: e.target.value }))}
+                                    placeholder="E.g., P1 and P3, interview room, phone call…"
+                                    className="w-full text-[12px] font-medium border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent text-slate-700 placeholder:text-slate-300 bg-slate-50 focus:bg-white transition-colors"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                            <p className="text-[10px] text-slate-400 italic max-w-[220px] leading-relaxed">This code will appear in Unassigned Codes and can be dragged into any theme.</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowObsPanel(false)}
+                                    className="px-4 py-2 text-[12px] font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={createObservationCode}
+                                    disabled={!obsForm.label.trim() || obsSaving}
+                                    className="px-5 py-2 bg-violet-600 text-white text-[12px] font-bold rounded-xl hover:bg-violet-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+                                >
+                                    {obsSaving ? (
+                                        <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving…</>
+                                    ) : (
+                                        <><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Create Code</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* General Delete Confirmation */}
+            <ConfirmModal
+                isOpen={codeToDelete !== null}
+                title="Remove Code"
+                message={`Are you sure you want to remove the code "${codeToDelete?.name}"?\n\nThis will remove the Codebook Entry. Any original quotes will go back to 'Pending AI Review' status.`}
+                confirmText="Remove"
+                isDestructive={true}
+                onConfirm={async () => {
+                    if (codeToDelete) {
+                        await fetch(`/api/codebook/${codeToDelete.id}`, { method: 'DELETE' })
+                        setCodeToDelete(null)
+                        fetchData()
+                    }
+                }}
+                onCancel={() => setCodeToDelete(null)}
+            />
         </div>
     )
 }

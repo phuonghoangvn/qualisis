@@ -58,18 +58,57 @@ export default async function ProjectDashboard({
             <main className="flex-1 flex overflow-y-auto bg-slate-50/50">
                 {project.datasets.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center p-8 bg-slate-50/50">
-                        <div className="max-w-md w-full bg-white border border-slate-100 p-12 rounded-[24px] shadow-xl shadow-slate-200/50 text-center relative overflow-hidden">
-                            <div className="w-24 h-24 bg-indigo-50/80 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-8 relative z-10 border border-indigo-100/50 shadow-inner">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-upload-cloud"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+                        <div className="max-w-4xl w-full bg-white border border-slate-100 p-10 rounded-[32px] shadow-xl shadow-slate-200/50 relative overflow-hidden flex flex-col md:flex-row gap-10 items-center">
+                            {/* Left Side: Steps */}
+                            <div className="flex-1 w-full md:pr-10 md:border-r border-slate-100 relative">
+                                <h2 className="text-3xl font-extrabold text-slate-900 mb-3 tracking-tight">Quick Start Guide</h2>
+                                <p className="text-slate-500 mb-10 text-sm leading-relaxed font-medium">Follow these core steps to complete your qualitative analysis.</p>
+                                
+                                <div className="space-y-8 relative before:absolute before:inset-0 before:ml-[19px] before:-translate-x-px before:h-full before:w-[2px] before:bg-slate-100">
+                                    <div className="relative flex items-start gap-5">
+                                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white shadow-sm text-sm">1</div>
+                                        <div className="pt-2">
+                                            <h4 className="font-bold text-slate-800 text-sm">Upload Data</h4>
+                                            <p className="text-sm text-slate-500 mt-1">Import TXT, DOCX, or PDF files to begin.</p>
+                                        </div>
+                                    </div>
+                                    <div className="relative flex items-start gap-5 opacity-50">
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white text-sm">2</div>
+                                        <div className="pt-2">
+                                            <h4 className="font-bold text-slate-800 text-sm">Read & Code</h4>
+                                            <p className="text-sm text-slate-500 mt-1">Highlight text segments and assign thematic codes.</p>
+                                        </div>
+                                    </div>
+                                    <div className="relative flex items-start gap-5 opacity-50">
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white text-sm">3</div>
+                                        <div className="pt-2">
+                                            <h4 className="font-bold text-slate-800 text-sm">Build Themes</h4>
+                                            <p className="text-sm text-slate-500 mt-1">Group your codes into overarching themes.</p>
+                                        </div>
+                                    </div>
+                                    <div className="relative flex items-start gap-5 opacity-50">
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white text-sm">4</div>
+                                        <div className="pt-2">
+                                            <h4 className="font-bold text-slate-800 text-sm">Export Report</h4>
+                                            <p className="text-sm text-slate-500 mt-1">Review the codebook and generate summaries.</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight relative z-10">Upload your first transcript</h2>
-                            <p className="text-slate-500 mb-8 leading-relaxed font-medium relative z-10">
-                                Begin your qualitative analysis by importing interview transcripts, field notes, or focus group data.
-                            </p>
-                            
-                            <UploadDatasetWrapper projectId={project.id} asCard />
 
-                            <p className="text-xs font-medium text-slate-400 relative z-10 mt-5">Supported formats: TXT, DOCX, PDF, VTT.</p>
+                            {/* Right Side: Upload Action */}
+                            <div className="flex-[0.8] w-full flex flex-col items-center text-center py-6">
+                                <div className="w-24 h-24 bg-indigo-50/80 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-indigo-100/50 shadow-inner">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+                                </div>
+                                <h3 className="text-xl font-extrabold text-slate-900 mb-2">Step 1: Get Started</h3>
+                                <p className="text-sm text-slate-500 mb-8 px-4 font-medium">Create your first dataset to unlock the entire analysis workspace.</p>
+                                
+                                <div className="w-full max-w-[300px]">
+                                    <UploadDatasetWrapper projectId={project.id} asCard />
+                                </div>
+                                <p className="text-xs font-medium text-slate-400 mt-5">Supported formats: TXT, DOCX, PDF, VTT.</p>
+                            </div>
                         </div>
                     </div>
                 ) : (

@@ -28,25 +28,34 @@ export async function GET(req: Request) {
             orderBy: { createdAt: 'desc' }
         })
         
-        // Filter out orphan codes and extract unique participants
-        const validEntries = entries.filter(e => e._count.codeAssignments > 0).map(e => {
-            const participantsMap = new Map<string, {id: string, name: string}>()
-            
-            for (const ca of e.codeAssignments) {
-                const tr = ca.segment?.transcript
-                if (tr && !participantsMap.has(tr.id)) {
-                    participantsMap.set(tr.id, { id: tr.id, name: tr.title })
+        // Filter out orphan codes (0 assignments), EXCEPT OBSERVATION type codes
+        // which intentionally have no transcript segments
+        const validEntries = entries
+            .filter(e => e.type === 'OBSERVATION' || e._count.codeAssignments > 0)
+            .map(e => {
+                const participantsMap = new Map<string, {id: string, name: string}>()
+                let hasAISuggestion = false
+                
+                for (const ca of e.codeAssignments) {
+                    if (ca.aiSuggestionId) hasAISuggestion = true
+                    const tr = ca.segment?.transcript
+                    if (tr && !participantsMap.has(tr.id)) {
+                        participantsMap.set(tr.id, { id: tr.id, name: tr.title })
+                    }
                 }
-            }
-            
-            // Remove codeAssignments to save bandwidth
-            const { codeAssignments, ...rest } = e as any
-            
-            return {
-                ...rest,
-                participants: Array.from(participantsMap.values())
-            }
-        })
+                
+                // If it's an OBSERVATION, keep it. Otherwise compute AI-ASSISTED or MANUAL
+                const computedType = e.type === 'OBSERVATION' ? 'OBSERVATION' : (hasAISuggestion ? 'AI-ASSISTED' : 'MANUAL')
+
+                // Remove codeAssignments to save bandwidth
+                const { codeAssignments, type, ...rest } = e as any
+                
+                return {
+                    ...rest,
+                    type: computedType,
+                    participants: Array.from(participantsMap.values())
+                }
+            })
         
         return NextResponse.json(validEntries)
     } catch (e) {
