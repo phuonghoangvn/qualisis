@@ -9,7 +9,12 @@ export async function DELETE(
     try {
         const { projectId, themeId } = params
 
-        // Delete code links first (cascade might handle it, but be explicit)
+        // Delete relations referencing this theme first (avoids FK constraint violations)
+        await prisma.themeRelation.deleteMany({
+            where: { OR: [{ sourceId: themeId }, { targetId: themeId }] }
+        })
+
+        // Delete code links
         await prisma.themeCodeLink.deleteMany({
             where: { themeId }
         })

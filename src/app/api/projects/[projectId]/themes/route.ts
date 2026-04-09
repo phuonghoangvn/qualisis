@@ -10,7 +10,10 @@ export async function GET(
 ) {
     try {
         const themes = await prisma.theme.findMany({
-            where: { projectId: params.projectId },
+            where: { 
+                projectId: params.projectId,
+                status: { not: 'MERGED' } 
+            },
             include: {
                 codeLinks: {
                     include: {
@@ -47,7 +50,7 @@ export async function GET(
         const validThemes = themes.map(theme => {
             const themeParticipantMap = new Map<string, {id: string, name: string}>()
 
-            const validLinks = theme.codeLinks.filter(link => link.codebookEntry._count.codeAssignments > 0).map(link => {
+            const validLinks = theme.codeLinks.filter(link => link.codebookEntry._count.codeAssignments > 0 || link.codebookEntry.type === 'OBSERVATION').map(link => {
                 const codeParticipantMap = new Map<string, {id: string, name: string}>()
                 const sampleQuotes: { segmentId: string; text: string; participantName: string; transcriptId: string }[] = []
 

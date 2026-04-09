@@ -111,7 +111,7 @@ Return a JSON array:
     "reason": "Detailed analytical reasoning: What pattern did you observe? Why is this grouping meaningful? What does it reveal about the participants' experiences?",
     "confidenceScore": 85,
     "connections": "How does this theme connect to or influence other themes? What is its role in the bigger picture?",
-    "codeNames": ["Code Name 1", "Code Name 2", "Code Name 3"]
+    "codeNames": ["MUST exactly match the Code names provided above", "Another exact Code Name"]
   }
 ]
 Return ONLY the JSON array. No markdown wrappers.`
@@ -143,13 +143,17 @@ Return ONLY the JSON array. No markdown wrappers.`
                 reason: s.reason || null,
                 confidenceScore: typeof s.confidenceScore === 'number' ? s.confidenceScore : null,
                 connections: s.connections || null,
-                codes: s.codeNames?.map((name: string) => {
-                    const entry = unassignedCodes.find(c => 
-                        c.name.toLowerCase() === name.toLowerCase()
-                    )
-                    return entry ? { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type } : null
-                }).filter(Boolean) || []
-            }))
+                codes: (s.codeNames || []).map((name: string) => {
+                    const cleanName = name.trim().toLowerCase();
+                    // 1. Exact match attempt
+                    let entry = unassignedCodes.find(c => c.name.toLowerCase() === cleanName);
+                    // 2. Fuzzy match fallback
+                    if (!entry) {
+                        entry = unassignedCodes.find(c => c.name.toLowerCase().includes(cleanName) || cleanName.includes(c.name.toLowerCase()));
+                    }
+                    return entry ? { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type } : null;
+                }).filter(Boolean)
+            })).filter((s: any) => s.codes && s.codes.length > 0);
 
             return NextResponse.json({ suggestions: enriched, source: 'ai' })
         } catch (parseErr) {

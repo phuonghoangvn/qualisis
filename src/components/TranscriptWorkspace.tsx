@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import AIComparePanel from './AIComparePanel'
@@ -290,37 +290,40 @@ export default function TranscriptWorkspace({
         return byModel
     }
 
-    const renderTranscript = () => {
-        const content = transcript.content;
-        
-        // 1. Identify Speaker Tags using Regex
-        type DisplaySegment = 
-            | { type: 'highlight', id: string, startIndex: number, endIndex: number, seg: Segment }
-            | { type: 'speaker', id: string, startIndex: number, endIndex: number, label: string }
+    type DisplaySegment = 
+        | { type: 'highlight', id: string, startIndex: number, endIndex: number, seg: Segment }
+        | { type: 'speaker', id: string, startIndex: number, endIndex: number, label: string }
 
-        const displaySegments: DisplaySegment[] = [];
+    const displaySegments = useMemo(() => {
+        const content = transcript.content;
+        const dsArr: DisplaySegment[] = [];
         
-        // Match things like "P1:", "Interviewer:", "Participant 1 :" at the beginning of lines
-        const speakerRegex = /^([A-Za-z0-9_ -]+)\s*:\s*/gm;
+        const speakerRegex = /^([A-Za-z_][A-Za-z0-9_ -]*)\s*:|^((?:\[?\d{1,2}:)?\d{2}:\d{2}\]?)\s+([A-Za-z_][A-Za-z0-9_ -]+)\s*$/gm;
         let match;
         while ((match = speakerRegex.exec(content)) !== null) {
-            const rawTag = match[1].trim();
-            let label = rawTag.toUpperCase() + ' :'; // Default fallback
-            
-            // Map against metadata if available
+            let rawTag = '';
+            let timestamp = '';
+            if (match[1]) {
+                rawTag = match[1].trim();
+            } else if (match[3]) {
+                timestamp = match[2].trim();
+                rawTag = match[3].trim();
+            }
+            if (!rawTag) continue;
+
+            let label = rawTag.toUpperCase();
             if (transcript.metadata) {
                 const { interviewer, participants } = transcript.metadata;
                 if (interviewer && interviewer['Speaker Tag']?.toLowerCase() === rawTag.toLowerCase()) {
-                    label = 'INTERVIEWER :';
+                    label = 'INTERVIEWER';
                 } else if (participants) {
                     const p = participants.find((p: any) => p['Speaker Tag']?.toLowerCase() === rawTag.toLowerCase());
-                    if (p) {
-                        label = `PARTICIPANT (${rawTag}) :`;
-                    }
+                    if (p) label = `PARTICIPANT (${rawTag})`;
                 }
             }
+            if (timestamp) label = `${label} • ${timestamp}`;
 
-            displaySegments.push({
+            dsArr.push({
                 type: 'speaker',
                 id: `spk-${match.index}`,
                 startIndex: match.index,
@@ -329,10 +332,9 @@ export default function TranscriptWorkspace({
             });
         }
 
-        // Add AI segments if analysis has run
         if (analysisRun && segments.length > 0) {
             for (const seg of segments) {
-                displaySegments.push({
+                dsArr.push({
                     type: 'highlight',
                     id: seg.id,
                     startIndex: seg.startIndex,
@@ -341,11 +343,17 @@ export default function TranscriptWorkspace({
                 });
             }
         }
+        dsArr.sort((a, b) => a.startIndex - b.startIndex);
+        return dsArr;
+    }, [transcript.content, transcript.metadata, analysisRun, segments]);
 
-        // Sort all segments by startIndex
-        displaySegments.sort((a, b) => a.startIndex - b.startIndex);
+    const renderTranscript = () => {
+        const content = transcript.content;
 
-        const parts: React.ReactNode[] = [];
+        const blocks: { isSpeaker: boolean; label: string; nodes: React.ReactNode[] }[] = [];
+        let currentBlock = { isSpeaker: false, label: '', nodes: [] as React.ReactNode[] };
+        const pushNode = (node: React.ReactNode) => currentBlock.nodes.push(node);
+        
         let cursor = 0;
 
         for (const ds of displaySegments) {
@@ -359,19 +367,21 @@ export default function TranscriptWorkspace({
 
             // Text before segment
             if (actualStart > cursor) {
-                parts.push(
+                let chunk = content.slice(cursor, actualStart);
+                // Collapse excessive newlines often produced by parsers
+                chunk = chunk.replace(/\n{3,}/g, '\n\n');
+                pushNode(
                     <span key={`pre-${ds.id}`}>
-                        {content.slice(cursor, actualStart)}
+                        {chunk}
                     </span>
                 );
             }
 
             if (ds.type === 'speaker') {
-                parts.push(
-                    <div key={ds.id} className="mt-10 mb-5 text-[11px] font-extrabold text-slate-400 uppercase tracking-[0.15em] select-none block w-full text-left break-normal">
-                        {ds.label}
-                    </div>
-                );
+                if (currentBlock.nodes.length > 0 || currentBlock.isSpeaker) {
+                    blocks.push(currentBlock);
+                }
+                currentBlock = { isSpeaker: true, label: ds.label, nodes: [] };
                 cursor = Math.max(cursor, ds.endIndex);
             } else if (ds.type === 'highlight') {
                 const seg = ds.seg!;
@@ -470,7 +480,7 @@ export default function TranscriptWorkspace({
                 const textToRender = content.slice(actualStart, textEnd);
                 
                 if (textToRender.length > 0) {
-                    parts.push(
+                    pushNode(
                         <span
                             key={`${seg.id}-${actualStart}`}
                             className={cls}
@@ -501,10 +511,59 @@ export default function TranscriptWorkspace({
 
         // Trailing text
         if (cursor < content.length) {
-            parts.push(<span key="trail">{content.slice(cursor)}</span>);
+            let finalChunk = content.slice(cursor);
+            finalChunk = finalChunk.replace(/\n{3,}/g, '\n\n');
+            pushNode(
+                <span key="post-final">
+                    {finalChunk}
+                </span>
+            );
         }
 
-        return parts;
+        if (currentBlock.nodes.length > 0 || currentBlock.isSpeaker) {
+            blocks.push(currentBlock);
+        }
+
+        const palette = [
+            { bar: 'bg-indigo-500/90', bg: 'bg-indigo-50/80', text: 'text-indigo-700' },
+            { bar: 'bg-emerald-500/90', bg: 'bg-emerald-50/80', text: 'text-emerald-700' },
+            { bar: 'bg-rose-500/90', bg: 'bg-rose-50/80', text: 'text-rose-700' },
+            { bar: 'bg-amber-500/90', bg: 'bg-amber-50/80', text: 'text-amber-700' },
+            { bar: 'bg-cyan-500/90', bg: 'bg-cyan-50/80', text: 'text-cyan-700' },
+        ];
+        const interviewerColor = { bar: 'bg-slate-400/90', bg: 'bg-slate-50/80', text: 'text-slate-600' };
+        
+        const knownSpeakers: Record<string, typeof palette[0]> = {};
+        let colorIdx = 0;
+
+        return blocks.map((b, i) => {
+            if (!b.isSpeaker) {
+                return b.nodes.length > 0 ? <span key={`nonspeaker-${i}`}>{b.nodes}</span> : null;
+            }
+
+            const baseName = b.label.split('•')[0].trim();
+            let cStyle = interviewerColor;
+            
+            if (baseName !== 'INTERVIEWER') {
+                if (!knownSpeakers[baseName]) {
+                    knownSpeakers[baseName] = palette[colorIdx % palette.length];
+                    colorIdx++;
+                }
+                cStyle = knownSpeakers[baseName];
+            }
+
+            return (
+                <div key={`block-${i}`} className="mb-6 mt-4 border border-slate-200 rounded-[14px] shadow-sm bg-white overflow-hidden relative break-inside-avoid">
+                    <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${cStyle.bar}`} />
+                    <div className={`${cStyle.bg} border-b border-slate-100 px-5 py-2.5 font-extrabold ${cStyle.text} text-[10.5px] uppercase tracking-widest pl-6 shadow-[inset_0_1px_rgba(255,255,255,1)]`}>
+                        {b.label}
+                    </div>
+                    <div className="px-6 py-4 pb-5 text-[14.5px] leading-[2.25rem] text-slate-700">
+                        {b.nodes}
+                    </div>
+                </div>
+            );
+        });
     }
 
     const aiModels = [
@@ -689,12 +748,12 @@ export default function TranscriptWorkspace({
                             <textarea
                                 value={editedContent}
                                 onChange={(e) => setEditedContent(e.target.value)}
-                                className="text-[14.5px] leading-[3rem] text-slate-700 w-full min-h-[600px] border-0 outline-none resize-none font-medium custom-scrollbar"
+                                className="text-[14.5px] leading-[2.25rem] text-slate-700 w-full min-h-[600px] border-0 outline-none resize-none font-medium custom-scrollbar"
                                 spellCheck={false}
                                 placeholder="Edit your transcript here..."
                             />
                         ) : (
-                            <div onClick={handleTranscriptClick} className="text-[14.5px] leading-[3rem] text-slate-700 whitespace-pre-wrap break-words w-full max-w-full font-medium text-left">
+                            <div onClick={handleTranscriptClick} className="text-[14.5px] leading-[2.25rem] text-slate-700 whitespace-pre-wrap break-words w-full max-w-full font-medium text-left">
                                 {renderTranscript()}
                             </div>
                         )}
@@ -800,7 +859,10 @@ export default function TranscriptWorkspace({
             {/* Mass Review Modal */}
             {showMassReview !== null && (
                 <MassReviewModal 
-                    segments={segments}
+                    segments={segments.map((seg) => {
+                        const speakersBefore = displaySegments.filter((s) => s.type === 'speaker' && s.startIndex <= seg.startIndex);
+                        return { ...seg, speaker: speakersBefore.length > 0 && speakersBefore[speakersBefore.length - 1].type === 'speaker' ? (speakersBefore[speakersBefore.length - 1] as Extract<DisplaySegment, { type: 'speaker' }>).label.split('•')[0].trim() : null };
+                    })}
                     initialTab={showMassReview}
                     transcriptTitle={transcript.title}
                     onClose={() => setShowMassReview(null)}

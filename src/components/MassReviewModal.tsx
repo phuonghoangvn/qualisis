@@ -424,6 +424,12 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                         </div>
                                     </td>
                                     <td className="px-6 py-5 align-top">
+                                        <div className="mb-2.5">
+                                            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100/80 text-slate-600 text-[9px] font-extrabold uppercase tracking-widest border border-slate-200/60 shadow-[inset_0_1px_rgba(255,255,255,0.8)]">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                                {transcriptTitle}
+                                            </span>
+                                        </div>
                                         <div className="relative pl-3 border-l-2 border-indigo-200">
                                             <p className="text-[13px] text-slate-700 leading-relaxed italic line-clamp-4 group-hover:line-clamp-none transition-all">"{r.segment.text}"</p>
                                         </div>

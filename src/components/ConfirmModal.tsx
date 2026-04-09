@@ -39,7 +39,7 @@ export default function ConfirmModal({
     if (!isOpen || !mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full outline outline-1 outline-slate-200/60 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <div className="p-5">
                     <h3 className={`text-[17px] font-extrabold mb-2 ${isDestructive ? 'text-red-600' : 'text-slate-800'}`}>
