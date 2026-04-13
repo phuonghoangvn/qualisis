@@ -13,6 +13,12 @@ export async function POST(
             return NextResponse.json({ error: 'Missing requirements' }, { status: 400 })
         }
 
+        // Deduplicate IDs so we don't process the same theme twice
+        const uniqueMergedIds: string[] = Array.from(new Set<string>(mergedThemeIds))
+        if (uniqueMergedIds.length < 2) {
+            return NextResponse.json({ error: 'Need at least 2 distinct themes to merge' }, { status: 400 })
+        }
+
         // Run this in a transaction
         let newThemeId: string = ''
         await prisma.$transaction(async (tx) => {
@@ -30,35 +36,38 @@ export async function POST(
 
             // 2. Find all codeLinks from the merged themes
             const links = await tx.themeCodeLink.findMany({
-                where: { themeId: { in: mergedThemeIds } }
+                where: { themeId: { in: uniqueMergedIds } }
             });
 
-            const uniqueCodeIds = Array.from(new Set(links.map(l => l.codebookEntryId)));
+            const uniqueCodeIds = Array.from(new Set<string>(links.map(l => l.codebookEntryId)));
 
-            // 3. Attach these codes to the new theme
-            for (const codeId of uniqueCodeIds) {
-                await tx.themeCodeLink.create({
-                    data: {
-                        themeId: newTheme.id,
-                        codebookEntryId: codeId
-                    }
-                });
-            }
+            // 3. Attach codes to the new theme — skip duplicates safely
+            await tx.themeCodeLink.createMany({
+                data: uniqueCodeIds.map(codeId => ({
+                    themeId: newTheme.id,
+                    codebookEntryId: codeId
+                })),
+                skipDuplicates: true
+            });
 
-            // 4. Create references to the child themes (for undo/hierarchy)
-            for (const oldThemeId of mergedThemeIds) {
-                await tx.themeRelation.create({
-                    data: {
-                        sourceId: oldThemeId,
-                        targetId: newTheme.id,
-                        relationType: 'SUBTHEME_OF'
-                    }
-                });
+            // 4. Create references to the child themes (for undo/hierarchy) — skip if already exists
+            for (const oldThemeId of uniqueMergedIds) {
+                try {
+                    await tx.themeRelation.create({
+                        data: {
+                            sourceId: oldThemeId,
+                            targetId: newTheme.id,
+                            relationType: 'SUBTHEME_OF'
+                        }
+                    });
+                } catch {
+                    // Skip duplicate relations silently
+                }
             }
 
             // 5. Soft-delete the old themes
             await tx.theme.updateMany({
-                where: { id: { in: mergedThemeIds } },
+                where: { id: { in: uniqueMergedIds } },
                 data: { status: 'MERGED' }
             });
         });
