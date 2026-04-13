@@ -48,7 +48,7 @@ export async function POST(
         const randomLens = narrativeLenses[Math.floor(Math.random() * narrativeLenses.length)];
 
         const prompt = `[ROLE]
-You are a senior qualitative methodologist specializing in Theoretical Frameworks. You move beyond surface-level categorical grouping to identify the underlying NARRATIVE STORY that connects the data.
+You are a senior qualitative methodologist organizing a thematic map. Your goal is to group granular sub-themes into a cohesive, high-level categorical structure based on SEMANTIC AND CONCEPTUAL SIMILARITY.
 
 [CONTEXT]
 Project: ${project?.name}
@@ -59,14 +59,13 @@ ${themesSummary}
 
 [TASK]
 Synthesize the ${currentThemes.length} fragmented sub-themes into 3-6 HIGHER-ORDER MEGA-THEMES.
-Crucially, you MUST use the following theoretical lens to structure your synthesis:
-*** REQUIRED LENS: ${randomLens} ***
 
-1. Build a coherent 'story' showing how these sub-themes relate conceptually based on the lens above.
-2. Group the sub-themes into overarching mega-themes that serve as pillars of this story.
+1. SEMANTIC CLUSTERING: Look at the codes inside each theme. Group themes together if they share similar underlying meanings, address the same phenomena, or are conceptually adjacent.
+2. If using a specific lens like "${randomLens}", apply it to define the RELATIONSHIP between the clusters.
 
 [CONSTRAINTS]
-- Do NOT just group by simple topics (e.g., avoid plain groups like "Financial Issues"). Theme names must be abstract conceptual processes (e.g., "Navigating Systemic Financial Barriers").
+- Group things that are ACTUALLY similar in context. Do not force an abstract narrative if the themes naturally form a clear categorical bucket (e.g., "Barriers", "Facilitators", "Emotional Impacts").
+- However, do not use 1-word constraints. Name the Mega-Theme descriptively (e.g., "Systemic and Financial Barriers" rather than just "Barriers").
 - An original theme MUST belong to exactly ONE Overarching Theme.
 - You must include ALL original themes across your groupings. Do not drop any.
 
@@ -74,8 +73,8 @@ Crucially, you MUST use the following theoretical lens to structure your synthes
 Return ONLY a strict JSON array (no markdown tags) with this structure:
 [
   {
-    "name": "Higher-Order Concept Name (e.g., 'The Paradox of Control')",
-    "description": "Explain the theoretical link. WHY do these sub-themes belong together under the specific Required Lens?",
+    "name": "Higher-Order Concept Name (e.g., 'Systemic and Organizational Barriers')",
+    "description": "Explain the semantic overlap. What exact meaning or phenomenon do these sub-themes share?",
     "mergedThemeIds": ["Exact Name of Theme 1", "Exact Name of Theme 2"]
   }
 ]`;
