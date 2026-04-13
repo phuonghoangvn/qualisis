@@ -36,8 +36,19 @@ export async function POST(
             select: { name: true, description: true, researchQuestion: true }
         });
 
+        const narrativeLenses = [
+            "Chronological/Evolutionary (Focus on how phenomena evolve over time or progressing stages).",
+            "Conflict & Resolution (Focus on paradoxes, tensions, and coping mechanisms).",
+            "Cause & Effect (Focus on underlying drivers, mechanisms, and distinct outcomes).",
+            "Socio-ecological / Systemic (Focus on individual experiences versus systemic/institutional environments).",
+            "Action & Perspective (Focus on what participants DO versus what they BELIEVE or FEAR)."
+        ];
+        
+        // Randomly pick a framing lens to ensure "Try again" produces a vastly different structural concept
+        const randomLens = narrativeLenses[Math.floor(Math.random() * narrativeLenses.length)];
+
         const prompt = `[ROLE]
-You are a senior qualitative researcher consolidating a fragmented thematic map. The researcher has created too many narrow sub-themes (${currentThemes.length} in total), and needs you to synthesize and group them into 3-6 HIGHER-ORDER OVERARCHING THEMES.
+You are a senior qualitative methodologist specializing in Theoretical Frameworks. You move beyond surface-level categorical grouping to identify the underlying NARRATIVE STORY that connects the data.
 
 [CONTEXT]
 Project: ${project?.name}
@@ -47,20 +58,27 @@ ${project?.researchQuestion ? `RQ: ${project.researchQuestion}\n` : ''}
 ${themesSummary}
 
 [TASK]
-Group the above themes into 3-6 Overarching Themes.
-For each new Overarching Theme, specify WHICH of the exact original themes belong inside it.
-An original theme can ONLY belong to one Overarching Theme.
+Synthesize the ${currentThemes.length} fragmented sub-themes into 3-6 HIGHER-ORDER MEGA-THEMES.
+Crucially, you MUST use the following theoretical lens to structure your synthesis:
+*** REQUIRED LENS: ${randomLens} ***
+
+1. Build a coherent 'story' showing how these sub-themes relate conceptually based on the lens above.
+2. Group the sub-themes into overarching mega-themes that serve as pillars of this story.
+
+[CONSTRAINTS]
+- Do NOT just group by simple topics (e.g., avoid plain groups like "Financial Issues"). Theme names must be abstract conceptual processes (e.g., "Navigating Systemic Financial Barriers").
+- An original theme MUST belong to exactly ONE Overarching Theme.
+- You must include ALL original themes across your groupings. Do not drop any.
 
 [OUTPUT FORMAT]
-Return ONLY a JSON array with this structure (no markdown tags):
+Return ONLY a strict JSON array (no markdown tags) with this structure:
 [
   {
-    "name": "New Mega-Theme Name",
-    "description": "Comprehensive description of this overarching theme...",
+    "name": "Higher-Order Concept Name (e.g., 'The Paradox of Control')",
+    "description": "Explain the theoretical link. WHY do these sub-themes belong together under the specific Required Lens?",
     "mergedThemeIds": ["Exact Name of Theme 1", "Exact Name of Theme 2"]
   }
-]
-`;
+]`;
 
         if (!openai) {
             return NextResponse.json({ error: 'AI is not configured' }, { status: 500 });
@@ -68,7 +86,7 @@ Return ONLY a JSON array with this structure (no markdown tags):
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
-            temperature: 0.3,
+            temperature: 0.85, // High temp combined with random lens ensures very distinct variations on "Try again"
             messages: [{ role: 'user', content: prompt }],
         });
 
