@@ -41,6 +41,10 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
     const [editLabel, setEditLabel] = useState("");
     const [acceptAllLoading, setAcceptAllLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    
+    const [restoreAllLoading, setRestoreAllLoading] = useState(false);
+    const [showConfirmRestore, setShowConfirmRestore] = useState(false);
+
     const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
 
     // Decision overlay state
@@ -278,6 +282,27 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
         }
     }
 
+    const handleRestoreAllClick = () => {
+        const acceptedRows = rows.filter(r => r.suggestion.status === 'APPROVED' || r.suggestion.status === 'MODIFIED');
+        if (acceptedRows.length === 0) return;
+        setShowConfirmRestore(true);
+    };
+
+    const confirmRestoreAll = async () => {
+        setShowConfirmRestore(false);
+        const acceptedRows = rows.filter(r => r.suggestion.status === 'APPROVED' || r.suggestion.status === 'MODIFIED');
+        if (acceptedRows.length === 0) return;
+        
+        setRestoreAllLoading(true);
+        try {
+            for (const r of acceptedRows) {
+                await onDecision(r.segment.id, 'RESTORE');
+            }
+        } finally {
+            setRestoreAllLoading(false);
+        }
+    }
+
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-8 animate-in fade-in duration-200">
             {/* ── Decision Confirmation Overlay ── */}
@@ -347,6 +372,21 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                     <>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                         Accept All Pending
+                                    </>
+                                )}
+                            </button>
+                        )}
+                        {filter === 'ACCEPTED' && counts.accepted > 0 && (
+                            <button onClick={handleRestoreAllClick} disabled={restoreAllLoading} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 text-slate-700 text-sm font-extrabold rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                {restoreAllLoading ? (
+                                    <>
+                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                        Restoring...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                        Move All to Pending
                                     </>
                                 )}
                             </button>
@@ -537,6 +577,14 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                 confirmText="Accept All"
                 onConfirm={confirmAcceptAll}
                 onCancel={() => setShowConfirm(false)}
+            />
+            <ConfirmModal
+                isOpen={showConfirmRestore}
+                title="Restore All to Pending"
+                message={`Are you sure you want to revert all ${rows.filter(r => r.suggestion.status === 'APPROVED' || r.suggestion.status === 'MODIFIED').length} accepted highlights back to Pending status?\n\nThis will remove them from your active Codebook until you review them again.`}
+                confirmText="Restore All"
+                onConfirm={confirmRestoreAll}
+                onCancel={() => setShowConfirmRestore(false)}
             />
         </div>
     )
