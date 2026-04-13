@@ -866,6 +866,14 @@ Rules:
                         <h1 className="text-[22px] font-extrabold tracking-tight">② Themes & Analysis</h1>
                         <div className="flex items-center gap-3">
                             <button
+                                onClick={() => exportCodebookCSV(themes, `codebook_${projectId}.csv`)}
+                                className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                title="Export codebook to CSV (opens in Excel, Numbers, Google Sheets)"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                Export CSV
+                            </button>
+                            <button
                                 onClick={handleSynthesize}
                                 disabled={themes.length < 3}
                                 className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50"
