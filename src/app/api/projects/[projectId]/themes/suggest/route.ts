@@ -97,7 +97,7 @@ ${userInstructions ? `[USER'S ADDITIONAL INSTRUCTIONS]\n${userInstructions}\n` :
 GUIDELINES:
 - Work at a more GENERAL, ABSTRACT level than the individual codes
 - Only create new themes if existing ones won't work.
-- THEME NAMING RULE: Name the Theme as a "Directional Finding" or "Assertion" (e.g., "Participants lack trust in AI outputs" or "Financial constraints cause stress") rather than a neutral categorical topic (e.g., "Trust Dynamics" or "Financial Issues").
+- THEME NAMING RULE: Stop using big academic words or jargon like "Dynamics", "Patterns", or "Collaboration". The Theme name MUST be an extremely transparent, plain-English sentence that explicitly states the finding (e.g., "Users rely on their own judgment because they don't trust AI" or "Financial limitations cause severe anxiety").
 - Each code should appear in at most ONE theme
 - Aim for 3-7 main groupings
 - Each grouping should have 2-5 sub-categories (codes)
@@ -106,7 +106,7 @@ GUIDELINES:
 Return a JSON array:
 [
   {
-    "name": "Directional Finding Name (e.g., 'Lack of trust in AI outputs')",
+    "name": "Plain-English Finding Name (e.g., 'Users rely on their own judgment')",
     "description": "A crystal clear, straightforward 2-3 sentence explanation of EXACTLY what this theme is about. Avoid vague academic jargon. What is the specific phenomenon, experience, or pattern happening here?",
     "reason": "Detailed analytical reasoning: What pattern did you observe? Why is this grouping meaningful? What does it reveal about the participants' experiences?",
     "confidenceScore": 85,

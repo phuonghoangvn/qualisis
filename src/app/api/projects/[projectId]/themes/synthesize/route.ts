@@ -65,7 +65,7 @@ Synthesize the ${currentThemes.length} fragmented sub-themes into 3-6 HIGHER-ORD
 
 [CONSTRAINTS]
 - Group things that are ACTUALLY similar in context. Do not force an abstract narrative if the themes naturally form a clear categorical bucket.
-- THEME NAMING RULE: Name the Mega-Theme as a "Directional Finding" or "Assertion" (e.g., "Lack of trust in AI outputs" or "Financial barriers prevent progress") rather than neutral categorical topics (e.g., "Trust Dynamics" or "Barriers"). The name should declare the actual finding.
+- THEME NAMING RULE: Stop using big academic words or jargon like "Complicate Collaboration", "Dynamics", or "Enhance". The Mega-Theme name MUST be an extremely transparent, plain-English sentence that explicitly states what happened. (e.g., "Users rely on their own judgment rather than trusting AI" or "Being familiar with the data makes using AI much easier"). 
 - An original theme MUST belong to exactly ONE Overarching Theme.
 - You must include ALL original themes across your groupings. Do not drop any.
 
@@ -73,7 +73,7 @@ Synthesize the ${currentThemes.length} fragmented sub-themes into 3-6 HIGHER-ORD
 Return ONLY a strict JSON array (no markdown tags) with this structure:
 [
   {
-    "name": "Directional Finding Name (e.g., 'Systemic financial barriers prevent progress' or 'Lack of trust in AI outputs')",
+    "name": "Plain-English Finding Name (e.g., 'Users rely on their own judgment because they do not trust AI outputs')",
     "description": "A crystal clear, straightforward 2-3 sentence explanation of the overarching meaning. EXACTLY what do these sub-themes have in common and what is the core finding?",
     "mergedThemeIds": ["Exact Name of Theme 1", "Exact Name of Theme 2"]
   }
