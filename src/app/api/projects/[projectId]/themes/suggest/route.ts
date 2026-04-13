@@ -42,22 +42,31 @@ export async function POST(
         }
 
         // 2. Keep only truly unassigned codes:
-        //    - Has at least 1 assignment (not a ghost/orphan code)
-        //    - Not linked to any NON-MERGED theme (MERGED themes are historical — codes should be re-groupable)
+        //    - Either has at least 1 segment assignment (normal codes), OR is an OBSERVATION code
+        //      (OBSERVATION codes are researcher notes with 0 segment assignments by design — always valid)
+        //    - Not actively linked to any NON-MERGED theme
+        //      (codes whose only theme links are to MERGED themes can be re-grouped)
         const allUnassigned = codebookEntries
             .filter(c =>
-                c._count.codeAssignments > 0 &&
+                (c._count.codeAssignments > 0 || (c as any).type === 'OBSERVATION') &&
                 !c.themeLinks.some((tl: any) => tl.theme.status !== 'MERGED')
             )
             // Sort by most-used first so the most relevant codes go in the first batch
             .sort((a, b) => b._count.codeAssignments - a._count.codeAssignments)
 
         if (allUnassigned.length < 2) {
+            // Debug log to help diagnose issues
+            const totalCodes = codebookEntries.length
+            const withAssignments = codebookEntries.filter(c => c._count.codeAssignments > 0 || (c as any).type === 'OBSERVATION').length
+            const alreadyInTheme = codebookEntries.filter(c => c.themeLinks.some((tl: any) => tl.theme.status !== 'MERGED')).length
+            console.log(`[Suggest] ${totalCodes} total codes | ${withAssignments} have assignments | ${alreadyInTheme} already in active themes | ${allUnassigned.length} unassigned → NOT ENOUGH`)
             return NextResponse.json({
                 suggestions: [],
-                message: 'Need at least 2 unassigned codes to generate theme suggestions'
+                message: `Need at least 2 unassigned codes to generate theme suggestions (found ${allUnassigned.length} — ${alreadyInTheme} codes are still linked to existing themes)`
             })
         }
+
+        console.log(`[Suggest] Generating suggestions for ${allUnassigned.length} unassigned codes (offset=${batchOffset})`)
 
         // 3. Slice the batch for this request
         const batchStart = batchOffset

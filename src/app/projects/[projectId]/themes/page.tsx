@@ -790,6 +790,11 @@ Rules:
             const rejected = getRejectedNames()
             const incoming = (data.suggestions || []).filter((s: ThemeSuggestion) => !rejected.has(s.name))
 
+            // If API returned empty suggestions with a reason message, log it for debugging
+            if (incoming.length === 0 && data.message) {
+                console.warn('[Suggest API] No suggestions returned:', data.message)
+            }
+
             if (batchOffset === 0) {
                 // Fresh run — replace all suggestions
                 setThemeSuggestions(incoming)
@@ -996,6 +1001,16 @@ Rules:
         setSynthAcceptingId(null)
     }
 
+    // Reset all AI suggestions to blank state — call this whenever codes are returned to unassigned
+    // (theme deleted or mega-theme dissolved), because old suggestions are stale.
+    const resetSuggestions = () => {
+        clearSuggestionsCache()
+        setThemeSuggestions([])
+        setSuggestionBatchOffset(0)
+        setSuggestionsRemainingAfterBatch(0)
+        setSuggestionsTotalUnassigned(0)
+    }
+
     const handleUndoMerge = async () => {
         if (!lastMergedThemeId) return
         setUndoingMerge(true)
@@ -1008,6 +1023,8 @@ Rules:
             if (res.ok) {
                 setLastMergedThemeId(null)
                 await fetchData()
+                // Codes returned to unassigned — old suggestions are stale, reset to fresh state
+                resetSuggestions()
             }
         } catch (e) {}
         setUndoingMerge(false)
@@ -2192,7 +2209,9 @@ Rules:
                     if (themeToDelete) {
                         await fetch(`/api/projects/${projectId}/themes/${themeToDelete.id}`, { method: 'DELETE' })
                         setThemeToDelete(null)
-                        fetchData()
+                        await fetchData()
+                        // Codes returned to unassigned — old suggestions are stale, reset to fresh state
+                        resetSuggestions()
                     }
                 }}
                 onCancel={() => setThemeToDelete(null)}
