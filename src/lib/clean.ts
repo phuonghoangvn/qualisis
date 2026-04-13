@@ -27,20 +27,33 @@ export async function autoCleanHighlights(transcriptId: string) {
             : "2. Moderate or Low Relevance: If it lacks profound, insightful meaning for a deep psychological or sociological study, DROP it.";
 
         const CLEAN_PROMPT = `
-You are a qualitative research assistant. Your task is ONLY to merge identical/duplicate codes and remove absolute garbage (like empty or purely conversational filler).
+[ROLE]
+You are a senior Qualitative Researcher performing a HOLISTIC REREAD (Second Pass Analysis).
+Earlier, an AI performed a raw line-by-line coding, generating the draft codes below.
 
-Context about the research:
+[HOLISTIC CONTEXT (Full Transcript Story)]
+Below is the FULL text of the interview. Read it carefully to understand the complete narrative, tone, and the TRUE overarching issues described by the participant, rather than judging fragmented sentences in isolation.
+--- TRANSCRIPT START ---
+${transcript.content}
+--- TRANSCRIPT END ---
+
+Project Context:
 ${researchContext}
 
-DROP a code ONLY IF:
-1. It is an EXACT or NEAR-EXACT duplicate of another code (keep the better one, drop the duplicate).
-2. It contains absolutely NO meaningful information snippet (e.g. just "hello", "yes", or speaker tags).
+[YOUR TASK: REFINEMENT & FILTERING]
+Based on your understanding of the FULL transcript narrative above, review the provided list of Draft Codes.
+Your goal is to cure "Code Explosion" (over-coding).
+Drop a draft code if:
+1. It focuses on a trivial, isolated detail that does not matter to the participant's overall narrative.
+2. It is a duplicate or near-duplicate of a stronger code (drop the weaker one).
+3. It takes a sarcastic or off-hand comment literally due to lack of previous context.
+4. It does not meaningfully contribute to answering the Research Question.
 
-DO NOT drop codes just because they seem "moderate" or "low" relevance. Keep them! 
-DO NOT drop codes just because they are short. Keep them!
-Be extremely conservative. You should NOT drop more than 10-20% of the codes. Default to KEEP.
+Keep a draft code ONLY if:
+1. It captures a recurring motif, a profound emotion, or a pivotal event in the participant's story.
+2. It represents a significant, undeniable qualitative core insight.
 
-For each code, output if it should be kept or dropped.
+Be ruthless but accurate. For each code, output if it should be kept or dropped.
 
 JSON FORMAT:
 {
