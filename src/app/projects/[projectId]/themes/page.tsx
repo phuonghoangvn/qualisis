@@ -816,6 +816,12 @@ Rules:
         setSynthAcceptingId(index)
         const sg = synthSuggestions[index]
         try {
+            if (!sg.matchedIds || sg.matchedIds.length < 2) {
+                console.error('Merge cancelled: matchedIds is empty or too short', sg.matchedIds)
+                alert('Cannot merge: themes could not be matched. Please click Synthesize Themes again to refresh.')
+                setSynthAcceptingId(null)
+                return
+            }
             const res = await fetch(`/api/projects/${projectId}/themes/merge`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -831,8 +837,14 @@ Rules:
                 setLastMergedThemeId(data.newThemeId || null)
                 await fetchData()
                 if (synthSuggestions.length <= 1) setSynthModalOpen(false)
+            } else {
+                const errText = await res.text()
+                console.error('Merge API error:', res.status, errText)
+                alert(`Merge failed (${res.status}). Please try Synthesize Themes again.`)
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error('Merge exception:', e)
+        }
         setSynthAcceptingId(null)
     }
 

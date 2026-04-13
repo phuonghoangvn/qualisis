@@ -97,8 +97,17 @@ Return ONLY a strict JSON array (no markdown tags) with this structure:
 
         // Process suggestions to map back to real Theme IDs
         const enriched = suggestions.map((s: any) => {
-            const matchedIds = Array.isArray(s.mergedThemeIds) ? s.mergedThemeIds : [];
-            const matchedThemesObj = currentThemes.filter(t => matchedIds.includes(t.id));
+            const rawIds: string[] = Array.isArray(s.mergedThemeIds) ? s.mergedThemeIds : [];
+
+            // Primary: try matching by ID directly
+            let matchedThemesObj = currentThemes.filter(t => rawIds.includes(t.id));
+
+            // Fallback: if AI returned theme names instead of IDs, match by name
+            if (matchedThemesObj.length === 0 && rawIds.length > 0) {
+                matchedThemesObj = currentThemes.filter(t =>
+                    rawIds.some(raw => t.name.toLowerCase().trim() === raw.toLowerCase().trim())
+                );
+            }
 
             return {
                 name: s.name,
@@ -106,7 +115,7 @@ Return ONLY a strict JSON array (no markdown tags) with this structure:
                 matchedThemes: matchedThemesObj.map(t => ({ id: t.id, name: t.name })),
                 matchedIds: matchedThemesObj.map(t => t.id)
             };
-        });
+        }).filter((s: { matchedIds: string[] }) => s.matchedIds.length >= 2); // Only include suggestions that matched at least 2 real themes
 
         return NextResponse.json({ suggestions: enriched, success: true });
 
