@@ -10,7 +10,7 @@ export async function POST(
 ) {
     try {
         const body = await req.json().catch(() => ({}))
-        const { customPrompt } = body || {}
+        const { customPrompt, rejectedNames } = body || {}
         // 1. Get all codebook entries for this project with their assignment counts and segment texts
         const codebookEntries = await prisma.codebookEntry.findMany({
             where: { projectId: params.projectId },
@@ -101,6 +101,7 @@ GUIDELINES:
 - Each code should appear in at most ONE theme
 - Aim for 3-7 main groupings
 - Each grouping should have 2-5 sub-categories (codes)
+${rejectedNames && rejectedNames.length > 0 ? `\n[REJECTED THEMES - DO NOT REPEAT]\nThe user has REJECTED the following theme ideas. Do NOT suggest them again, do NOT use these names, and try to find a DIFFERENT way to group the codes associated with these concepts:\n${rejectedNames.map((n: string) => `- "${n}"`).join('\n')}\n` : ''}
 
 [OUTPUT FORMAT]
 Return a JSON array:

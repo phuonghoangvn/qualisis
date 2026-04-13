@@ -753,7 +753,10 @@ Rules:
             const res = await fetch(`/api/projects/${projectId}/themes/suggest`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customPrompt: themePrompt })
+                body: JSON.stringify({ 
+                    customPrompt: themePrompt,
+                    rejectedNames: Array.from(getRejectedNames())
+                })
             })
             const data = await res.json()
             const rejected = getRejectedNames()
