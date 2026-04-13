@@ -52,18 +52,15 @@ Stay close to the data. Be open-minded. Use the participant's own language when 
 4. EXISTENCE CHECK: Every quote must exist verbatim in the transcript. Do not invent or paraphrase.
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
-7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation. Do NOT use generic one-or-two word abstract tags like "Financial Stress" or "Hope".
+7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation (e.g., "Worry about family due to unstable home country", "Strategic use of breathing during commute"). Do NOT use generic one-or-two word abstract tags like "Financial Stress" or "Hope".
 8. SENTENCE-LIKE PHRASING: Write code labels as descriptive phrases or short sentences (MUST be less than 8 words in length) that clearly communicate WHAT is happening and WHY.
 9. CAPTURE SPECIFICS: Make sure to include the specific trigger, outcome, or underlying sentiment directly in the code label name.
-10. CONSERVATIVE RULE (HIGH PRECISION): ONLY extract codes if you have HIGH certainty they are profoundly analytically relevant. If you are guessing or reading too much into a simple descriptive sentence, DO NOT CODE IT.
+10. ALL CONFIDENCE LEVELS: Extract quotes regardless of confidence (HIGH, MEDIUM, or LOW). Include all insights, even those with lower certainty.
+
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
-- MAXIMUM LIMIT: You must return a STRICT MAXIMUM of 3 to 5 codes for this entire text segment. If the segment is mostly narrative fluff or boring, it is completely acceptable to return an empty array [].
-- AVOID REDUNDANCY: Do not code the same underlying idea twice in the same chunk.
-
 SKIP THESE (not analytically relevant, DO NOT CODE):
-- Casual storytelling, background context, or historical facts that have no emotional or theoretical weight.
-- Pure social niceties ("Thank you for having me", "Yes, that sounds fine")
+- Pure social niceties ("Thank you for having me", "I hope this helps others as much as its helped me", "Yes, that sounds fine")
 - Simple yes/no confirmations or agreements with no substance
 - Interviewer questions (code only participant responses)
 - Filler phrases or conversational glue with no meaning ("So, um, yeah...")
