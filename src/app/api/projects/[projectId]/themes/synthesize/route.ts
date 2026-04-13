@@ -12,7 +12,10 @@ export async function POST(
 
         // Get all themes with their code counts
         const currentThemes = await prisma.theme.findMany({
-            where: { projectId: params.projectId },
+            where: { 
+                projectId: params.projectId,
+                status: { not: 'MERGED' }
+            },
             include: {
                 codeLinks: {
                     include: {
