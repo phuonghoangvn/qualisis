@@ -35,12 +35,10 @@ export async function POST(
             return NextResponse.json({ suggestions: [], message: 'No codes found in this project' })
         }
 
-        // 2. Filter out orphans (0 instances) and keep only unassigned codes
-        // SORT by assignment count (descending) and LIMIT to top 40 to prevent prompt overflow
-        const unassignedCodes = codebookEntries
-            .filter(c => c._count.codeAssignments > 0 && c.themeLinks.length === 0)
-            .sort((a, b) => b._count.codeAssignments - a._count.codeAssignments)
-            .slice(0, 40) // Only take top 40 most frequent codes first
+        // 2. Filter out orphans (0 instances) and keep only unassigned codes (not yet linked to any theme)
+        const unassignedCodes = codebookEntries.filter(c => 
+            c._count.codeAssignments > 0 && c.themeLinks.length === 0
+        )
         
         if (unassignedCodes.length < 2) {
             return NextResponse.json({ 
@@ -52,10 +50,9 @@ export async function POST(
         // 3. Build context for AI
         const codesSummary = unassignedCodes.map(code => {
             const examples = code.codeAssignments
-                .slice(0, 3) // Only 3 examples max
-                .map(a => `"${a.segment.text.slice(0, 80)}..."`) // Shorter snippet
+                .map(a => `"${a.segment.text.slice(0, 120)}"`)
                 .join('\n    ')
-            return `- "${code.name}" (${code._count.codeAssignments} instances)${code.definition ? `\n  Def: ${code.definition}` : ''}${examples ? `\n  Quotes:\n    ${examples}` : ''}`
+            return `- "${code.name}" (${code._count.codeAssignments} instances, type: ${code.type})${code.definition ? `\n  Definition: ${code.definition}` : ''}${examples ? `\n  Example quotes:\n    ${examples}` : ''}`
         }).join('\n')
 
         // 4. Get project research context and existing themes
@@ -102,8 +99,10 @@ GUIDELINES:
 - Only create new themes if existing ones won't work.
 - THEME NAMING RULE: Stop using big academic words or jargon like "Dynamics", "Patterns", or "Collaboration". The Theme name MUST be an extremely transparent, plain-English sentence that explicitly states the finding (e.g., "Users rely on their own judgment because they don't trust AI" or "Financial limitations cause severe anxiety").
 - Each code should appear in at most ONE theme
-- Aim for 3-7 main groupings
-- Each grouping should have 2-5 sub-categories (codes)
+- Try to group AS MANY unassigned codes as possible into themes.
+- If there are many codes, you can suggest up to 10-15 groupings.
+- Each grouping can have as many sub-categories (codes) as conceptually appropriate (e.g., 2 to 15+ codes).
+- The priority is EXHAUSTIVE COVERAGE of the codes. Do not leave codes unassigned if they share a clear concept with others.
 ${rejectedNames && rejectedNames.length > 0 ? `\n[REJECTED THEMES - DO NOT REPEAT]\nThe user has REJECTED the following theme ideas. Do NOT suggest them again, do NOT use these names, and try to find a DIFFERENT way to group the codes associated with these concepts:\n${rejectedNames.map((n: string) => `- "${n}"`).join('\n')}\n` : ''}
 
 [OUTPUT FORMAT]
