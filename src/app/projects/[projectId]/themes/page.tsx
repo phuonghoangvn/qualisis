@@ -685,11 +685,20 @@ Rules:
             setThemes(Array.isArray(allThemes) ? allThemes : [])
 
             // Determine which codes are already assigned to themes
+            // NOTE: Must also include codes in children (sub-themes of Mega-Themes) —
+            // otherwise those codes appear as "unassigned" in the UI but the API sees them as assigned,
+            // causing "Generate Suggestions" to return an empty list silently.
             const assignedCodeIds = new Set<string>()
             if (Array.isArray(allThemes)) {
                 allThemes.forEach((theme: ThemeData) => {
                     theme.codeLinks?.forEach(link => {
                         assignedCodeIds.add(link.codebookEntry.id)
+                    })
+                    // Also collect codes from sub-themes (children of Mega-Themes)
+                    ;(theme as any).children?.forEach((child: ThemeData) => {
+                        child.codeLinks?.forEach(link => {
+                            assignedCodeIds.add(link.codebookEntry.id)
+                        })
                     })
                 })
             }
