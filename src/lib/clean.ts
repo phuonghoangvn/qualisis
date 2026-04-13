@@ -42,18 +42,18 @@ ${researchContext}
 
 [YOUR TASK: REFINEMENT & FILTERING]
 Based on your understanding of the FULL transcript narrative above, review the provided list of Draft Codes.
-Your goal is to cure "Code Explosion" (over-coding).
-Drop a draft code if:
-1. It focuses on a trivial, isolated detail that does not matter to the participant's overall narrative.
-2. It is a duplicate or near-duplicate of a stronger code (drop the weaker one).
-3. It takes a sarcastic or off-hand comment literally due to lack of previous context.
-4. It does not meaningfully contribute to answering the Research Question.
+Your absolute priority is to cure "Code Explosion" (over-coding). You must act as a ruthless editor.
 
-Keep a draft code ONLY if:
-1. It captures a recurring motif, a profound emotion, or a pivotal event in the participant's story.
-2. It represents a significant, undeniable qualitative core insight.
+RULES FOR DROPPING (DEFAULT TO DROP):
+1. DEDUPLICATION: If two or more codes mean roughly the same thing, you MUST drop all except the single best one. Do not allow redundant codes.
+2. TRIVIALITY: Drop any code that captures a surface-level fact, conversational filler, or isolated tangent.
+3. WEAKNESS: If the code does not represent a profound, recurring theme in the overarching story, DROP it.
 
-Be ruthless but accurate. For each code, output if it should be kept or dropped.
+RULES FOR KEEPING (BE EXTREMELY SELECTIVE):
+1. Keep a code ONLY if it captures a core pillar of the participant's narrative.
+2. Keep a code ONLY if it is deeply analytical (not just descriptive).
+
+CONSTRAINT: You are expected to drop at least 40-50% of the draft codes. Only the absolute strongest, most unique insights should survive.
 
 JSON FORMAT:
 {
@@ -101,7 +101,9 @@ CODES TO ANALYZE:
                 const resultJson = JSON.parse(completion.choices[0].message.content || '{"decisions":[]}');
                 const dropIds = (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
                 allDropIds.push(...dropIds);
-            } catch (e) {}
+            } catch (e) {
+                console.error("GPT Clean Error:", e);
+            }
         }
 
         // 2. Process Claude codes
@@ -122,7 +124,9 @@ CODES TO ANALYZE:
                 const resultJson = JSON.parse(jsonStr);
                 const dropIds = (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
                 allDropIds.push(...dropIds);
-            } catch (e) {}
+            } catch (e) {
+                console.error("Claude Clean Error:", e);
+            }
         }
 
         // 3. Process Gemini codes
@@ -135,7 +139,9 @@ CODES TO ANALYZE:
                 const resultJson = JSON.parse(responseText || '{"decisions":[]}');
                 const dropIds = (resultJson.decisions || []).filter((d: any) => d.action === 'DROP').map((d: any) => d.id);
                 allDropIds.push(...dropIds);
-            } catch (e) {}
+            } catch (e) {
+                console.error("Gemini Clean Error:", e);
+            }
         }
 
         if (allDropIds.length > 0) {
