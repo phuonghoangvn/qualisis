@@ -52,11 +52,10 @@ Stay close to the data. Be open-minded. Use the participant's own language when 
 4. EXISTENCE CHECK: Every quote must exist verbatim in the transcript. Do not invent or paraphrase.
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
-7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation (e.g., "Worry about family due to unstable home country", "Strategic use of breathing during commute"). Do NOT use generic one-or-two word abstract tags like "Financial Stress" or "Hope".
+7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation (e.g., "Worry about family due to unstable home country"). Do NOT use generic tags.
 8. SENTENCE-LIKE PHRASING: Write code labels as descriptive phrases or short sentences (MUST be less than 8 words in length) that clearly communicate WHAT is happening and WHY.
 9. CAPTURE SPECIFICS: Make sure to include the specific trigger, outcome, or underlying sentiment directly in the code label name.
-10. ALL CONFIDENCE LEVELS: Extract quotes regardless of confidence (HIGH, MEDIUM, or LOW). Include all insights, even those with lower certainty.
-
+10. HARD QUOTA: DO NOT generate more than 5 to 7 highlighted codes for this segment. Be ruthless. Prioritize ONLY the top 5-7 most profound segments.
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
 SKIP THESE (not analytically relevant, DO NOT CODE):
