@@ -170,6 +170,53 @@ export default function TranscriptWorkspace({
         }
     }
 
+    const exportTranscriptCoded = () => {
+        const rows = segments.map(seg => {
+            const acceptedSuggestions = seg.suggestions.filter(s => s.status === 'APPROVED' || s.status === 'MODIFIED').map(s => s.label);
+            const humanCodes = seg.codeAssignments?.map(c => c.codebookEntry.name) || [];
+            const allCodes = Array.from(new Set([...acceptedSuggestions, ...humanCodes]));
+            
+            if (allCodes.length === 0) return '';
+            
+            return `<tr>
+                <td style="padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;">${seg.text}</td>
+                <td style="padding: 10px; border: 1px solid #e5e7eb; vertical-align: top; font-weight: bold; color: #4f46e5;">
+                    ${allCodes.join('<br/><br/>')}
+                </td>
+            </tr>`;
+        }).filter(Boolean).join('');
+
+        const html = `<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><title>${transcript.title}</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; margin: 2cm; }
+  h2 { color: #3730a3; border-bottom: 2px solid #e0e7ff; padding-bottom: 5px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+  th { background: #e0e7ff; color: #3730a3; padding: 10px; border: 1px solid #c7d2fe; text-align: left; }
+</style>
+</head><body>
+<h2>Coded Highlights: ${transcript.title}</h2>
+<table>
+  <thead><tr><th style="width: 70%">Participant Extract</th><th style="width: 30%">Applied Codes</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="2" style="padding: 10px; text-align: center;">No codes applied yet.</td></tr>'}</tbody>
+</table>
+<br/><br/>
+<h2>Full Raw Transcript</h2>
+<pre style="white-space: pre-wrap; font-family: Calibri, Arial, sans-serif; text-align: justify;">${transcript.content}</pre>
+</body></html>`;
+
+        const blob = new Blob([html], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${transcript.title.replace(/\s+/g, '_')}_Coded.doc`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     useEffect(() => {
         setMounted(true)
     }, [])
@@ -631,19 +678,11 @@ export default function TranscriptWorkspace({
 
                         {/* Export Button */}
                         <button 
-                            onClick={() => {
-                                const blob = new Blob(['\uFEFF' + transcript.content], { type: 'text/plain;charset=utf-8;' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `${transcript.title.replace(/\s+/g, '_')}_transcript.txt`;
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
-                            }}
-                            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm bg-white"
+                            onClick={exportTranscriptCoded}
+                            className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm bg-white"
+                            title="Export as Word Document"
                         >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                             Export
                         </button>
 
