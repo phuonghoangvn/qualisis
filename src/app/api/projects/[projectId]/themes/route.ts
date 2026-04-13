@@ -116,6 +116,53 @@ export async function POST(
             return NextResponse.json({ error: 'Theme name is required' }, { status: 400 })
         }
 
+        // Check if theme with same name already exists
+        const existingTheme = await prisma.theme.findFirst({
+            where: {
+                projectId: params.projectId,
+                name: { equals: name, mode: 'insensitive' },
+                status: { not: 'MERGED' }
+            }
+        })
+
+        if (existingTheme) {
+            // Append codes to existing theme
+            if (codeIds?.length) {
+                // To avoid duplicate constraints on (themeId, codebookEntryId), we ensure we only insert non-existing links
+                const existingLinks = await prisma.themeCodeLink.findMany({
+                    where: { themeId: existingTheme.id, codebookEntryId: { in: codeIds } },
+                    select: { codebookEntryId: true }
+                })
+                const existingLinkedIds = new Set(existingLinks.map(l => l.codebookEntryId))
+                const newCodeIds = codeIds.filter((id: string) => !existingLinkedIds.has(id))
+
+                if (newCodeIds.length > 0) {
+                    await prisma.themeCodeLink.createMany({
+                        data: newCodeIds.map((codeId: string) => ({
+                            themeId: existingTheme.id,
+                            codebookEntryId: codeId
+                        }))
+                    })
+                }
+            }
+
+            // Audit log
+            await prisma.auditLog.create({
+                data: {
+                    projectId: params.projectId,
+                    userId,
+                    eventType: 'THEME_UPDATED_VIA_SUGGESTION',
+                    entityType: 'Theme',
+                    entityId: existingTheme.id,
+                    newValue: JSON.stringify({ addedCodeIds: codeIds }),
+                    note: `Codes automatically appended to existing theme "${name}"`
+                }
+            })
+
+            return NextResponse.json(existingTheme, { status: 200 })
+        }
+
+        // Create new theme
         const theme = await prisma.theme.create({
             data: {
                 projectId: params.projectId,

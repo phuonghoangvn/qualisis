@@ -55,11 +55,18 @@ export async function POST(
             return `- "${code.name}" (${code._count.codeAssignments} instances, type: ${code.type})${code.definition ? `\n  Definition: ${code.definition}` : ''}${examples ? `\n  Example quotes:\n    ${examples}` : ''}`
         }).join('\n')
 
-        // 4. Get project research context
+        // 4. Get project research context and existing themes
         const project = await prisma.project.findUnique({
             where: { id: params.projectId },
             select: { name: true, description: true, researchQuestion: true }
         })
+
+        const existingThemes = await prisma.theme.findMany({
+            where: { projectId: params.projectId, status: { not: 'MERGED' } },
+            select: { name: true, description: true }
+        })
+
+        const existingThemesSummary = existingThemes.map(t => `- "${t.name}": ${t.description || 'No description'}`).join('\n')
 
         const userInstructions = customPrompt && customPrompt.trim().length > 0 ? customPrompt : ''
 
@@ -75,31 +82,25 @@ ${project?.researchQuestion ? `Research Question: ${project.researchQuestion}` :
 These are the codes created during initial coding. Review them carefully:
 ${codesSummary}
 
+[EXISTING THEMES IN THIS PROJECT]
+${existingThemes.length > 0 ? existingThemesSummary : 'No themes currently exist.'}
+
 [TASK — STEPS 3-4: CREATING CATEGORIES/THEMES]
-1. Read through ALL codes carefully.
-2. Group related codes into CATEGORIES (themes). You can:
-   - Combine codes that describe the same phenomenon at different levels
-   - Merge overlapping codes into a single, more abstract concept
-   - Drop codes that are not meaningful enough to keep
-3. Create a HIERARCHY: each Category has sub-categories (the codes that belong to it).
-4. Categories do NOT have to be the same type — they can be about:
-   - Processes or strategies the participants describe
-   - Emotional experiences or psychological states
-   - Actions and behaviors
-   - Beliefs, values, or opinions
-   - Relationships and social dynamics
-   - Changes, transitions, or turning points
-5. Look for CONNECTIONS between categories — how do they influence each other?
-6. Decide if there is a HIERARCHY among the categories
+1. Read through ALL unassigned codes carefully.
+2. Group related codes into CATEGORIES (themes). 
+3. **CRITICAL INSTRUCTION**: Whenever possible, place codes into an EXISTING THEME if they conceptually belong there. If you do this, you MUST use the EXACT spelling of the existing theme name.
+4. If codes represent a completely new phenomenon that does not fit any existing theme, create a NEW theme name for them.
+5. Create a HIERARCHY: each Category has sub-categories (the codes that belong to it).
+6. Look for CONNECTIONS between categories.
 
 ${userInstructions ? `[USER'S ADDITIONAL INSTRUCTIONS]\n${userInstructions}\n` : ''}
 GUIDELINES:
 - Work at a more GENERAL, ABSTRACT level than the individual codes
-- Be creative and open-minded — you are conceptualizing the data
+- Only create new themes if existing ones won't work.
 - A good theme tells a "story" with a clear central concept
 - Each code should appear in at most ONE theme
-- Aim for 3-7 main themes
-- Each theme should have 2-5 sub-categories (codes)
+- Aim for 3-7 main groupings
+- Each grouping should have 2-5 sub-categories (codes)
 
 [OUTPUT FORMAT]
 Return a JSON array:
