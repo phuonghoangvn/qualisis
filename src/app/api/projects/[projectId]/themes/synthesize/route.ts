@@ -64,8 +64,8 @@ Synthesize the ${currentThemes.length} fragmented sub-themes into 3-6 HIGHER-ORD
 2. If using a specific lens like "${randomLens}", apply it to define the RELATIONSHIP between the clusters.
 
 [CONSTRAINTS]
-- Group things that are ACTUALLY similar in context. Do not force an abstract narrative if the themes naturally form a clear categorical bucket (e.g., "Barriers", "Facilitators", "Emotional Impacts").
-- However, do not use 1-word constraints. Name the Mega-Theme descriptively (e.g., "Systemic and Financial Barriers" rather than just "Barriers").
+- Group things that are ACTUALLY similar in context. Do not force an abstract narrative if the themes naturally form a clear categorical bucket.
+- THEME NAMING RULE: Name the Mega-Theme as a "Directional Finding" or "Assertion" (e.g., "Lack of trust in AI outputs" or "Financial barriers prevent progress") rather than neutral categorical topics (e.g., "Trust Dynamics" or "Barriers"). The name should declare the actual finding.
 - An original theme MUST belong to exactly ONE Overarching Theme.
 - You must include ALL original themes across your groupings. Do not drop any.
 
@@ -73,7 +73,7 @@ Synthesize the ${currentThemes.length} fragmented sub-themes into 3-6 HIGHER-ORD
 Return ONLY a strict JSON array (no markdown tags) with this structure:
 [
   {
-    "name": "Higher-Order Concept Name (e.g., 'Systemic and Organizational Barriers')",
+    "name": "Directional Finding Name (e.g., 'Systemic financial barriers prevent progress' or 'Lack of trust in AI outputs')",
     "description": "A crystal clear, straightforward 2-3 sentence explanation of the overarching meaning. EXACTLY what do these sub-themes have in common and what is the core finding?",
     "mergedThemeIds": ["Exact Name of Theme 1", "Exact Name of Theme 2"]
   }
