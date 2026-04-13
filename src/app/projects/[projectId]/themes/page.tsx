@@ -829,32 +829,56 @@ Rules:
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loading, unassignedCodes.length, themeSuggestions.length, suggestionsLoading, generateSuggestions])
 
-    // Clean up stale suggestions real-time when a code is dragged & dropped (removed from unassigned)
+    // Clean up stale suggestions real-time when a code is assigned (accepted/dragged)
     useEffect(() => {
         if (!loading) {
             const unassignedIds = new Set(unassignedCodes.map(c => c.id));
-            
+
             setThemeSuggestions(prev => {
                 if (prev.length === 0) return prev;
-                
+
                 const cleaned = prev.map(suggestion => {
                     const newCodes = suggestion.codes.filter(c => unassignedIds.has(c.id));
                     return { ...suggestion, codes: newCodes };
                 }).filter(suggestion => suggestion.codes.length >= 2);
-                
-                // Only update if there's an actual structural change
-                const isChanged = cleaned.length !== prev.length || 
-                    cleaned.some((s, i) => s.codes.length !== prev[i].codes.length);
-                    
-                return isChanged ? cleaned : prev;
+
+                const isChanged = cleaned.length !== prev.length ||
+                    cleaned.some((s, i) => {
+                        // Find the same suggestion in prev by name (stable ID)
+                        const original = prev.find(p => p.name === s.name)
+                        return original ? s.codes.length !== original.codes.length : true
+                    });
+
+                if (isChanged) {
+                    // Also persist the cleaned version to cache
+                    saveSuggestionsCache(cleaned)
+                    return cleaned
+                }
+                return prev;
             });
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [unassignedCodes, loading]);
+
 
     // Accept a theme suggestion → create theme in DB
     const acceptSuggestion = async (index: number) => {
         const suggestion = themeSuggestions[index]
         if (!suggestion) return
+
+        // Capture BEFORE any await — the cleanup useEffect can shift the array while we wait
+        const suggestionName = suggestion.name
+        const codeIds = suggestion.codes.map(c => c.id)
+
+        if (codeIds.length === 0) {
+            // Codes already cleaned out — just dismiss the card
+            setThemeSuggestions(prev => {
+                const updated = prev.filter(s => s.name !== suggestionName)
+                saveSuggestionsCache(updated)
+                return updated
+            })
+            return
+        }
 
         setAcceptingId(index)
         try {
@@ -864,32 +888,41 @@ Rules:
                 body: JSON.stringify({
                     name: suggestion.name,
                     description: suggestion.description,
-                    codeIds: suggestion.codes.map(c => c.id)
+                    codeIds
                 })
             })
 
+            const data = await res.json()
+
             if (res.ok) {
-                // Remove accepted suggestion and update cache
+                // Filter by NAME (stable), not by index (which may have shifted during await)
                 setThemeSuggestions(prev => {
-                    const updated = prev.filter((_, i) => i !== index)
+                    const updated = prev.filter(s => s.name !== suggestionName)
                     saveSuggestionsCache(updated)
                     return updated
                 })
-                // Refresh data
+                // Refresh data to update unassigned list + theme map
                 await fetchData()
+            } else {
+                console.error('Accept suggestion failed:', data)
+                alert(`Không thể tạo theme: ${data.error || 'Unknown error'}\n${data.details || ''}`)
             }
-        } catch (e) {
-            console.error('Failed to accept theme:', e)
+        } catch (e: any) {
+            console.error('Failed to accept theme (network error):', e)
+            alert('Lỗi kết nối khi tạo theme: ' + e.message)
         } finally {
             setAcceptingId(null)
         }
     }
 
     const rejectSuggestion = (index: number) => {
-        const name = themeSuggestions[index]?.name
-        if (name) addRejectedName(name)
+        const suggestion = themeSuggestions[index]
+        if (!suggestion) return
+        const name = suggestion.name
+        addRejectedName(name)
+        // Filter by NAME (stable), not by index
         setThemeSuggestions(prev => {
-            const updated = prev.filter((_, i) => i !== index)
+            const updated = prev.filter(s => s.name !== name)
             saveSuggestionsCache(updated)
             return updated
         })
@@ -1670,19 +1703,38 @@ Rules:
                             <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
                             </div>
-                            <p className="text-xs font-bold text-slate-600 mb-1">No suggestions yet</p>
-                            <p className="text-[11px] text-slate-400 mb-4">
-                                {unassignedCodes.length >= 2 
-                                    ? `Ready to analyze ${unassignedCodes.length} unassigned codes.` 
-                                    : 'Need at least 2 codes to generate theme suggestions.'}
-                            </p>
-                            {unassignedCodes.length >= 2 && (
-                                <button
-                                    onClick={() => generateSuggestions(true)}
-                                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
-                                >
-                                    Generate Suggestions
-                                </button>
+                            {suggestionsRemainingAfterBatch > 0 ? (
+                                <>
+                                    <p className="text-xs font-bold text-slate-600 mb-1">Batch completed</p>
+                                    <p className="text-[11px] text-slate-400 mb-4">
+                                        You've reviewed all suggestions in this batch.<br/>
+                                        Ready to analyze the next {Math.min(80, suggestionsRemainingAfterBatch)} codes.
+                                    </p>
+                                    <button
+                                        onClick={() => generateSuggestions(false, suggestionBatchOffset)}
+                                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 mx-auto"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                        Analyze next {Math.min(80, suggestionsRemainingAfterBatch)} codes
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-xs font-bold text-slate-600 mb-1">No suggestions yet</p>
+                                    <p className="text-[11px] text-slate-400 mb-4">
+                                        {unassignedCodes.length >= 2 
+                                            ? `Ready to analyze ${unassignedCodes.length} unassigned codes.` 
+                                            : 'Need at least 2 codes to generate theme suggestions.'}
+                                    </p>
+                                    {unassignedCodes.length >= 2 && (
+                                        <button
+                                            onClick={() => generateSuggestions(true)}
+                                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
+                                        >
+                                            Generate Suggestions
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     ) : (
@@ -1764,7 +1816,7 @@ Rules:
                     )}
 
                     {/* Load next batch banner */}
-                    {!suggestionsLoading && suggestionsRemainingAfterBatch > 0 && (
+                    {!suggestionsLoading && suggestionsRemainingAfterBatch > 0 && themeSuggestions.length > 0 && (
                         <div className="mx-1 mt-2 mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between gap-3">
                             <div>
                                 <p className="text-[12px] font-bold text-indigo-700">
