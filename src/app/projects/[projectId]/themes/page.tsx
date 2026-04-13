@@ -769,6 +769,10 @@ Rules:
         }
     }
 
+    const rejectSuggestion = (index: number) => {
+        setThemeSuggestions(prev => prev.filter((_, i) => i !== index))
+    }
+
     // AI Synthesize Themes (Meta-Themes)
     const handleSynthesize = async () => {
         setSynthModalOpen(true)
@@ -1438,26 +1442,36 @@ Rules:
                                             </span>
                                         ))}
                                     </div>
-                                    <button
-                                        onClick={() => acceptSuggestion(idx)}
-                                        disabled={acceptingId === idx}
-                                        className="w-full py-2 bg-[#5B55D6] hover:bg-[#4C47B2] disabled:bg-indigo-300 text-white text-[13px] font-extrabold rounded-md shadow-sm transition-colors flex items-center justify-center gap-1.5 focus:ring-4 focus:ring-indigo-100 outline-none"
-                                    >
-                                        {acceptingId === idx ? (
-                                            <>
-                                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                </svg>
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                                Accept as Theme
-                                            </>
-                                        )}
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => acceptSuggestion(idx)}
+                                            disabled={acceptingId === idx}
+                                            className="flex-1 py-2 bg-[#5B55D6] hover:bg-[#4C47B2] disabled:bg-indigo-300 text-white text-[13px] font-extrabold rounded-md shadow-sm transition-colors flex items-center justify-center gap-1.5 focus:ring-4 focus:ring-indigo-100 outline-none"
+                                        >
+                                            {acceptingId === idx ? (
+                                                <>
+                                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                    </svg>
+                                                    Creating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                    Accept
+                                                </>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => rejectSuggestion(idx)}
+                                            disabled={acceptingId === idx}
+                                            className="px-3 py-2 bg-slate-100/50 hover:bg-slate-200 text-slate-500 text-[13px] font-extrabold rounded-md shadow-sm transition-colors flex items-center justify-center focus:ring-4 focus:ring-slate-100 outline-none border border-slate-200"
+                                            title="Reject suggestion"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))

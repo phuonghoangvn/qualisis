@@ -42,33 +42,59 @@ export async function POST(req: Request) {
         if (project?.coreOntology) projectContext += `Core Ontology: ${project.coreOntology}\n`;
         if (project?.researchQuestion) projectContext += `Research Question: ${project.researchQuestion}\n`;
 
-        const prompt = `You are a helpful AI assistant for Qualitative Data Analysis (Reflexive Thematic Analysis).
-Your task is to suggest 3 precise, highly descriptive, sentence-like thematic code labels (5-12 words) for the provided text snippet.
-Do NOT reduce them into short 1-2 word abstract tags. Follow the researcher's style based on their recent codes if available.
+        const personas = [
+            {
+                id: "Psych",
+                icon: "🧠",
+                desc: "Focus purely on emotions, internal psychological states, implicit feelings, and mental framing."
+            },
+            {
+                id: "Socio",
+                icon: "👥",
+                desc: "Focus on social structures, workplace dynamics, cultural norms, relationships, and systemic pressures."
+            },
+            {
+                id: "Skeptic",
+                icon: "🕵️",
+                desc: "Focus on contradictions, what is NOT being said, paradoxes, avoidance, and underlying motives."
+            }
+        ];
+
+        if (!openai) {
+            return NextResponse.json({ suggestions: ["🧠 [Psych] Fallback Code", "👥 [Socio] Fallback Code", "🕵️ [Skeptic] Fallback Code"] });
+        }
+
+        const completions = await Promise.all(personas.map(p => {
+            const prompt = `You are a specialized Qualitative Researcher persona: ${p.id}. 
+${p.desc}
+Your task is to suggest EXACTLY ONE highly descriptive, sentence-like thematic code label (4-8 words) for the provided text snippet from your specific theoretical perspective.
+Do NOT reduce it into a short 1-2 word tag.
 
 ${projectContext}
 ${historyContextText}
 
 New Text to Code: "${text}"
 
-Output your suggestions as a JSON object: { "suggestions": ["Descriptive Label 1", "Descriptive Label 2", "Descriptive Label 3"] }`;
+Output your suggestion as a JSON object: { "suggestion": "Descriptive Label Here" }`;
 
-        if (!openai) {
-            return NextResponse.json({ suggestions: ["Theme 1", "Theme 2", "Theme 3"] });
-        }
+            return openai!.chat.completions.create({
+                model: "gpt-4o-mini",
+                response_format: { type: "json_object" },
+                messages: [
+                    { role: "system", content: "You output JSON only." },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.6 // Slightly higher to encourage creative distinctiveness
+            });
+        }));
 
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-            messages: [
-                { role: "system", content: "You output JSON only." },
-                { role: "user", content: prompt }
-            ],
-            temperature: 0.3
+        const results = completions.map((c, i) => {
+            const res = JSON.parse(c.choices[0].message?.content || '{"suggestion": "Unknown"}');
+            const label = res.suggestion;
+            return `${personas[i].icon} [${personas[i].id}] ${label}`;
         });
 
-        const result = JSON.parse(completion.choices[0].message?.content || '{"suggestions":[]}');
-        return NextResponse.json({ suggestions: result.suggestions || [] });
+        return NextResponse.json({ suggestions: results });
 
     } catch (e) {
         console.error('Suggest Code Error:', e);
