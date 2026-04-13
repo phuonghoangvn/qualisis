@@ -482,6 +482,9 @@ export default function ThemesPage() {
     const [loading, setLoading] = useState(true)
     const [suggestionsLoading, setSuggestionsLoading] = useState(false)
     const [acceptingId, setAcceptingId] = useState<number | null>(null)
+    const [suggestionsRemainingAfterBatch, setSuggestionsRemainingAfterBatch] = useState(0)
+    const [suggestionBatchOffset, setSuggestionBatchOffset] = useState(0)
+    const [suggestionsTotalUnassigned, setSuggestionsTotalUnassigned] = useState(0)
     // Selected theme in Thematic Map for drill-down
     const [mapSelectedTheme, setMapSelectedTheme] = useState<ThemeData | null>(null)
 
@@ -746,23 +749,48 @@ Rules:
     }
 
     // Generate AI theme suggestions
-    const generateSuggestions = useCallback(async (clearCache = false) => {
-        if (clearCache) clearSuggestionsCache()
+    // batchOffset: 0 = fresh run; >0 = load next batch appended to existing
+    const generateSuggestions = useCallback(async (clearCache = false, batchOffset = 0) => {
+        if (clearCache) {
+            clearSuggestionsCache()
+            setSuggestionBatchOffset(0)
+            setSuggestionsRemainingAfterBatch(0)
+            setSuggestionsTotalUnassigned(0)
+            if (batchOffset === 0) setThemeSuggestions([])
+        }
         setSuggestionsLoading(true)
         try {
             const res = await fetch(`/api/projects/${projectId}/themes/suggest`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     customPrompt: themePrompt,
-                    rejectedNames: Array.from(getRejectedNames())
+                    rejectedNames: Array.from(getRejectedNames()),
+                    batchOffset
                 })
             })
             const data = await res.json()
             const rejected = getRejectedNames()
-            const filtered = (data.suggestions || []).filter((s: ThemeSuggestion) => !rejected.has(s.name))
-            setThemeSuggestions(filtered)
-            saveSuggestionsCache(filtered)
+            const incoming = (data.suggestions || []).filter((s: ThemeSuggestion) => !rejected.has(s.name))
+
+            if (batchOffset === 0) {
+                // Fresh run — replace all suggestions
+                setThemeSuggestions(incoming)
+                saveSuggestionsCache(incoming)
+            } else {
+                // Appending next batch
+                setThemeSuggestions(prev => {
+                    const merged = [...prev, ...incoming]
+                    saveSuggestionsCache(merged)
+                    return merged
+                })
+            }
+
+            // Track remaining codes for "Load more" button
+            setSuggestionsRemainingAfterBatch(data.remainingAfterBatch ?? 0)
+            setSuggestionsTotalUnassigned(data.totalUnassigned ?? 0)
+            const nextOffset = (data.batchOffset ?? 0) + (data.batchSize ?? incoming.length)
+            setSuggestionBatchOffset(nextOffset)
         } catch (e) {
             console.error('Failed to generate suggestions:', e)
         } finally {
@@ -1733,6 +1761,27 @@ Rules:
                                 </div>
                             </div>
                         ))
+                    )}
+
+                    {/* Load next batch banner */}
+                    {!suggestionsLoading && suggestionsRemainingAfterBatch > 0 && (
+                        <div className="mx-1 mt-2 mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[12px] font-bold text-indigo-700">
+                                    {suggestionsRemainingAfterBatch} more codes to analyze
+                                </p>
+                                <p className="text-[10px] text-indigo-400 mt-0.5">
+                                    AI processed the first batch. Load more to continue grouping.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => generateSuggestions(false, suggestionBatchOffset)}
+                                className="flex-shrink-0 bg-indigo-600 text-white text-[11px] font-bold px-3 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                Analyze next {Math.min(80, suggestionsRemainingAfterBatch)}
+                            </button>
+                        </div>
                     )}
                 </div>
                 
