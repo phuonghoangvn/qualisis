@@ -172,11 +172,19 @@ Return ONLY a JSON array (no markdown, no explanation):
                 })
                 .filter(Boolean)
                 .map((code: any) => [code.id, code])).values())
-            })).filter((s: any) => s.codes?.length >= 2)
+            }))
+
+            let finalSuggestions = enriched.filter((s: any) => s.codes?.length >= 2)
+
+            // If AI is too strict/lazy and returns nothing for the remaining codes, fallback to heuristic
+            if (finalSuggestions.length === 0) {
+                console.log('AI returned 0 suggestions, using heuristic fallback')
+                finalSuggestions = generateFallbackSuggestions(batchCodes)
+            }
 
             return NextResponse.json({
-                suggestions: enriched,
-                source: 'ai',
+                suggestions: finalSuggestions,
+                source: finalSuggestions === enriched ? 'ai' : 'heuristic',
                 totalUnassigned: allUnassigned.length,
                 batchOffset: batchStart,
                 batchSize: batchCodes.length,
