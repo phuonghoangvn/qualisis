@@ -630,7 +630,20 @@ export default function TranscriptWorkspace({
                         </button>
 
                         {/* Export Button */}
-                        <button className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm bg-white">
+                        <button 
+                            onClick={() => {
+                                const blob = new Blob(['\uFEFF' + transcript.content], { type: 'text/plain;charset=utf-8;' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${transcript.title.replace(/\s+/g, '_')}_transcript.txt`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }}
+                            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm bg-white"
+                        >
                             Export
                         </button>
 
