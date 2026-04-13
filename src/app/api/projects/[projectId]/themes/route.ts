@@ -191,14 +191,16 @@ export async function POST(
         }
 
         // Create new theme
+        const uniqueCodeIds = Array.from(new Set(codeIds || []))
+
         const theme = await prisma.theme.create({
             data: {
                 projectId: params.projectId,
                 name,
                 description: description ?? null,
                 status: 'DRAFT',
-                codeLinks: codeIds?.length ? {
-                    create: codeIds.map((codeId: string) => ({
+                codeLinks: uniqueCodeIds.length > 0 ? {
+                    create: uniqueCodeIds.map((codeId: any) => ({
                         codebookEntryId: codeId
                     }))
                 } : undefined
@@ -229,9 +231,9 @@ export async function POST(
         })
 
         return NextResponse.json(theme, { status: 201 })
-    } catch (e) {
+    } catch (e: any) {
         console.error('Failed to create theme:', e)
-        return NextResponse.json({ error: 'Failed to create theme' }, { status: 500 })
+        return NextResponse.json({ error: 'Failed to create theme', details: e.message || String(e) }, { status: 500 })
     }
 }
 

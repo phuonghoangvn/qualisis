@@ -108,7 +108,7 @@ ${codesSummary}
 ${remainingAfterBatch > 0 ? `\nNOTE: There are ${remainingAfterBatch} more codes in subsequent batches. Focus on grouping AS MANY of the above codes as possible.` : ''}
 
 RULES:
-1. Group the codes above into 3–15 themes. MAXIMIZE coverage — try to place every code into a theme.
+1. EXHAUSTIVE GROUPING REQUIRED: You MUST aggressively group the codes into themes. Your goal is to place EVERY SINGLE CODE into a theme if logically possible. Do not leave codes out. Create as many themes as needed to cover the data.
 2. Theme name = a plain-English sentence stating the finding directly (e.g. "Users distrust AI because it feels opaque"). No jargon words like "Dynamics", "Patterns", "Collaboration".
 3. Each code may appear in at most ONE theme.
 4. Minimum 2 codes per theme. No upper limit on codes per theme.
@@ -139,8 +139,8 @@ Return ONLY a JSON array (no markdown, no explanation):
         }
 
         const response = await openai.chat.completions.create({
-            // Use gpt-4o for larger batches to handle complexity; mini for small ones
-            model: batchCodes.length > 60 ? 'gpt-4o' : 'gpt-4o-mini',
+            // Fallback to gpt-4o-mini to save cost (per user request)
+            model: 'gpt-4o-mini',
             temperature: 0.3,
             messages: [{ role: 'user', content: prompt }],
         })
@@ -157,11 +157,9 @@ Return ONLY a JSON array (no markdown, no explanation):
                 reason: s.reason || null,
                 confidenceScore: typeof s.confidenceScore === 'number' ? s.confidenceScore : null,
                 connections: s.connections || null,
-                codes: (s.codeNames || []).map((name: string) => {
+                codes: Array.from(new Map((s.codeNames || []).map((name: string) => {
                     const cleanName = name.trim().toLowerCase()
-                    // 1. Exact match
                     let entry = batchCodes.find((c: any) => c.name.toLowerCase() === cleanName)
-                    // 2. Partial match fallback
                     if (!entry) {
                         entry = batchCodes.find((c: any) =>
                             c.name.toLowerCase().includes(cleanName) ||
@@ -171,7 +169,9 @@ Return ONLY a JSON array (no markdown, no explanation):
                     return entry
                         ? { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type }
                         : null
-                }).filter(Boolean)
+                })
+                .filter(Boolean)
+                .map((code: any) => [code.id, code])).values())
             })).filter((s: any) => s.codes?.length >= 2)
 
             return NextResponse.json({

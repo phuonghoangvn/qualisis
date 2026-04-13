@@ -513,13 +513,10 @@ export default function ThemesPage() {
     const [newThemeModal, setNewThemeModal] = useState({ open: false, id: undefined as string | undefined, name: '', description: '' })
 
     // Prompt editor state for theme suggestions
-    const DEFAULT_THEME_PROMPT = `Group these codes into meaningful THEMES based on:
-1. Code co-occurrence patterns (codes that appear in the same interview segments)
-2. Semantic similarity (codes that describe related concepts)
-3. Theoretical coherence (codes that form a meaningful narrative together)
+    const DEFAULT_THEME_PROMPT = `Group these codes into meaningful THEMES.
 
 For each suggested theme, provide:
-- A clear theme name (3-6 words)
+- A clear theme name. MUST be a plain-English, conversational sentence stating the core idea directly (e.g. "Users distrust AI because it feels opaque"). DO NOT use academic titles or jargon like "Dynamics of...", "Role of...", or "Patterns in...".
 - 1-2 emotional/conceptual tags
 - A brief description explaining WHY these codes belong together
 - Which specific code names belong in this theme
@@ -527,8 +524,7 @@ For each suggested theme, provide:
 Rules:
 - Each code should appear in at most ONE theme
 - A theme should have at least 2 codes
-- Create 3-6 themes maximum
-- Be specific and grounded in the data`
+- Exhaustive Coverage: Create AS MANY themes as you need to group as many of the provided codes as possible. Leave nothing behind if it fits.`
     const [themePrompt, setThemePrompt] = useState(DEFAULT_THEME_PROMPT)
     const [showPromptEditor, setShowPromptEditor] = useState(false)
 
