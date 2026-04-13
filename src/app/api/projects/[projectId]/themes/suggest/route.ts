@@ -174,7 +174,7 @@ Return ONLY a JSON array (no markdown, no explanation):
                 .map((code: any) => [code.id, code])).values())
             }))
 
-            let finalSuggestions = enriched.filter((s: any) => s.codes?.length >= 2)
+            let finalSuggestions: any[] = enriched.filter((s: any) => s.codes?.length >= 2)
 
             // If AI is too strict/lazy and returns nothing for the remaining codes, fallback to heuristic
             if (finalSuggestions.length === 0) {
@@ -190,7 +190,7 @@ Return ONLY a JSON array (no markdown, no explanation):
                 batchSize: batchCodes.length,
                 remainingAfterBatch
             })
-        } catch (parseErr) {
+        } catch (parseErr: any) {
             console.error('Failed to parse AI suggestions:', parseErr, '\nRaw:', raw.slice(0, 500))
             return NextResponse.json({
                 suggestions: generateFallbackSuggestions(batchCodes),
@@ -201,9 +201,9 @@ Return ONLY a JSON array (no markdown, no explanation):
             })
         }
 
-    } catch (e) {
+    } catch (e: any) {
         console.error('Theme suggestion error:', e)
-        return NextResponse.json({ error: 'Failed to generate suggestions' }, { status: 500 })
+        return NextResponse.json({ error: 'Failed to generate suggestions', details: e.message || String(e) }, { status: 500 })
     }
 }
 
@@ -243,5 +243,23 @@ function generateFallbackSuggestions(codes: any[]) {
             })
         }
     }
+
+    // Force a "Miscellaneous" group if both AI and heuristics fail to find any matches
+    // This prevents the user from being stuck with a few ungroupable 'leftover' codes and a seemingly dead 'Generate' button.
+    const remainingUngrouped = codes.filter((c: any) => !used.has(c.id))
+    if (suggestions.length === 0 && remainingUngrouped.length > 0) {
+        suggestions.push({
+            name: "Other Insights",
+            tags: ["Miscellaneous"],
+            description: "These remaining codes do not share obvious patterns and have been grouped together to complete the review.",
+            codes: remainingUngrouped.map((g: any) => ({
+                id: g.id,
+                name: g.name,
+                instances: g._count.codeAssignments,
+                type: g.type
+            }))
+        })
+    }
+
     return suggestions
 }

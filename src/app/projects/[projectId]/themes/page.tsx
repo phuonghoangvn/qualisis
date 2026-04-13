@@ -765,7 +765,19 @@ Rules:
                     batchOffset
                 })
             })
-            const data = await res.json()
+            const textRaw = await res.text()
+            let data
+            try {
+                data = JSON.parse(textRaw)
+            } catch (jsonErr) {
+                alert(`Server crashed (Likely Next.js compilation error):\n${textRaw.slice(0, 150)}...`)
+                throw new Error("Server returned non-JSON response")
+            }
+
+            if (!res.ok) {
+                alert(`Error from API: ${data.error || 'Unknown error'}\nDetails: ${data.details || ''}`)
+                throw new Error(data.error)
+            }
             const rejected = getRejectedNames()
             const incoming = (data.suggestions || []).filter((s: ThemeSuggestion) => !rejected.has(s.name))
 
