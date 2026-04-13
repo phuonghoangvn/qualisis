@@ -28,7 +28,7 @@ export async function POST(
 
         const themesSummary = currentThemes.map(t => {
             const codes = t.codeLinks.map((l: any) => l.codebookEntry.name).join(', ');
-            return `Theme Name: "${t.name}"\nDescription: ${t.description || 'N/A'}\nContains Codes: [${codes}]`;
+            return `[ID: ${t.id}] Theme Name: "${t.name}"\nDescription: ${t.description || 'N/A'}\nContains Codes: [${codes}]`;
         }).join('\n\n');
 
         const project = await prisma.project.findUnique({
@@ -69,13 +69,12 @@ Synthesize the ${currentThemes.length} fragmented sub-themes into 3-6 HIGHER-ORD
 - An original theme MUST belong to exactly ONE Overarching Theme.
 - You must include ALL original themes across your groupings. Do not drop any.
 
-[OUTPUT FORMAT]
 Return ONLY a strict JSON array (no markdown tags) with this structure:
 [
   {
     "name": "Plain-English Finding Name (e.g., 'Users rely on their own judgment because they do not trust AI outputs')",
     "description": "A crystal clear, straightforward 2-3 sentence explanation of the overarching meaning. EXACTLY what do these sub-themes have in common and what is the core finding?",
-    "mergedThemeIds": ["Exact Name of Theme 1", "Exact Name of Theme 2"]
+    "mergedThemeIds": ["theme-id-1", "theme-id-2"]
   }
 ]`;
 
@@ -95,18 +94,14 @@ Return ONLY a strict JSON array (no markdown tags) with this structure:
 
         // Process suggestions to map back to real Theme IDs
         const enriched = suggestions.map((s: any) => {
-            const matchedIds = s.mergedThemeIds.map((name: string) => {
-                const match = currentThemes.find(t => t.name.toLowerCase() === name.toLowerCase());
-                return match ? match.id : null;
-            }).filter(Boolean);
-
+            const matchedIds = Array.isArray(s.mergedThemeIds) ? s.mergedThemeIds : [];
             const matchedThemesObj = currentThemes.filter(t => matchedIds.includes(t.id));
 
             return {
                 name: s.name,
                 description: s.description,
                 matchedThemes: matchedThemesObj.map(t => ({ id: t.id, name: t.name })),
-                matchedIds
+                matchedIds: matchedThemesObj.map(t => t.id)
             };
         });
 

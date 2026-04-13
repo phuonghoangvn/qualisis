@@ -671,8 +671,8 @@ Rules:
         setLoading(true)
         try {
             const [codesRes, themesRes] = await Promise.all([
-                fetch(`/api/codebook?projectId=${projectId}`),
-                fetch(`/api/projects/${projectId}/themes`)
+                fetch(`/api/codebook?projectId=${projectId}`, { cache: 'no-store' }),
+                fetch(`/api/projects/${projectId}/themes`, { cache: 'no-store' })
             ])
 
             const allCodes = await codesRes.json()
