@@ -43,13 +43,23 @@ export async function GET(
                             }
                         }
                     }
+                },
+                // Who are my children? (I am a mega-theme)
+                relationsIn: {
+                    where: { relationType: 'SUBTHEME_OF' },
+                    select: { sourceId: true }
+                },
+                // Am I a child of someone? (I am a sub-theme)
+                relationsOut: {
+                    where: { relationType: 'SUBTHEME_OF' },
+                    select: { targetId: true }
                 }
             },
             orderBy: { createdAt: 'desc' }
         })
         
         // Remove code links that have 0 assignments (orphans) and compute participants
-        const validThemes = themes.map(theme => {
+        const processedThemes = themes.map(theme => {
             const themeParticipantMap = new Map<string, {id: string, name: string}>()
 
             const validLinks = theme.codeLinks.filter(link => link.codebookEntry._count.codeAssignments > 0 || link.codebookEntry.type === 'OBSERVATION').map(link => {
@@ -76,7 +86,6 @@ export async function GET(
                     }
                 }
 
-                // Strip codeAssignments from the final output payload to save bandwidth
                 const { codeAssignments, ...restCodeEntry } = link.codebookEntry as any
                 return {
                     ...link,
@@ -88,14 +97,31 @@ export async function GET(
                 }
             })
 
+            const isMeta = theme.relationsIn.length > 0  // has children → mega-theme
+            const parentId = theme.relationsOut[0]?.targetId || null  // belongs to a mega-theme
+
             return {
                 ...theme,
                 codeLinks: validLinks,
-                participantsCount: themeParticipantMap.size
+                participantsCount: themeParticipantMap.size,
+                isMeta,
+                parentId,
+                childIds: theme.relationsIn.map(r => r.sourceId)
             }
         })
 
-        return NextResponse.json(validThemes)
+        // Build hierarchy: attach full child theme objects to their mega-theme
+        const themeMap = new Map(processedThemes.map(t => [t.id, t]))
+        const result = processedThemes
+            .filter(t => !t.parentId) // only top-level (no parent)
+            .map(t => ({
+                ...t,
+                children: t.childIds
+                    .map(id => themeMap.get(id))
+                    .filter(Boolean)
+            }))
+
+        return NextResponse.json(result)
     } catch (e) {
         console.error('Failed to fetch themes:', e)
         return NextResponse.json({ error: 'Failed to fetch themes' }, { status: 500 })

@@ -30,6 +30,10 @@ type ThemeData = {
     description: string | null
     memo: string | null
     status: string
+    isMeta?: boolean
+    parentId?: string | null
+    childIds?: string[]
+    children?: ThemeData[]
     positionX?: number | null
     positionY?: number | null
     codeLinks: {
@@ -865,8 +869,16 @@ Rules:
         setUndoingMerge(false)
     }
 
-    const totalCodes = unassignedCodes.length + themes.reduce((acc, t) => acc + (t.codeLinks?.length || 0), 0)
-    const assignedCount = themes.reduce((acc, t) => acc + (t.codeLinks?.length || 0), 0)
+    const totalCodes = unassignedCodes.length + themes.reduce((acc, t) => {
+        const ownCodes = t.codeLinks?.length || 0
+        const childCodes = (t.children || []).reduce((s, c) => s + (c.codeLinks?.length || 0), 0)
+        return acc + ownCodes + childCodes
+    }, 0)
+    const assignedCount = themes.reduce((acc, t) => {
+        const ownCodes = t.codeLinks?.length || 0
+        const childCodes = (t.children || []).reduce((s, c) => s + (c.codeLinks?.length || 0), 0)
+        return acc + ownCodes + childCodes
+    }, 0)
 
     return (
         <div className="flex h-full bg-white text-slate-800">
@@ -1169,12 +1181,114 @@ Rules:
                                     />
                                 </div>
                                 
-                                {visibleThemes.length === 0 && themeSearchQuery && (
-                                    <div className="text-center py-10 text-slate-400 text-sm font-bold">No themes found matching "{themeSearchQuery}"</div>
-                                )}
-
-                                <div className="columns-1 lg:columns-2 2xl:columns-3 gap-5 max-w-6xl mx-auto space-y-5">
+                                            <div className="columns-1 lg:columns-2 2xl:columns-3 gap-5 max-w-6xl mx-auto space-y-5">
                                     {visibleThemes.map(theme => {
+                                        // ── MEGA-THEME (container with children) ──
+                                        if (theme.isMeta && theme.children && theme.children.length > 0) {
+                                            const totalChildCodes = theme.children.reduce((s, c) => s + (c.codeLinks?.length || 0), 0)
+                                            return (
+                                                <div
+                                                    key={theme.id}
+                                                    className="bg-gradient-to-br from-violet-50 to-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-md relative group/card break-inside-avoid"
+                                                >
+                                                    {/* Mega-theme badge */}
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-violet-700 bg-violet-100 border border-violet-300 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                                                Mega-Theme
+                                                            </span>
+                                                            <h3 className="text-sm font-extrabold text-indigo-900 leading-snug">{theme.name}</h3>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                onClick={() => setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '' })}
+                                                                title="Edit mega-theme"
+                                                                className="opacity-0 group-hover/card:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center text-indigo-300 hover:text-indigo-600 hover:bg-indigo-100 rounded-md"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteTheme(theme.id, theme.name)}
+                                                                title="Delete mega-theme"
+                                                                className="opacity-0 group-hover/card:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center text-indigo-300 hover:text-rose-500 hover:bg-rose-50 rounded-md"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    {theme.description && (
+                                                        <p className="text-[11px] text-indigo-700/70 mb-4 leading-relaxed italic">{theme.description}</p>
+                                                    )}
+                                                    {/* Child sub-theme cards */}
+                                                    <div className="flex flex-col gap-3">
+                                                        {theme.children.map(child => {
+                                                            const childCodes = child.codeLinks || []
+                                                            const isChildExpanded = expandedThemes[child.id]
+                                                            const childCodesToShow = isChildExpanded ? childCodes : childCodes.slice(0, 3)
+                                                            const childHiddenCount = childCodes.length - 3
+                                                            return (
+                                                                <div
+                                                                    key={child.id}
+                                                                    onDragOver={handleDragOver}
+                                                                    onDrop={(e) => handleDropOnTheme(e, child.id)}
+                                                                    className="bg-white border border-indigo-100 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-shadow relative group/child"
+                                                                >
+                                                                    <div className="flex items-start justify-between mb-2">
+                                                                        <h4 className="text-[12px] font-bold text-slate-800 leading-snug pr-2">{child.name}</h4>
+                                                                        <div className="flex items-center gap-1 opacity-0 group-hover/child:opacity-100 transition-opacity flex-shrink-0">
+                                                                            <button onClick={() => setNewThemeModal({ open: true, id: child.id, name: child.name, description: child.description || '' })} title="Edit" className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                                                            </button>
+                                                                            <button onClick={() => deleteTheme(child.id, child.name)} title="Delete" className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                    {child.description && <p className="text-[10px] text-slate-400 mb-2 italic leading-relaxed line-clamp-2">{child.description}</p>}
+                                                                    <div className="flex flex-wrap gap-1 mb-2 min-h-[24px] p-1.5 -mx-1 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
+                                                                        {childCodes.length === 0 && <div className="text-[10px] text-slate-300 italic mx-auto py-0.5">Drop codes here</div>}
+                                                                        {childCodesToShow.map(link => (
+                                                                            <span
+                                                                                key={link.codebookEntry.id}
+                                                                                draggable
+                                                                                onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, { codeId: link.codebookEntry.id, fromThemeId: child.id }) }}
+                                                                                className="flex items-center gap-1 bg-white border border-indigo-200 text-indigo-700 text-[10px] font-semibold pl-1.5 pr-1 py-0.5 rounded-md shadow-sm cursor-grab hover:border-indigo-400"
+                                                                            >
+                                                                                <span>{link.codebookEntry.name}</span>
+                                                                                <button onClick={async (e) => { e.stopPropagation(); await fetch(`/api/projects/${projectId}/themes`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({themeId: child.id, action:'REMOVE_CODE', codeId: link.codebookEntry.id}) }); fetchData() }} className="text-slate-300 hover:text-rose-500 ml-1">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                                                </button>
+                                                                            </span>
+                                                                        ))}
+                                                                        {childHiddenCount > 0 && (
+                                                                            <button onClick={() => setExpandedThemes(p => ({...p, [child.id]: !isChildExpanded}))} className="w-full text-center text-[10px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50/50 rounded py-0.5 mt-1">
+                                                                                {isChildExpanded ? 'Collapse' : `+ ${childHiddenCount} more codes`}
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-slate-400 font-medium">{childCodes.length} codes · {child.participantsCount || 0} participants</div>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                    {/* Mega-theme footer */}
+                                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-indigo-100">
+                                                        <span className="text-[10px] text-indigo-500 font-bold">{theme.children.length} sub-themes · {totalChildCodes} total codes</span>
+                                                        <button
+                                                            onClick={() => { setLastMergedThemeId(theme.id); setTimeout(handleUndoMerge, 0) }}
+                                                            className="text-[10px] font-bold text-indigo-400 hover:text-rose-500 flex items-center gap-1"
+                                                            title="Dissolve this mega-theme (sub-themes stay)"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                                                            Dissolve
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        // ── REGULAR THEME CARD ──
                                         const codesArr = theme.codeLinks || [];
                                         const isExpanded = expandedThemes[theme.id];
                                         const codesToShow = isExpanded ? codesArr : codesArr.slice(0, 3);
@@ -1283,7 +1397,8 @@ Rules:
                                                 </div>
                                             </div>
                                         </div>
-                                    )})}
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
