@@ -107,8 +107,7 @@ Return a JSON array:
 [
   {
     "name": "Category/Theme Name (abstract, conceptual)",
-    "tags": ["Emotional Tag", "Conceptual Tag"],
-    "description": "What this category captures — the central concept or pattern. Why these codes belong together.",
+    "description": "A crystal clear, straightforward 2-3 sentence explanation of EXACTLY what this theme is about. Avoid vague academic jargon. What is the specific phenomenon, experience, or pattern happening here?",
     "reason": "Detailed analytical reasoning: What pattern did you observe? Why is this grouping meaningful? What does it reveal about the participants' experiences?",
     "confidenceScore": 85,
     "connections": "How does this theme connect to or influence other themes? What is its role in the bigger picture?",

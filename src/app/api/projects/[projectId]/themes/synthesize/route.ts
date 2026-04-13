@@ -74,7 +74,7 @@ Return ONLY a strict JSON array (no markdown tags) with this structure:
 [
   {
     "name": "Higher-Order Concept Name (e.g., 'Systemic and Organizational Barriers')",
-    "description": "Explain the semantic overlap. What exact meaning or phenomenon do these sub-themes share?",
+    "description": "A crystal clear, straightforward 2-3 sentence explanation of the overarching meaning. EXACTLY what do these sub-themes have in common and what is the core finding?",
     "mergedThemeIds": ["Exact Name of Theme 1", "Exact Name of Theme 2"]
   }
 ]`;
