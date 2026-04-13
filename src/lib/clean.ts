@@ -53,7 +53,7 @@ RULES FOR KEEPING (BE EXTREMELY SELECTIVE):
 1. Keep a code ONLY if it captures a core pillar of the participant's narrative.
 2. Keep a code ONLY if it is deeply analytical (not just descriptive).
 
-CONSTRAINT: You are expected to drop at least 40-50% of the draft codes. Only the absolute strongest, most unique insights should survive.
+CONSTRAINT: You are expected to drop roughly 20-30% of the weakest draft codes. Keep the insightful ones, but do not hesitate to drop redundant or purely conversational garbage.
 
 JSON FORMAT:
 {
