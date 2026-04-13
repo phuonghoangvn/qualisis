@@ -97,7 +97,7 @@ export async function GET(
                 }
             })
 
-            const isMeta = theme.relationsIn.length > 0  // has children → mega-theme
+            const isMeta = theme.relationsIn.length > 0 || (theme.memo && theme.memo.startsWith('META:'))  // has children or flagged as mega-theme
             const parentId = theme.relationsOut[0]?.targetId || null  // belongs to a mega-theme
 
             return {
@@ -135,7 +135,7 @@ export async function POST(
 ) {
     try {
         const body = await req.json()
-        const { name, description, codeIds } = body
+        const { name, description, codeIds, isMegaTheme } = body
 
         const session = await getServerSession(authOptions)
         const userId = session?.user ? (session.user as any).id : null
@@ -198,6 +198,7 @@ export async function POST(
                 projectId: params.projectId,
                 name,
                 description: description ?? null,
+                memo: isMegaTheme ? 'META:Synthesized container theme' : null,
                 status: 'DRAFT',
                 codeLinks: uniqueCodeIds.length > 0 ? {
                     create: uniqueCodeIds.map((codeId: any) => ({
@@ -244,12 +245,12 @@ export async function PATCH(
 ) {
     try {
         const body = await req.json()
-        const { themeId, action, codeId } = body
+        const { themeId, action, codeId, subThemeId } = body
 
         const session = await getServerSession(authOptions)
         const userId = session?.user ? (session.user as any).id : null
 
-        if (!themeId || !action || !codeId) {
+        if (!themeId || !action) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
@@ -286,6 +287,25 @@ export async function PATCH(
                     entityId: themeId,
                     note: `Code ${codeId} removed from theme ${themeId}`,
                 }
+            })
+        } else if (action === 'ADD_THEME') {
+            if (!subThemeId) return NextResponse.json({ error: 'Missing subThemeId' }, { status: 400 })
+            // Remove existing parent if any
+            await prisma.themeRelation.deleteMany({
+                where: { sourceId: subThemeId, relationType: 'SUBTHEME_OF' }
+            })
+            // Create new parent relation
+            await prisma.themeRelation.create({
+                data: {
+                    sourceId: subThemeId,
+                    targetId: themeId,
+                    relationType: 'SUBTHEME_OF'
+                }
+            })
+        } else if (action === 'REMOVE_THEME') {
+            if (!subThemeId) return NextResponse.json({ error: 'Missing subThemeId' }, { status: 400 })
+            await prisma.themeRelation.deleteMany({
+                where: { sourceId: subThemeId, targetId: themeId, relationType: 'SUBTHEME_OF' }
             })
         }
 
