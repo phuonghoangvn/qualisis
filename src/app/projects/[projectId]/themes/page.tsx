@@ -739,6 +739,28 @@ Rules:
         }
     }, [unassignedCodes, themeSuggestions.length, suggestionsLoading, generateSuggestions])
 
+    // Clean up stale suggestions real-time when a code is dragged & dropped (removed from unassigned)
+    useEffect(() => {
+        if (!loading) {
+            const unassignedIds = new Set(unassignedCodes.map(c => c.id));
+            
+            setThemeSuggestions(prev => {
+                if (prev.length === 0) return prev;
+                
+                const cleaned = prev.map(suggestion => {
+                    const newCodes = suggestion.codes.filter(c => unassignedIds.has(c.id));
+                    return { ...suggestion, codes: newCodes };
+                }).filter(suggestion => suggestion.codes.length >= 2);
+                
+                // Only update if there's an actual structural change
+                const isChanged = cleaned.length !== prev.length || 
+                    cleaned.some((s, i) => s.codes.length !== prev[i].codes.length);
+                    
+                return isChanged ? cleaned : prev;
+            });
+        }
+    }, [unassignedCodes, loading]);
+
     // Accept a theme suggestion → create theme in DB
     const acceptSuggestion = async (index: number) => {
         const suggestion = themeSuggestions[index]
