@@ -35,10 +35,12 @@ export async function POST(
             return NextResponse.json({ suggestions: [], message: 'No codes found in this project' })
         }
 
-        // 2. Filter out orphans (0 instances) and keep only unassigned codes (not yet linked to any theme)
-        const unassignedCodes = codebookEntries.filter(c => 
-            c._count.codeAssignments > 0 && c.themeLinks.length === 0
-        )
+        // 2. Filter out orphans (0 instances) and keep only unassigned codes
+        // SORT by assignment count (descending) and LIMIT to top 40 to prevent prompt overflow
+        const unassignedCodes = codebookEntries
+            .filter(c => c._count.codeAssignments > 0 && c.themeLinks.length === 0)
+            .sort((a, b) => b._count.codeAssignments - a._count.codeAssignments)
+            .slice(0, 40) // Only take top 40 most frequent codes first
         
         if (unassignedCodes.length < 2) {
             return NextResponse.json({ 
@@ -50,9 +52,10 @@ export async function POST(
         // 3. Build context for AI
         const codesSummary = unassignedCodes.map(code => {
             const examples = code.codeAssignments
-                .map(a => `"${a.segment.text.slice(0, 120)}"`)
+                .slice(0, 3) // Only 3 examples max
+                .map(a => `"${a.segment.text.slice(0, 80)}..."`) // Shorter snippet
                 .join('\n    ')
-            return `- "${code.name}" (${code._count.codeAssignments} instances, type: ${code.type})${code.definition ? `\n  Definition: ${code.definition}` : ''}${examples ? `\n  Example quotes:\n    ${examples}` : ''}`
+            return `- "${code.name}" (${code._count.codeAssignments} instances)${code.definition ? `\n  Def: ${code.definition}` : ''}${examples ? `\n  Quotes:\n    ${examples}` : ''}`
         }).join('\n')
 
         // 4. Get project research context and existing themes
