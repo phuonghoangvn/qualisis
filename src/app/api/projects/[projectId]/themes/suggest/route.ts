@@ -42,24 +42,23 @@ export async function POST(
         }
 
         // 2. Keep only truly unassigned codes:
-        //    - Either has at least 1 segment assignment (normal codes), OR is an OBSERVATION code
-        //      (OBSERVATION codes are researcher notes with 0 segment assignments by design — always valid)
+        //    - Has at least 1 segment assignment (normal codes),
+        //      OR is an OBSERVATION code (researcher notes — 0 assignments by design),
+        //      OR has 0 assignments but was explicitly entered by the researcher (RAW/CLEAN type)
         //    - Not actively linked to any NON-MERGED theme
         //      (codes whose only theme links are to MERGED themes can be re-grouped)
         const allUnassigned = codebookEntries
             .filter(c =>
-                (c._count.codeAssignments > 0 || (c as any).type === 'OBSERVATION') &&
                 !c.themeLinks.some((tl: any) => tl.theme.status !== 'MERGED')
             )
-            // Sort by most-used first so the most relevant codes go in the first batch
+            // Sort: observations last (no instances), then by most-used first
             .sort((a, b) => b._count.codeAssignments - a._count.codeAssignments)
 
         if (allUnassigned.length < 2) {
             // Debug log to help diagnose issues
             const totalCodes = codebookEntries.length
-            const withAssignments = codebookEntries.filter(c => c._count.codeAssignments > 0 || (c as any).type === 'OBSERVATION').length
             const alreadyInTheme = codebookEntries.filter(c => c.themeLinks.some((tl: any) => tl.theme.status !== 'MERGED')).length
-            console.log(`[Suggest] ${totalCodes} total codes | ${withAssignments} have assignments | ${alreadyInTheme} already in active themes | ${allUnassigned.length} unassigned → NOT ENOUGH`)
+            console.log(`[Suggest] ${totalCodes} total codes | ${alreadyInTheme} already in active themes | ${allUnassigned.length} unassigned → NOT ENOUGH`)
             return NextResponse.json({
                 suggestions: [],
                 message: `Need at least 2 unassigned codes to generate theme suggestions (found ${allUnassigned.length} — ${alreadyInTheme} codes are still linked to existing themes)`
@@ -75,13 +74,23 @@ export async function POST(
 
         // Build a CONCISE code list (skip full example quotes for large batches to save tokens)
         const useLongFormat = batchCodes.length <= 30
+
+        // Map raw DB type to human-readable label for the AI prompt
+        const humanReadableType = (code: any): string => {
+            if (code.type === 'OBSERVATION') return 'Researcher Observation'
+            if (code._count.codeAssignments === 0) return 'Human Created (no instances yet)'
+            // Check if any assignment has an AI suggestion
+            const hasAI = code.codeAssignments.some((a: any) => a.aiSuggestion)
+            return hasAI ? 'AI-Assisted' : 'Human Created'
+        }
+
         const codesSummary = batchCodes.map(code => {
             const examples = useLongFormat
                 ? code.codeAssignments
                     .map((a: any) => `"${a.segment.text.slice(0, 100)}"`)
                     .join('; ')
                 : ''
-            return `- "${code.name}" (${code._count.codeAssignments}× used, ${code.type})${
+            return `- "${code.name}" (${code._count.codeAssignments}× used, ${humanReadableType(code)})${
                 code.definition ? ` — ${(code.definition as string).slice(0, 100)}` : ''
             }${examples ? ` | e.g. ${examples}` : ''}`
         }).join('\n')
@@ -122,8 +131,9 @@ RULES:
 3. Each code may appear in at most ONE theme.
 4. Minimum 2 codes per theme. No upper limit on codes per theme.
 5. If a code clearly belongs to an existing theme listed above, use that EXACT theme name.
-${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? `6. REJECTED by user — DO NOT use or recreate: ${(rejectedNames as string[]).map((n: string) => `"${n}"`).join(', ')}` : ''}
-${userInstructions ? `${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? '7' : '6'}. EXTRA INSTRUCTIONS: ${userInstructions}` : ''}
+6. "Researcher Observation" and "Human Created" codes are EQUALLY VALID for grouping — treat them the same as AI-Assisted codes. Do NOT skip them just because they have 0 instances.
+${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? `7. REJECTED by user — DO NOT use or recreate: ${(rejectedNames as string[]).map((n: string) => `"${n}"`).join(', ')}` : ''}
+${userInstructions ? `${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? '8' : '7'}. EXTRA INSTRUCTIONS: ${userInstructions}` : ''}
 
 Return ONLY a JSON array (no markdown, no explanation):
 [
