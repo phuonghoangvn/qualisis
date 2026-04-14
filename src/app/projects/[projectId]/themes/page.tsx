@@ -1523,7 +1523,7 @@ Rules:
                                                 <h3 className="text-sm font-extrabold text-slate-800">{theme.name}</h3>
                                                 <div className="flex items-center gap-1">
                                                     <button
-                                                        onClick={() => setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '' })}
+                                                        onClick={() => setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '', isMegaTheme: false })}
                                                         title="Edit theme"
                                                         className="opacity-0 group-hover/card:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
                                                     >
