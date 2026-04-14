@@ -182,7 +182,7 @@ ${transcriptContent}
 export async function generateTranscriptSummary(text: string) {
     if (!openai) return "";
     try {
-        const response = await openai.chat.completions.create({
+        const response = await openai!.chat.completions.create({
             model: 'gpt-4o-mini',
             temperature: 0.3,
             messages: [
@@ -379,7 +379,7 @@ export async function calculateConfidenceScores(segmentText: string, label: stri
     }
     try {
         const model = scoringModel || 'gpt-4o-mini'
-        const response = await openai.chat.completions.create({
+        const response = await openai!.chat.completions.create({
             model,
             temperature: 0.1,
             response_format: { type: "json_object" },
@@ -588,7 +588,7 @@ export async function clusterThematicCodesWithGPT(uniqueLabels: string[]) {
     if (!openai || uniqueLabels.length < 2) return null;
 
     try {
-        const response = await openai.chat.completions.create({
+        const response = await openai!.chat.completions.create({
             model: 'gpt-4o-mini',
             temperature: 0.1,
             response_format: { type: "json_object" },
