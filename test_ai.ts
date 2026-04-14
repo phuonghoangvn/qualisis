@@ -20,7 +20,7 @@ UNASSIGNED CODES:
 
 Return ONLY a JSON array.`
 
-    const res = await openai.chat.completions.create({
+    const res = await openai!.chat.completions.create({
         model: 'gpt-4o-mini',
         temperature: 0.3,
         messages: [{ role: 'user', content: prompt }]
