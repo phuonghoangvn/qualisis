@@ -67,21 +67,22 @@ export async function GET(
         }
 
         const BOM = '\uFEFF'
-        const header = ['Mega-themes', 'Themes', 'Num participants', 'Num pieces', 'Code', 'Definition', 'Sample Evidence', 'Participant IDs']
+        const header = ['MEGA-THEME', 'THEME', 'PART.', 'PIECES', 'CODE', 'DEFINITION', 'SAMPLE EVIDENCE', 'PARTICIPANT IDS']
 
         const rows: string[][] = []
 
         const buildCodeRows = (megaName: string, theme: typeof rawThemes[0]) => {
             const validLinks = theme.codeLinks.filter(l => l.codebookEntry.codeAssignments.length > 0)
             if (validLinks.length === 0) {
-                rows.push([megaName, sanitise(theme.name), '0', '0', '', '', '', ''])
+                // If it is an empty standalone theme, only put name in Theme
+                rows.push([megaName || '-', sanitise(theme.name), '0', '0', '-', '', '', ''])
             } else {
                 for (const link of validLinks) {
                     const stats = getCodeStats(link.codebookEntry.codeAssignments)
                     // Definition: prioritise codebookEntry.definition, fallback to examplesIn
                     const definition = link.codebookEntry.definition || link.codebookEntry.examplesIn || ''
                     rows.push([
-                        megaName,
+                        megaName || '-',
                         sanitise(theme.name),
                         String(stats.numParticipants),
                         String(stats.numPieces),
@@ -98,14 +99,15 @@ export async function GET(
             if (isMeta(theme)) {
                 const children = theme.relationsIn.map(r => themeMap.get(r.sourceId)).filter(Boolean) as typeof rawThemes
                 if (children.length === 0) {
-                    rows.push([sanitise(theme.name), '', '0', '0', '', '', '', ''])
+                    // Empty mega theme without sub-themes
+                    rows.push([sanitise(theme.name), '-', '0', '0', '-', '', '', ''])
                 } else {
                     for (const child of children) {
                         buildCodeRows(sanitise(theme.name), child)
                     }
                 }
             } else {
-                buildCodeRows('(standalone)', theme)
+                buildCodeRows('', theme)
             }
         }
 
