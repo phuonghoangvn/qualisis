@@ -184,7 +184,6 @@ export default function CodebookPage() {
                                         </div>
                                         <div className="flex gap-2 flex-wrap">
                                             <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.participantsCount ?? 0} participants</span>
-                                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.piecesCount ?? (totalPieces || 0)} pieces</span>
                                         </div>
                                         <div className="mt-1">
                                             {editingThemeDesc === t.id ? (

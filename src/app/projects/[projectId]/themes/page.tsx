@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import ThematicMatrixView from '@/components/ThematicMatrixView'
-import KnowledgeGraphMap from '@/components/KnowledgeGraphMap'
 import ConfirmModal from '@/components/ConfirmModal'
 type CodeEntry = {
     id: string
@@ -1165,7 +1164,7 @@ Rules:
                     
                     <div className="px-8 flex items-center justify-between">
                         <div className="flex items-center space-x-8">
-                            {['Theme Map', 'Network & Matrix', 'Knowledge Graph'].map(tab => (
+                            {['Theme Map', 'Network & Matrix'].map(tab => (
                                 <button 
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -1173,7 +1172,6 @@ Rules:
                                 >
                                     {tab === 'Theme Map' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Theme Map' ? "text-indigo-600" : "text-slate-400"}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>}
                                     {tab === 'Network & Matrix' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Network & Matrix' ? "text-indigo-600" : "text-slate-400"}><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>}
-                                    {tab === 'Knowledge Graph' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Knowledge Graph' ? "text-indigo-600" : "text-slate-400"}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>}
 
                                     {tab}
                                 </button>
@@ -1184,13 +1182,6 @@ Rules:
 
                 {/* Tab-Content Area — relative so overlays only cover this area, not the header/tabs above */}
                 <div className="flex-1 overflow-hidden relative">
-                {/* Knowledge Graph Tab */}
-                {activeTab === 'Knowledge Graph' && (
-                    <div className="absolute inset-0 z-10 flex overflow-hidden">
-                        <KnowledgeGraphMap projectId={projectId} />
-                    </div>
-                )}
-
                 {/* Network & Matrix Tab */}
                 {activeTab === 'Network & Matrix' && (
                     <div className="absolute inset-0 z-10 flex overflow-hidden">
