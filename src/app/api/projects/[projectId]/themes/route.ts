@@ -61,10 +61,13 @@ export async function GET(
         // Remove code links that have 0 assignments (orphans) and compute participants
         const processedThemes = themes.map(theme => {
             const themeParticipantMap = new Map<string, {id: string, name: string}>()
+            let piecesCount = 0
 
             const validLinks = theme.codeLinks.filter(link => link.codebookEntry._count.codeAssignments > 0 || link.codebookEntry.type === 'OBSERVATION').map(link => {
                 const codeParticipantMap = new Map<string, {id: string, name: string}>()
                 const sampleQuotes: { segmentId: string; text: string; participantName: string; transcriptId: string }[] = []
+
+                piecesCount += link.codebookEntry._count.codeAssignments || 0
 
                 for (const ca of link.codebookEntry.codeAssignments) {
                     const tr = ca.segment?.transcript
@@ -104,6 +107,7 @@ export async function GET(
                 ...theme,
                 codeLinks: validLinks,
                 participantsCount: themeParticipantMap.size,
+                piecesCount,
                 isMeta,
                 parentId,
                 childIds: theme.relationsIn.map(r => r.sourceId)
@@ -114,12 +118,36 @@ export async function GET(
         const themeMap = new Map(processedThemes.map(t => [t.id, t]))
         const result = processedThemes
             .filter(t => !t.parentId) // only top-level (no parent)
-            .map(t => ({
-                ...t,
-                children: t.childIds
+            .map(t => {
+                const children = t.childIds
                     .map(id => themeMap.get(id))
                     .filter(Boolean)
-            }))
+
+                // If it's a mega-theme, aggregate participants from children
+                let participantsCount = t.participantsCount
+                let piecesCount = t.piecesCount
+                if (t.isMeta && children.length > 0) {
+                    const uniqueParticipants = new Set<string>()
+                    let totalPieces = 0
+                    children.forEach((child: any) => {
+                         totalPieces += child.piecesCount || 0
+                         child.codeLinks.forEach((link: any) => {
+                             link.codebookEntry.participants?.forEach((p: any) => {
+                                 uniqueParticipants.add(p.id)
+                             })
+                         })
+                    })
+                    participantsCount = uniqueParticipants.size
+                    piecesCount = totalPieces
+                }
+
+                return {
+                    ...t,
+                    participantsCount, // Override with aggregated count
+                    piecesCount, // Override with aggregated sum
+                    children
+                }
+            })
 
         return NextResponse.json(result)
     } catch (e) {

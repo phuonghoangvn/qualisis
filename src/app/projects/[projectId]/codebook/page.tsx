@@ -23,6 +23,7 @@ type ThemeData = {
     parentId?: string | null
     children?: ThemeData[]
     participantsCount?: number
+    piecesCount?: number
     codeLinks: { codebookEntry: CodeEntry }[]
 }
 
@@ -165,8 +166,7 @@ export default function CodebookPage() {
                             <tr>
                                 <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[16%] border-r border-slate-200">Mega-Theme</th>
                                 <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[16%] border-r border-slate-200">Theme</th>
-                                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 text-center w-14">Part.</th>
-                                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 text-center w-14">Pieces</th>
+
                                 <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[14%]">Code</th>
                                 <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[20%]">Definition</th>
                                 <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[18%]">Sample Evidence</th>
@@ -176,7 +176,7 @@ export default function CodebookPage() {
                         <tbody>
                             {topLevelThemes.flatMap((theme) => {
                                 // Shared cell content for Mega-Themes and Themes
-                                const renderThemeInfo = (t: any, isMega: boolean, totalCodes?: number) => (
+                                const renderThemeInfo = (t: any, isMega: boolean, totalPieces?: number) => (
                                     <div className="flex flex-col gap-2">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest">{isMega ? 'Mega-Theme' : 'Theme'}</span>
@@ -184,7 +184,7 @@ export default function CodebookPage() {
                                         </div>
                                         <div className="flex gap-2 flex-wrap">
                                             <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.participantsCount ?? 0} participants</span>
-                                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{totalCodes ?? (t.codeLinks?.length || 0)} codes</span>
+                                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.piecesCount ?? (totalPieces || 0)} pieces</span>
                                         </div>
                                         <div className="mt-1">
                                             {editingThemeDesc === t.id ? (
@@ -210,10 +210,6 @@ export default function CodebookPage() {
                                 // Render code cells block (Code...Participant IDs)
                                 const renderCodeCells = (link: any) => (
                                     <>
-                                        {/* Num participants */}
-                                        <td className="px-4 py-4 border-r border-slate-100 align-top text-center bg-white"><span className="text-[12px] font-bold text-slate-700">{link.codebookEntry.participants?.length ?? 0}</span></td>
-                                        {/* Num pieces */}
-                                        <td className="px-4 py-4 border-r border-slate-100 align-top text-center bg-white"><span className="text-[12px] font-bold text-slate-700">{link.codebookEntry._count?.codeAssignments ?? 0}</span></td>
                                         {/* Code name */}
                                         <td className="px-5 py-4 border-r border-slate-100 align-top bg-white"><div className="font-bold text-slate-800 text-[12px] leading-snug">{link.codebookEntry.name}</div></td>
                                         {/* Definition */}
@@ -270,14 +266,14 @@ export default function CodebookPage() {
                                     const validChildren = (theme.children || []).filter((c: any) => c.codeLinks && c.codeLinks.length > 0)
                                     if (validChildren.length === 0) return null
                                     const megaRowSpan = validChildren.reduce((sum: number, c: any) => sum + c.codeLinks.length, 0)
-                                    const totalMegaCodes = theme.children?.reduce((sum: number, c: any) => sum + (c.codeLinks?.length || 0), 0)
+                                    const totalMegaPieces = theme.piecesCount
 
                                     return validChildren.flatMap((sub: any, subIdx: number) => {
                                         return sub.codeLinks.map((link: any, linkIdx: number) => (
                                             <tr key={`${theme.id}-${sub.id}-${link.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
                                                 {subIdx === 0 && linkIdx === 0 && (
                                                     <td rowSpan={megaRowSpan} className="px-5 py-4 border-r border-slate-100 align-top bg-violet-50/30">
-                                                        {renderThemeInfo(theme, true, totalMegaCodes)}
+                                                        {renderThemeInfo(theme, true, totalMegaPieces)}
                                                     </td>
                                                 )}
                                                 {linkIdx === 0 && (
