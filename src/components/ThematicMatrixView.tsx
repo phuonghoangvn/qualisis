@@ -19,6 +19,9 @@ type ThemeData = {
     name: string
     description: string | null
     status: string
+    isMeta?: boolean
+    parentId?: string | null
+    children?: ThemeData[]
     positionX?: number | null
     positionY?: number | null
     codeLinks: CodeLink[]
@@ -183,10 +186,38 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
     const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null)
     const [hoveredTheme, setHoveredTheme] = useState<string | null>(null)
 
+    // ── Flatten hierarchy for matrix: expand Mega-Themes into their sub-themes
+    // Top-level themes for counting, flat leaf themes for matrix columns
+    const leafThemes = useMemo(() => {
+        const leaves: ThemeData[] = []
+        for (const t of themes) {
+            if (t.isMeta && t.children && t.children.length > 0) {
+                // Use sub-themes as matrix columns
+                leaves.push(...t.children)
+            } else if (!t.parentId) {
+                // Standalone theme (no parent)
+                leaves.push(t)
+            }
+            // Skip sub-themes that will be included via their parent above
+        }
+        return leaves
+    }, [themes])
+
+    // Build group map: megaThemeId → [child theme ids] for column grouping
+    const megaGroups = useMemo(() => {
+        const groups: { mega: ThemeData; children: ThemeData[] }[] = []
+        for (const t of themes) {
+            if (t.isMeta && t.children && t.children.length > 0) {
+                groups.push({ mega: t, children: t.children })
+            }
+        }
+        return groups
+    }, [themes])
+
     // ── Derive all unique participants ────────────────────────────────────────
     const allParticipants = useMemo(() => {
         const map = new Map<string, string>()
-        for (const theme of themes) {
+        for (const theme of leafThemes) {
             for (const link of theme.codeLinks) {
                 for (const p of link.codebookEntry.participants || []) {
                     if (!map.has(p.id)) map.set(p.id, p.name)
@@ -195,28 +226,26 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
         }
         return Array.from(map.entries())
             .map(([id, name]) => ({ id, name }))
-            // Filter out ONLY very specific aggregate/hidden rows meant for system-wide stats
             .filter(p => {
                 const n = p.name.toLowerCase().trim()
-                // Only exclude the literal 'dataset_all' or 'all' aggregate rows
                 return n !== 'dataset_all' && n !== 'all' && n !== 'dataset' && n !== 'aggregate'
             })
             .sort((a, b) => a.name.localeCompare(b.name))
-    }, [themes])
+    }, [leafThemes])
 
     // ── For each (participant, theme) → list of matching codes ───────────────
     const getCellCodes = (participantId: string, themeId: string) => {
-        const theme = themes.find(t => t.id === themeId)
+        const theme = leafThemes.find(t => t.id === themeId)
         if (!theme) return []
         return theme.codeLinks.filter(link =>
             link.codebookEntry.participants?.some(p => p.id === participantId)
         )
     }
 
-    // ── Saturation: for each theme, how many of all participants mentioned it ─
+    // ── Saturation: for each leaf theme, how many participants mentioned it ──
     const saturationData = useMemo(() => {
         const validParticipantIds = new Set(allParticipants.map(p => p.id))
-        return themes.map((theme, idx) => {
+        return leafThemes.map((theme, idx) => {
             const themeParticipants = new Set<string>()
             for (const link of theme.codeLinks) {
                 for (const p of link.codebookEntry.participants || []) {
@@ -236,14 +265,17 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
                 color: PALETTE[idx % PALETTE.length],
             }
         }).sort((a, b) => b.coverage - a.coverage)
-    }, [themes, allParticipants])
+    }, [leafThemes, allParticipants])
 
     const selectedCellData = selectedCell
         ? { codes: getCellCodes(selectedCell.participantId, selectedCell.themeId) }
         : null
 
     const selectedCellParticipant = selectedCell ? allParticipants.find(p => p.id === selectedCell.participantId) : null
-    const selectedCellTheme = selectedCell ? themes.find(t => t.id === selectedCell.themeId) : null
+    const selectedCellTheme = selectedCell ? leafThemes.find(t => t.id === selectedCell.themeId) : null
+
+    // Count top-level for toolbar display
+    const topLevelCount = themes.filter(t => !t.parentId).length
 
     return (
         <div className="absolute inset-0 bg-[#f8fafc] z-20 flex flex-col overflow-hidden">
@@ -253,7 +285,7 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
                 <div>
                     <h2 className="text-[15px] font-extrabold text-slate-800">Thematic Analysis Views</h2>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                        {allParticipants.length} participants · {themes.length} themes · {assignedCount} codes
+                        {allParticipants.length} participants · {topLevelCount} themes ({leafThemes.length} columns) · {assignedCount} codes
                     </p>
                 </div>
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
@@ -300,7 +332,7 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
                             </div>
                         </div>
 
-                    {allParticipants.length === 0 || themes.length === 0 ? (
+                    {allParticipants.length === 0 || leafThemes.length === 0 ? (
                         <div className="flex items-center justify-center py-20 text-slate-300">
                             <div className="text-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
@@ -309,12 +341,40 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
                         </div>
                     ) : (
                         <div className="overflow-x-auto bg-white rounded-3xl border border-slate-200 shadow-sm p-4">
-                            <table className="border-collapse" style={{ minWidth: themes.length * 150 + 180 }}>
+                            <table className="border-collapse" style={{ minWidth: leafThemes.length * 150 + 180 }}>
                                 <thead>
+                                    {/* ── Mega-Theme group header row ── */}
+                                    {megaGroups.length > 0 && (
+                                        <tr>
+                                            <th className="sticky left-0 z-20 bg-[#f8fafc] w-40 min-w-[160px]" />
+                                            {leafThemes.map(leaf => {
+                                                const parentMega = megaGroups.find(g => g.children.some(c => c.id === leaf.id))
+                                                if (!parentMega) {
+                                                    // Standalone — empty spanning cell
+                                                    return <th key={leaf.id} className="px-2 pb-1" style={{ minWidth: 140 }} />
+                                                }
+                                                // Only render the group header on the first child
+                                                const isFirst = parentMega.children[0].id === leaf.id
+                                                if (!isFirst) return null
+                                                return (
+                                                    <th
+                                                        key={`mega-${parentMega.mega.id}`}
+                                                        colSpan={parentMega.children.length}
+                                                        className="pb-1 px-2 text-center"
+                                                    >
+                                                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5 flex items-center justify-center gap-1.5">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                                            <span className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-widest">{parentMega.mega.name}</span>
+                                                        </div>
+                                                    </th>
+                                                )
+                                            })}
+                                        </tr>
+                                    )}
                                     <tr>
                                         {/* Top-left corner */}
                                         <th className="sticky left-0 z-20 bg-[#f8fafc] w-40 min-w-[160px]" />
-                                        {themes.map((theme, idx) => {
+                                        {leafThemes.map((theme, idx) => {
                                             const color = PALETTE[idx % PALETTE.length]
                                             const isHovered = hoveredTheme === theme.id
                                             return (
@@ -365,7 +425,7 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
                                                 </td>
 
                                                 {/* Cells */}
-                                                {themes.map((theme, idx) => {
+                                                {leafThemes.map((theme, idx) => {
                                                     const color = PALETTE[idx % PALETTE.length]
                                                     const codes = getCellCodes(participant.id, theme.id)
                                                     const active = codes.length > 0
@@ -500,6 +560,7 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {saturationData.map(({ theme, count, total, coverage, color }) => {
+                                        const isMegaTheme = theme.isMeta
                                         const level =
                                             count === 0 ? { label: 'No data', tag: 'No data', tagBg: '#f1f5f9', tagText: '#64748b', dot: '#cbd5e1' } :
                                             count === total ? { label: `${count} of ${total} participants`, tag: 'Everyone', tagBg: '#ecfdf5', tagText: '#059669', dot: '#10b981' } :
@@ -510,7 +571,15 @@ export default function ThematicMatrixView({ themes, assignedCount }: {
                                         return (
                                             <tr key={theme.id} className="hover:bg-slate-50/50 transition-colors group">
                                                 <td className="px-6 py-5 align-top">
-                                                    <p className="text-[13px] font-extrabold text-slate-800 leading-snug group-hover:text-indigo-600 transition-colors">{theme.name}</p>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        {isMegaTheme && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-violet-700 bg-violet-100 border border-violet-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                                                Mega
+                                                            </span>
+                                                        )}
+                                                        <p className="text-[13px] font-extrabold text-slate-800 leading-snug group-hover:text-indigo-600 transition-colors">{theme.name}</p>
+                                                    </div>
                                                     {theme.description ? (
                                                         <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{theme.description}</p>
                                                     ) : (

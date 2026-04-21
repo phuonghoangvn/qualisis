@@ -10,8 +10,8 @@ export async function GET(
     { params }: { params: { projectId: string } }
 ) {
     try {
-        const themes = await prisma.theme.findMany({
-            where: { projectId: params.projectId },
+        const rawThemes = await prisma.theme.findMany({
+            where: { projectId: params.projectId, status: { not: 'MERGED' } },
             include: {
                 codeLinks: {
                     include: {
@@ -20,12 +20,13 @@ export async function GET(
                                 id: true,
                                 name: true,
                                 definition: true,
-                                _count: { select: { codeAssignments: true } },
+                                examplesIn: true,
+                                // Fetch ALL assignments to compute unique participants + evidence
                                 codeAssignments: {
-                                    take: 1,
                                     select: {
                                         segment: {
                                             select: {
+                                                text: true,
                                                 transcript: { select: { title: true } }
                                             }
                                         }
@@ -34,35 +35,77 @@ export async function GET(
                             }
                         }
                     }
-                }
+                },
+                relationsIn: { where: { relationType: 'SUBTHEME_OF' }, select: { sourceId: true } },
+                relationsOut: { where: { relationType: 'SUBTHEME_OF' }, select: { targetId: true } },
             },
             orderBy: { createdAt: 'desc' }
         })
 
+        // Build hierarchy
+        const themeMap = new Map(rawThemes.map(t => [t.id, t]))
+        const getParentId = (t: typeof rawThemes[0]) => t.relationsOut[0]?.targetId ?? null
+        const isMeta = (t: typeof rawThemes[0]) => t.relationsIn.length > 0
+        const topLevel = rawThemes.filter(t => !getParentId(t))
+
+        // Helper: compute stats from codeAssignments
+        type Assignment = { segment: { text: string; transcript: { title: string } | null } | null }
+        const getCodeStats = (codeAssignments: Assignment[]) => {
+            const participantSet = new Set<string>()
+            let sampleEvidence = ''
+            for (const a of codeAssignments) {
+                const pName = a.segment?.transcript?.title
+                if (pName) participantSet.add(pName)
+                if (!sampleEvidence && a.segment?.text) sampleEvidence = a.segment.text
+            }
+            return {
+                numParticipants: participantSet.size,
+                numPieces: codeAssignments.length,
+                sampleEvidence,
+                participantIds: Array.from(participantSet).join('; ')
+            }
+        }
+
         const BOM = '\uFEFF'
-        const header = ['Theme', 'Theme Description', 'Code', 'Definition', 'Frequency', 'Sample Participant']
+        const header = ['Mega-themes', 'Themes', 'Num participants', 'Num pieces', 'Code', 'Definition', 'Sample Evidence', 'Participant IDs']
 
         const rows: string[][] = []
-        for (const theme of themes) {
-            const validLinks = theme.codeLinks.filter(l => l.codebookEntry._count.codeAssignments > 0)
+
+        const buildCodeRows = (megaName: string, theme: typeof rawThemes[0]) => {
+            const validLinks = theme.codeLinks.filter(l => l.codebookEntry.codeAssignments.length > 0)
             if (validLinks.length === 0) {
-                rows.push([
-                    sanitise(theme.name),
-                    sanitise(theme.description),
-                    '', '', '0', ''
-                ])
+                rows.push([megaName, sanitise(theme.name), '0', '0', '', '', '', ''])
             } else {
                 for (const link of validLinks) {
-                    const sampleParticipant = link.codebookEntry.codeAssignments[0]?.segment?.transcript?.title || ''
+                    const stats = getCodeStats(link.codebookEntry.codeAssignments)
+                    // Definition: prioritise codebookEntry.definition, fallback to examplesIn
+                    const definition = link.codebookEntry.definition || link.codebookEntry.examplesIn || ''
                     rows.push([
+                        megaName,
                         sanitise(theme.name),
-                        sanitise(theme.description),
+                        String(stats.numParticipants),
+                        String(stats.numPieces),
                         sanitise(link.codebookEntry.name),
-                        sanitise(link.codebookEntry.definition),
-                        String(link.codebookEntry._count.codeAssignments),
-                        sanitise(sampleParticipant),
+                        sanitise(definition),
+                        sanitise(stats.sampleEvidence),
+                        sanitise(stats.participantIds),
                     ])
                 }
+            }
+        }
+
+        for (const theme of topLevel) {
+            if (isMeta(theme)) {
+                const children = theme.relationsIn.map(r => themeMap.get(r.sourceId)).filter(Boolean) as typeof rawThemes
+                if (children.length === 0) {
+                    rows.push([sanitise(theme.name), '', '0', '0', '', '', '', ''])
+                } else {
+                    for (const child of children) {
+                        buildCodeRows(sanitise(theme.name), child)
+                    }
+                }
+            } else {
+                buildCodeRows('(standalone)', theme)
             }
         }
 

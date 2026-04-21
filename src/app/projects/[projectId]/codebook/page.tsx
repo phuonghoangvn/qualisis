@@ -19,6 +19,9 @@ type ThemeData = {
     name: string
     description: string | null
     status: string
+    isMeta?: boolean
+    parentId?: string | null
+    children?: ThemeData[]
     participantsCount?: number
     codeLinks: { codebookEntry: CodeEntry }[]
 }
@@ -56,6 +59,9 @@ export default function CodebookPage() {
 
     useEffect(() => { fetchThemes() }, [fetchThemes])
 
+    // Only count top-level themes for display
+    const topLevelThemes = themes.filter(t => !t.parentId)
+    const megaThemeCount = topLevelThemes.filter(t => t.isMeta).length
     const assignedCount = themes.reduce((acc, t) => acc + (t.codeLinks?.length || 0), 0)
     const totalParticipants = new Set(
         themes.flatMap(t => t.codeLinks.flatMap(l => (l.codebookEntry.participants || []).map(p => p.id)))
@@ -123,7 +129,7 @@ export default function CodebookPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <span className="text-[11px] font-bold bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full">
-                        {themes.length} themes · {assignedCount} codes · {totalParticipants} participants
+                        {topLevelThemes.length} themes{megaThemeCount > 0 ? ` (${megaThemeCount} mega)` : ''} · {assignedCount} codes · {totalParticipants} participants
                     </span>
                     <a
                         href={`/api/projects/${projectId}/codebook/export`}
@@ -157,209 +163,168 @@ export default function CodebookPage() {
                     <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
                             <tr>
-                                <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[22%] border-r border-slate-200">Theme</th>
-                                <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[38%] border-r border-slate-200">Code · Definition</th>
-                                <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">Sample Evidence</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[18%] border-r border-slate-200">Mega-Theme / Theme</th>
+                                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 text-center w-16">Part.</th>
+                                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 text-center w-16">Pieces</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[14%]">Code</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[20%]">Definition</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[18%]">Sample Evidence</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[14%]">Participant IDs</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {themes.flatMap((theme) =>
-                                theme.codeLinks && theme.codeLinks.length > 0
-                                    ? theme.codeLinks.map((link, i) => (
-                                        <tr key={`${theme.id}-${link.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
-                                            {i === 0 && (
-                                                <td rowSpan={theme.codeLinks.length} className="px-5 py-5 border-r border-slate-100 align-top">
-                                                    {/* Theme name badge */}
-                                                    <span className="inline-block bg-indigo-50 text-indigo-700 text-[12px] font-bold px-3 py-1.5 rounded-lg border border-indigo-100">
-                                                        {theme.name}
-                                                    </span>
-
-                                                    {/* Participant & code count */}
-                                                    <div className="flex gap-2 mt-2 flex-wrap">
-                                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                                            {theme.participantsCount ?? 0} participants
-                                                        </span>
-                                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                                                            {theme.codeLinks.length} codes
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Theme description — editable */}
-                                                    <div className="mt-3">
-                                                        {editingThemeDesc === theme.id ? (
-                                                            <div className="space-y-1.5">
-                                                                <textarea
-                                                                    autoFocus
-                                                                    className="w-full text-[11px] text-slate-700 border border-indigo-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                                                    rows={3}
-                                                                    value={themeDescDraft}
-                                                                    onChange={e => setThemeDescDraft(e.target.value)}
-                                                                    onKeyDown={e => { if (e.key === 'Escape') setEditingThemeDesc(null) }}
-                                                                    placeholder="Add theme description..."
-                                                                />
-                                                                <div className="flex gap-1">
-                                                                    <button
-                                                                        onClick={() => saveThemeDesc(theme.id)}
-                                                                        disabled={savingTheme}
-                                                                        className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                                                                    >
-                                                                        {savingTheme ? '...' : 'Save'}
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => setEditingThemeDesc(null)}
-                                                                        className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md hover:bg-slate-200"
-                                                                    >
-                                                                        Cancel
-                                                                    </button>
+                            {topLevelThemes.flatMap((theme) => {
+                                // Helper to render code+definition+evidence cells for a given theme's codelinks
+                                const renderCodeRows = (t: ThemeData, indented: boolean) =>
+                                    t.codeLinks && t.codeLinks.length > 0
+                                        ? t.codeLinks.map((link, i) => (
+                                            <tr key={`${t.id}-${link.codebookEntry.id}`} className={`border-b border-slate-100 hover:bg-slate-50/40 transition-colors${indented ? ' bg-slate-50/20' : ''}`}>
+                                                {i === 0 && (
+                                                    <td rowSpan={t.codeLinks.length} className={`${indented ? 'pl-8 pr-5' : 'px-5'} py-4 border-r border-slate-100 align-top`}>
+                                                        {indented ? (
+                                                            // Sub-theme cell (indented under mega)
+                                                            <div className="flex items-start gap-2">
+                                                                <div className="w-0.5 bg-indigo-200 self-stretch mt-1 flex-shrink-0" />
+                                                                <div>
+                                                                    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest mb-1.5">Sub-theme</span>
+                                                                    <div className="font-bold text-slate-700 text-[12px] mb-1.5">{t.name}</div>
+                                                                    <div className="flex gap-2 flex-wrap">
+                                                                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.participantsCount ?? 0} participants</span>
+                                                                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.codeLinks.length} codes</span>
+                                                                    </div>
+                                                                    {t.description && <p className="text-[11px] text-slate-400 italic mt-1.5 leading-relaxed">{t.description}</p>}
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <button
-                                                                onClick={() => { setEditingThemeDesc(theme.id); setThemeDescDraft(theme.description || '') }}
-                                                                className="group/desc w-full text-left"
-                                                            >
-                                                                {theme.description ? (
-                                                                    <p className="text-[11px] text-slate-500 italic leading-relaxed group-hover/desc:text-slate-700 transition-colors">
-                                                                        {theme.description}
-                                                                    </p>
-                                                                ) : (
-                                                                    <p className="text-[11px] text-slate-300 italic group-hover/desc:text-indigo-400 transition-colors flex items-center gap-1">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                                                        Add description
-                                                                    </p>
-                                                                )}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            )}
-
-                                            {/* Code · Definition cell */}
-                                            <td className="px-5 py-4 border-r border-slate-100 align-top">
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-slate-800 text-[13px]">{link.codebookEntry.name}</span>
-                                                        </div>
-
-                                                        {/* Definition — editable */}
-                                                        <div className="mt-1.5">
-                                                            {editingCodeDef === link.codebookEntry.id ? (
-                                                                <div className="space-y-1.5">
-                                                                    <textarea
-                                                                        autoFocus
-                                                                        className="w-full text-[11px] text-slate-700 border border-indigo-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                                                        rows={3}
-                                                                        value={codeDefDraft}
-                                                                        onChange={e => setCodeDefDraft(e.target.value)}
-                                                                        onKeyDown={e => { if (e.key === 'Escape') setEditingCodeDef(null) }}
-                                                                        placeholder="Add definition..."
-                                                                    />
-                                                                    <div className="flex gap-1">
-                                                                        <button
-                                                                            onClick={() => saveCodeDef(link.codebookEntry.id)}
-                                                                            disabled={savingCode}
-                                                                            className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                                                                        >
-                                                                            {savingCode ? '...' : 'Save'}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => setEditingCodeDef(null)}
-                                                                            className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md hover:bg-slate-200"
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                    </div>
+                                                            // Regular standalone theme cell
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest">Theme</span>
+                                                                    <span className="font-bold text-slate-800 text-[13px]">{t.name}</span>
                                                                 </div>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => { setEditingCodeDef(link.codebookEntry.id); setCodeDefDraft(link.codebookEntry.definition || '') }}
-                                                                    className="group/def w-full text-left"
-                                                                >
-                                                                    {link.codebookEntry.definition ? (
-                                                                        <p className="text-[11px] text-slate-400 italic leading-relaxed group-hover/def:text-slate-600 transition-colors">
-                                                                            {link.codebookEntry.definition}
-                                                                        </p>
+                                                                <div className="flex gap-2 mb-2 flex-wrap">
+                                                                    <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.participantsCount ?? 0} participants</span>
+                                                                    <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{t.codeLinks.length} codes</span>
+                                                                </div>
+                                                                <div>
+                                                                    {editingThemeDesc === t.id ? (
+                                                                        <div className="space-y-1.5">
+                                                                            <textarea autoFocus className="w-full text-[11px] text-slate-700 border border-indigo-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300" rows={3} value={themeDescDraft} onChange={e => setThemeDescDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setEditingThemeDesc(null) }} placeholder="Add theme description..." />
+                                                                            <div className="flex gap-1">
+                                                                                <button onClick={() => saveThemeDesc(t.id)} disabled={savingTheme} className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{savingTheme ? '...' : 'Save'}</button>
+                                                                                <button onClick={() => setEditingThemeDesc(null)} className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">Cancel</button>
+                                                                            </div>
+                                                                        </div>
                                                                     ) : (
-                                                                        <p className="text-[11px] text-slate-300 italic group-hover/def:text-indigo-400 transition-colors flex items-center gap-1">
-                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                                                            Add definition
-                                                                        </p>
+                                                                        <button onClick={() => { setEditingThemeDesc(t.id); setThemeDescDraft(t.description || '') }} className="group/desc w-full text-left">
+                                                                            {t.description
+                                                                                ? <p className="text-[11px] text-slate-500 italic leading-relaxed group-hover/desc:text-slate-700 transition-colors">{t.description}</p>
+                                                                                : <p className="text-[11px] text-slate-300 italic group-hover/desc:text-indigo-400 transition-colors flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add description</p>
+                                                                            }
+                                                                        </button>
                                                                     )}
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            {/* Sample Evidence — compact */}
-                                            <td className="px-5 py-4 align-top">
-                                                {link.codebookEntry.sampleQuotes && link.codebookEntry.sampleQuotes.length > 0 ? (
-                                                    <div>
-                                                        {/* Single sample quote, truncated */}
-                                                        <p
-                                                            onClick={() => {
-                                                                const q = link.codebookEntry.sampleQuotes![0]
-                                                                router.push(`/projects/${projectId}/transcripts/${q.transcriptId}?segment=${q.segmentId}`)
-                                                            }}
-                                                            className="text-[11px] text-slate-500 italic leading-relaxed line-clamp-2 cursor-pointer hover:text-slate-700 transition-colors"
-                                                        >
-                                                            "{link.codebookEntry.sampleQuotes[0].text}"
-                                                        </p>
-                                                        <div className="flex items-center justify-between mt-1.5 gap-2">
-                                                            <span className="text-[10px] font-semibold text-violet-500 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full truncate max-w-[140px]">
-                                                                {link.codebookEntry.sampleQuotes[0].participantName}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => openTrace(link.codebookEntry.id, link.codebookEntry.name)}
-                                                                className="flex-shrink-0 text-[10px] text-slate-400 hover:text-indigo-600 font-semibold transition-colors whitespace-nowrap"
-                                                            >
-                                                                {(link.codebookEntry._count?.codeAssignments ?? 0) > 1
-                                                                    ? `+${(link.codebookEntry._count?.codeAssignments ?? 1) - 1} more →`
-                                                                    : 'View →'}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-[11px] text-slate-300 italic">—</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </td>
                                                 )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                    : [
-                                        <tr key={`empty-${theme.id}`} className="border-b border-slate-100">
-                                            <td className="px-5 py-5 border-r border-slate-100 align-top">
-                                                <span className="inline-block bg-indigo-50 text-indigo-700 text-[12px] font-bold px-3 py-1.5 rounded-lg border border-indigo-100">{theme.name}</span>
-                                                <div className="mt-2">
-                                                    {editingThemeDesc === theme.id ? (
+                                                {/* Num participants */}
+                                                <td className="px-4 py-4 border-r border-slate-100 align-top text-center">
+                                                    <span className="text-[12px] font-bold text-slate-700">{link.codebookEntry.participants?.length ?? 0}</span>
+                                                </td>
+                                                {/* Num pieces */}
+                                                <td className="px-4 py-4 border-r border-slate-100 align-top text-center">
+                                                    <span className="text-[12px] font-bold text-slate-700">{link.codebookEntry._count?.codeAssignments ?? 0}</span>
+                                                </td>
+                                                {/* Code */}
+                                                <td className="px-5 py-4 border-r border-slate-100 align-top">
+                                                    <div className="font-bold text-slate-800 text-[12px] leading-snug">{link.codebookEntry.name}</div>
+                                                </td>
+                                                {/* Definition — editable, fallback to examplesIn */}
+                                                <td className="px-5 py-4 border-r border-slate-100 align-top">
+                                                    {editingCodeDef === link.codebookEntry.id ? (
                                                         <div className="space-y-1.5">
-                                                            <textarea
-                                                                autoFocus
-                                                                className="w-full text-[11px] text-slate-700 border border-indigo-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                                                rows={3}
-                                                                value={themeDescDraft}
-                                                                onChange={e => setThemeDescDraft(e.target.value)}
-                                                                placeholder="Add theme description..."
-                                                            />
+                                                            <textarea autoFocus className="w-full text-[11px] text-slate-700 border border-indigo-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300" rows={3} value={codeDefDraft} onChange={e => setCodeDefDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setEditingCodeDef(null) }} placeholder="Add definition..." />
                                                             <div className="flex gap-1">
-                                                                <button onClick={() => saveThemeDesc(theme.id)} disabled={savingTheme} className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-md">{savingTheme ? '...' : 'Save'}</button>
-                                                                <button onClick={() => setEditingThemeDesc(null)} className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">Cancel</button>
+                                                                <button onClick={() => saveCodeDef(link.codebookEntry.id)} disabled={savingCode} className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{savingCode ? '...' : 'Save'}</button>
+                                                                <button onClick={() => setEditingCodeDef(null)} className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">Cancel</button>
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <button onClick={() => { setEditingThemeDesc(theme.id); setThemeDescDraft(theme.description || '') }} className="text-[11px] text-slate-300 italic hover:text-indigo-400 transition-colors flex items-center gap-1">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                                            {theme.description || 'Add description'}
+                                                        <button onClick={() => { setEditingCodeDef(link.codebookEntry.id); setCodeDefDraft(link.codebookEntry.definition || '') }} className="group/def w-full text-left">
+                                                            {link.codebookEntry.definition ? (
+                                                                // ① Has a proper definition
+                                                                <p className="text-[11px] text-slate-500 leading-relaxed group-hover/def:text-slate-700 transition-colors">{link.codebookEntry.definition}</p>
+                                                            ) : link.codebookEntry.examplesIn ? (
+                                                                // ② No definition → fallback to examplesIn (inclusion criteria)
+                                                                <div>
+                                                                    <span className="inline-block text-[8px] font-extrabold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest mb-1">Inclusion criteria</span>
+                                                                    <p className="text-[11px] text-slate-400 italic leading-relaxed group-hover/def:text-slate-600 transition-colors">{link.codebookEntry.examplesIn}</p>
+                                                                    <p className="text-[9px] text-indigo-400 mt-1 group-hover/def:text-indigo-600 transition-colors">+ Click to add definition</p>
+                                                                </div>
+                                                            ) : (
+                                                                // ③ Nothing at all
+                                                                <p className="text-[11px] text-slate-300 italic group-hover/def:text-indigo-400 transition-colors flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add definition</p>
+                                                            )}
                                                         </button>
                                                     )}
+                                                </td>
+                                                {/* Sample Evidence */}
+                                                <td className="px-5 py-4 border-r border-slate-100 align-top">
+                                                    {link.codebookEntry.sampleQuotes && link.codebookEntry.sampleQuotes.length > 0 ? (
+                                                        <div>
+                                                            <p onClick={() => { const q = link.codebookEntry.sampleQuotes![0]; router.push(`/projects/${projectId}/transcripts/${q.transcriptId}?segment=${q.segmentId}`) }} className="text-[11px] text-slate-500 italic leading-relaxed line-clamp-3 cursor-pointer hover:text-slate-700 transition-colors">"{link.codebookEntry.sampleQuotes[0].text}"</p>
+                                                            <div className="flex items-center justify-between mt-1.5 gap-1">
+                                                                <span className="text-[10px] font-semibold text-violet-500 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">{link.codebookEntry.sampleQuotes[0].participantName}</span>
+                                                                <button onClick={() => openTrace(link.codebookEntry.id, link.codebookEntry.name)} className="flex-shrink-0 text-[10px] text-slate-400 hover:text-indigo-600 font-semibold transition-colors whitespace-nowrap">
+                                                                    {(link.codebookEntry._count?.codeAssignments ?? 0) > 1 ? `+${(link.codebookEntry._count?.codeAssignments ?? 1) - 1} →` : 'View →'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : <p className="text-[11px] text-slate-300 italic">—</p>}
+                                                </td>
+                                                {/* Participant IDs */}
+                                                <td className="px-5 py-4 align-top">
+                                                    {link.codebookEntry.participants && link.codebookEntry.participants.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {link.codebookEntry.participants.slice(0, 4).map(p => (
+                                                                <span key={p.id} className="text-[9px] font-semibold text-violet-600 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">{p.name}</span>
+                                                            ))}
+                                                            {link.codebookEntry.participants.length > 4 && (
+                                                                <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">+{link.codebookEntry.participants.length - 4}</span>
+                                                            )}
+                                                        </div>
+                                                    ) : <p className="text-[11px] text-slate-300 italic">—</p>}
+                                                </td>
+                                            </tr>
+                                        ))
+                                        : [<tr key={`empty-${t.id}`} className="border-b border-slate-100"><td className={`${indented ? 'pl-8 pr-5' : 'px-5'} py-4 border-r border-slate-100 align-top`}><span className="font-bold text-slate-700 text-[12px]">{t.name}</span></td><td colSpan={6} className="px-5 py-4 text-[12px] italic text-slate-300">No codes assigned yet</td></tr>]
+
+                                if (theme.isMeta) {
+                                    const children = theme.children || []
+                                    return [
+                                        // Mega-Theme section header
+                                        <tr key={`mega-header-${theme.id}`} className="bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-indigo-100">
+                                            <td colSpan={7} className="px-5 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-violet-700 bg-violet-100 border border-violet-200 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                                        Mega-Theme
+                                                    </span>
+                                                    <span className="font-extrabold text-indigo-900 text-[14px]">{theme.name}</span>
+                                                    {theme.description && <span className="text-[11px] text-indigo-500 italic ml-1">{theme.description}</span>}
+                                                    <span className="ml-auto text-[10px] font-semibold text-indigo-400 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">{children.length} sub-themes</span>
                                                 </div>
                                             </td>
-                                            <td colSpan={2} className="px-5 py-4 text-[12px] italic text-slate-300">No codes assigned yet</td>
-                                        </tr>
+                                        </tr>,
+                                        // All sub-themes indented
+                                        ...children.flatMap(child => renderCodeRows(child, true))
                                     ]
-                            )}
+                                }
+
+                                // Standalone regular theme
+                                return renderCodeRows(theme, false)
+                            })}
                         </tbody>
                     </table>
                 )}
