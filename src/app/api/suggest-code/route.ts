@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json().catch(() => ({}));
-        const { text, projectId } = body;
+        const { text, transcriptContent, projectId } = body;
 
         if (!text || !projectId) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -42,59 +42,42 @@ export async function POST(req: Request) {
         if (project?.coreOntology) projectContext += `Core Ontology: ${project.coreOntology}\n`;
         if (project?.researchQuestion) projectContext += `Research Question: ${project.researchQuestion}\n`;
 
-        const personas = [
-            {
-                id: "Psych",
-                icon: "🧠",
-                desc: "Focus purely on emotions, internal psychological states, implicit feelings, and mental framing."
-            },
-            {
-                id: "Socio",
-                icon: "👥",
-                desc: "Focus on social structures, workplace dynamics, cultural norms, relationships, and systemic pressures."
-            },
-            {
-                id: "Skeptic",
-                icon: "🕵️",
-                desc: "Focus on contradictions, what is NOT being said, paradoxes, avoidance, and underlying motives."
-            }
-        ];
-
         if (!openai) {
-            return NextResponse.json({ suggestions: ["🧠 [Psych] Fallback Code", "👥 [Socio] Fallback Code", "🕵️ [Skeptic] Fallback Code"] });
+            return NextResponse.json({ suggestions: ["Contextual Code 1", "Contextual Code 2", "Contextual Code 3"] });
         }
 
-        const completions = await Promise.all(personas.map(p => {
-            const prompt = `You are a specialized Qualitative Researcher persona: ${p.id}. 
-${p.desc}
-Your task is to suggest EXACTLY ONE highly descriptive, sentence-like thematic code label (4-8 words) for the provided text snippet from your specific theoretical perspective.
-Do NOT reduce it into a short 1-2 word tag.
+        const prompt = `You are a specialized Qualitative Researcher.
+Your task is to suggest EXACTLY 3 highly descriptive, sentence-like thematic code labels (4-8 words) for the isolated text snippet below.
+CRUCIAL: You are provided with the full transcript context. Read the surrounding context to deeply understand what the isolated snippet actually means in context before suggesting codes. Do NOT reduce the label to basic 1-2 word tags.
 
 ${projectContext}
 ${historyContextText}
 
-New Text to Code: "${text}"
+FULL TRANSCRIPT CONTEXT:
+"""
+${transcriptContent ? transcriptContent.substring(0, 15000) : "Context unavailable."}
+"""
 
-Output your suggestion as a JSON object: { "suggestion": "Descriptive Label Here" }`;
+ISOLATED TEXT TO CODE:
+"${text}"
 
-            return openai!.chat.completions.create({
-                model: "gpt-4o-mini",
-                response_format: { type: "json_object" },
-                messages: [
-                    { role: "system", content: "You output JSON only." },
-                    { role: "user", content: prompt }
-                ],
-                temperature: 0.6 // Slightly higher to encourage creative distinctiveness
-            });
-        }));
+Output your suggestions as a JSON array of 3 strings: { "suggestions": ["Descriptive Label 1", "Descriptive Label 2", "Descriptive Label 3"] }`;
 
-        const results = completions.map((c, i) => {
-            const res = JSON.parse(c.choices[0].message?.content || '{"suggestion": "Unknown"}');
-            const label = res.suggestion;
-            return `${personas[i].icon} [${personas[i].id}] ${label}`;
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+                { role: "system", content: "You output JSON only." },
+                { role: "user", content: prompt }
+            ],
+            temperature: 0.4
         });
 
-        return NextResponse.json({ suggestions: results });
+        const res = JSON.parse(completion.choices[0].message?.content || '{"suggestions": []}');
+        const suggestions = res.suggestions && Array.isArray(res.suggestions) ? res.suggestions : [];
+
+        // No more persona emojis, just the labels
+        return NextResponse.json({ suggestions: suggestions.slice(0, 3) });
 
     } catch (e) {
         console.error('Suggest Code Error:', e);

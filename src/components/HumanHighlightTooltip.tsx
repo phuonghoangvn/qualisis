@@ -14,7 +14,7 @@ export default function HumanHighlightTooltip({
     onCodeApplied: () => void
 }) {
     const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
-    const [selection, setSelection] = useState<{ text: string; range: Range } | null>(null)
+    const [selection, setSelection] = useState<{ text: string; range: Range; startIndex?: number; endIndex?: number } | null>(null)
     const [showModal, setShowModal] = useState(false)
     const [codeName, setCodeName] = useState('')
     const [codeDescription, setCodeDescription] = useState('')
@@ -32,6 +32,7 @@ export default function HumanHighlightTooltip({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     text: selection.text,
+                    transcriptContent,
                     projectId
                 })
             })
@@ -58,8 +59,33 @@ export default function HumanHighlightTooltip({
             if (!text) return
 
             const rect = range.getBoundingClientRect()
+            
+            // Reconstruct absolute offsets from DOM data-offset tags
+            const getAbsoluteOffset = (node: Node | null, relativeOffset: number) => {
+                if (!node) return null;
+                let el: HTMLElement | null = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as HTMLElement);
+                while (el && !el.hasAttribute('data-offset')) {
+                    el = el.parentElement;
+                }
+                if (el && el.hasAttribute('data-offset')) {
+                    const baseOffset = parseInt(el.getAttribute('data-offset') || '0', 10);
+                    return baseOffset + relativeOffset;
+                }
+                return null;
+            };
+
+            let startIndex = getAbsoluteOffset(range.startContainer, range.startOffset);
+            let endIndex = getAbsoluteOffset(range.endContainer, range.endOffset);
+
+            // Sanitize in case range logic is flipped
+            if (startIndex !== null && endIndex !== null && startIndex > endIndex) {
+                const tmp = startIndex;
+                startIndex = endIndex;
+                endIndex = tmp;
+            }
+
             setTooltip({ x: rect.left + window.scrollX, y: rect.bottom + window.scrollY + 6 })
-            setSelection({ text, range: range.cloneRange() })
+            setSelection({ text, range: range.cloneRange(), startIndex: startIndex ?? undefined, endIndex: endIndex ?? undefined })
         }
 
         const handleMouseDown = (e: MouseEvent) => {
@@ -88,9 +114,13 @@ export default function HumanHighlightTooltip({
     async function applyCode() {
         if (!codeName.trim() || !selection) return
         
-        let startIndex = transcriptContent.indexOf(selection.text)
+        let startIndex = selection.startIndex ?? transcriptContent.indexOf(selection.text)
         if (startIndex === -1) startIndex = 0
-        const endIndex = startIndex + selection.text.length
+        const endIndex = selection.endIndex ?? (startIndex + selection.text.length)
+        
+        // Safety check to ensure we get exactly the text we're referring to for the DB, ignoring CSS selections
+        let rawContent = transcriptContent.slice(startIndex, endIndex);
+        if (!rawContent.trim()) rawContent = selection.text;
 
         try {
             // Save segment and codebook entry concurrently to backend
@@ -99,7 +129,7 @@ export default function HumanHighlightTooltip({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     projectId,
-                    text: selection.text,
+                    text: rawContent.trim(),
                     codeName: codeName.trim(),
                     codeDescription: codeDescription.trim(),
                     startIndex,

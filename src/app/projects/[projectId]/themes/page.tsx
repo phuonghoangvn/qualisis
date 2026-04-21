@@ -580,7 +580,7 @@ Rules:
 
 
     // Code Drag & Drop Helpers
-    const handleDragStart = (e: React.DragEvent, payload: { codeId?: string, fromThemeId?: string, themeId?: string, isMega?: boolean }) => {
+    const handleDragStart = (e: React.DragEvent, payload: { codeId?: string, fromThemeId?: string, themeId?: string, isMega?: boolean, fromMegaThemeId?: string }) => {
         e.stopPropagation()
         e.dataTransfer.setData('application/json', JSON.stringify(payload))
         e.dataTransfer.effectAllowed = 'move'
@@ -608,12 +608,24 @@ Rules:
         }
     }
 
-    const handleDropOnUnassigned = async (e: React.DragEvent) => {
+    const handleDropToRoot = async (e: React.DragEvent) => {
         e.preventDefault()
         setDragOverThemeId(null)
         try {
             const data = JSON.parse(e.dataTransfer.getData('application/json'))
-            // If dragging from a theme -> Unassigned: remove code from theme
+            
+            // If dragging from a mega-theme -> Root: remove sub-theme from mega-theme
+            if (data.fromMegaThemeId && data.themeId) {
+                await fetch(`/api/projects/${projectId}/themes`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ themeId: data.fromMegaThemeId, action: 'REMOVE_THEME', subThemeId: data.themeId })
+                })
+                fetchData()
+                return
+            }
+
+            // If dragging code from a theme -> Root: remove code from theme
             if (data.fromThemeId && data.codeId) {
                 await fetch(`/api/projects/${projectId}/themes`, {
                     method: 'PATCH',
@@ -1205,7 +1217,7 @@ Rules:
                     <div 
                         className="w-[300px] border-r border-slate-200 bg-slate-50/50 flex flex-col flex-shrink-0"
                         onDragOver={handleDragOver}
-                        onDrop={handleDropOnUnassigned}
+                        onDrop={handleDropToRoot}
                     >
                         <div className="p-4 border-b border-slate-200/50 flex items-center justify-between bg-white">
                             <h2 className="text-sm font-extrabold flex items-center gap-2 text-slate-800">
@@ -1406,7 +1418,11 @@ Rules:
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex-1 overflow-y-auto p-6 relative z-10 custom-scrollbar">
+                            <div 
+                                className="flex-1 overflow-y-auto p-6 relative z-10 custom-scrollbar"
+                                onDragOver={e => e.preventDefault()}
+                                onDrop={handleDropToRoot}
+                            >
                                 {/* Undo Merge Toast */}
                                 {lastMergedThemeId && (
                                     <div className="max-w-6xl mx-auto mb-4">
@@ -1545,6 +1561,9 @@ Rules:
                                                             return (
                                                                 <div
                                                                     key={child.id}
+                                                                    draggable
+                                                                    onDragStart={e => { e.stopPropagation(); handleDragStart(e, { themeId: child.id, fromMegaThemeId: theme.id }) }}
+                                                                    onDragEnd={handleDragEnd}
                                                                     onDragOver={e => handleDragOver(e, child.id)}
                                                                     onDragLeave={e => handleDragLeave(e, child.id)}
                                                                     onDrop={(e) => handleDropOnTheme(e, child.id)}

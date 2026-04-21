@@ -412,13 +412,10 @@ export default function TranscriptWorkspace({
                 if (ds.type !== 'speaker') continue;
             }
 
-            // Text before segment
             if (actualStart > cursor) {
                 let chunk = content.slice(cursor, actualStart);
-                // Collapse excessive newlines often produced by parsers
-                chunk = chunk.replace(/\n{3,}/g, '\n\n');
                 pushNode(
-                    <span key={`pre-${ds.id}`}>
+                    <span key={`pre-${ds.id}`} data-offset={cursor}>
                         {chunk}
                     </span>
                 );
@@ -533,6 +530,7 @@ export default function TranscriptWorkspace({
                             className={cls}
                             style={inlineStyle}
                             data-segment-id={seg.id}
+                            data-offset={actualStart}
                             title={isHuman ? `Human Code: ${label} (Click to edit)` : `${accepted ? 'AI Accepted' : 'AI Pending'}: ${label} (Click to review)`}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -556,12 +554,10 @@ export default function TranscriptWorkspace({
             }
         }
 
-        // Trailing text
         if (cursor < content.length) {
             let finalChunk = content.slice(cursor);
-            finalChunk = finalChunk.replace(/\n{3,}/g, '\n\n');
             pushNode(
-                <span key="post-final">
+                <span key="post-final" data-offset={cursor}>
                     {finalChunk}
                 </span>
             );
@@ -601,8 +597,8 @@ export default function TranscriptWorkspace({
 
             return (
                 <div key={`block-${i}`} className="mb-6 mt-4 border border-slate-200 rounded-[14px] shadow-sm bg-white overflow-hidden relative break-inside-avoid">
-                    <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${cStyle.bar}`} />
-                    <div className={`${cStyle.bg} border-b border-slate-100 px-5 py-2.5 font-extrabold ${cStyle.text} text-[10.5px] uppercase tracking-widest pl-6 shadow-[inset_0_1px_rgba(255,255,255,1)]`}>
+                    <div className={`select-none absolute top-0 left-0 bottom-0 w-1.5 ${cStyle.bar}`} />
+                    <div className={`select-none ${cStyle.bg} border-b border-slate-100 px-5 py-2.5 font-extrabold ${cStyle.text} text-[10.5px] uppercase tracking-widest pl-6 shadow-[inset_0_1px_rgba(255,255,255,1)]`}>
                         {b.label}
                     </div>
                     <div className="px-6 py-4 pb-5 text-[14.5px] leading-[2.25rem] text-slate-700">
