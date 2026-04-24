@@ -92,6 +92,8 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
                 throw new Error(errData.error || 'Failed to upload transcript')
             }
             
+            const data = await res.json()
+            
             setIsOpen(false)
             setTitle('')
             setFileContent(null)

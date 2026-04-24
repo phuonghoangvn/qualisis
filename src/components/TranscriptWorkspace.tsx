@@ -1015,18 +1015,6 @@ export default function TranscriptWorkspace({
                                 <p className="text-xs text-slate-500 leading-relaxed font-medium mb-4 z-10">
                                     Let multiple AI models (GPT-4o, Claude, Gemini) scan your entire transcript and suggest high-quality thematic codes.
                                 </p>
-                                
-                                <button 
-                                    onClick={() => {
-                                        localStorage.setItem(`qualisis_has_seen_onboarding_${projectId}`, 'true');
-                                        setShowOnboarding(false);
-                                        runAnalysis();
-                                    }}
-                                    className="mt-auto w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition-colors flex justify-center items-center gap-2 z-10 relative"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a4.42 4.42 0 0 1 0-8.962L8.5 1.936A2 2 0 0 0 9.937.5l1.582-6.135a4.42 4.42 0 0 1 8.962 0L22.063 8.5A2 2 0 0 0 23.5 9.937l6.135 1.582a4.42 4.42 0 0 1 0 8.962l-6.135 1.582a2 2 0 0 0-1.437 1.438l-1.582 6.135a4.42 4.42 0 0 1-8.962 0z"/></svg>
-                                    Run AI Now
-                                </button>
                             </div>
                         </div>
 
