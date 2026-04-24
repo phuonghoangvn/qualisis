@@ -132,28 +132,20 @@ export default async function ProjectDashboard({
                                     ) : (
                                         dataset.transcripts.map(t => (
                                             <div key={t.id} className="group relative flex items-center bg-white hover:bg-indigo-50/50 transition-colors border-b border-slate-100 last:border-0 pl-6 py-4">
-                                                {/* Background Clickable Link overlay */}
                                                 <Link 
                                                     href={`/projects/${project.id}/transcripts/${t.id}`}
-                                                    className="absolute inset-0 z-0"
-                                                />
-                                                
-                                                <div className="flex-1 min-w-0 pr-4 relative z-10 pointer-events-none">
-                                                    <div className="flex items-center justify-between pointer-events-auto">
-                                                        <div className="w-full">
-                                                            <div className="-ml-3 mb-1 w-max">
-                                                                <EditTranscriptTitle transcriptId={t.id} initialTitle={t.title} />
-                                                            </div>
-                                                            <div className="flex items-center gap-4 mt-1 ml-3 text-xs text-slate-500 pointer-events-none">
-                                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span>{t.status}</span>
-                                                                {t._count.segments > 0 && <span>{t._count.segments} segments</span>}
-                                                                <span>Added {t.createdAt.toLocaleDateString()}</span>
-                                                            </div>
-                                                        </div>
-
+                                                    className="flex-1 min-w-0 pr-4 flex flex-col justify-center"
+                                                >
+                                                    <div className="-ml-3 mb-1 w-max">
+                                                        <EditTranscriptTitle transcriptId={t.id} initialTitle={t.title} />
                                                     </div>
-                                                </div>
-                                                <div className="pr-6 flex items-center justify-center relative z-10 pointer-events-auto">
+                                                    <div className="flex items-center gap-4 mt-1 ml-3 text-xs text-slate-500">
+                                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span>{t.status}</span>
+                                                        {t._count.segments > 0 && <span>{t._count.segments} segments</span>}
+                                                        <span>Added {t.createdAt.toLocaleDateString()}</span>
+                                                    </div>
+                                                </Link>
+                                                <div className="pr-6 flex items-center justify-center relative z-10">
                                                     <DeleteTranscriptButton transcriptId={t.id} transcriptTitle={t.title} />
                                                 </div>
                                             </div>
