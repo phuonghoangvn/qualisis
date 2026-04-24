@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Plus, X, UploadCloud } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
-// Common demographic fields (default)
-const DEFAULT_COLUMNS = ['Speaker Tag', 'Age', 'Gender', 'Role']
 
 export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon }: { projectId: string, asCard?: boolean, asSidebarIcon?: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
@@ -23,13 +21,7 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
         setMounted(true)
     }, [])
 
-    // Dynamic columns and rows for metadata
-    const [columns, setColumns] = useState(DEFAULT_COLUMNS)
-    // Row 1: Participant, Row 2: Interviewer (fixed format for simplicity, but editable)
-    const [rows, setRows] = useState([
-        { 'Speaker Tag': 'P1', 'Age': '', 'Gender': '', 'Role': 'Teacher', _type: 'participant' },
-        { 'Speaker Tag': 'Interviewer', 'Age': '', 'Gender': '', 'Role': '', _type: 'interviewer' }
-    ])
+
 
     async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
         if (!e.target.files || e.target.files.length === 0) return
@@ -67,11 +59,7 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
         }
     }
 
-    const handleUpdateRow = (index: number, col: string, value: string) => {
-        const newRows = [...rows]
-        newRows[index] = { ...newRows[index], [col]: value }
-        setRows(newRows)
-    }
+
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -84,9 +72,9 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
             // Upload
             const datasetName = `Dataset: ${title}`
             const metadataPayload = {
-                columns,
-                participants: rows.filter(r => r._type === 'participant'),
-                interviewer: rows.find(r => r._type === 'interviewer')
+                columns: ['Speaker Tag'],
+                participants: [{ 'Speaker Tag': 'P1', _type: 'participant' }],
+                interviewer: { 'Speaker Tag': 'Interviewer', _type: 'interviewer' }
             }
 
             const res = await fetch(`/api/projects/${projectId}/datasets`, {
@@ -192,66 +180,6 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
                                 </div>
                             </div>
 
-                            <div className="mb-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <label className="block text-[11px] font-extrabold text-slate-700 tracking-wide">
-                                        Metadata & Demographics
-                                    </label>
-                                    <button 
-                                        type="button"
-                                        onClick={() => {
-                                            const name = prompt('New column name:')
-                                            if (name) setColumns([...columns, name])
-                                        }}
-                                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                                    >
-                                        + Add column
-                                    </button>
-                                </div>
-                                
-                                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                                    <table className="w-full text-left text-sm">
-                                        <thead className="bg-slate-50 border-b border-slate-100">
-                                            <tr>
-                                                {columns.map(col => (
-                                                    <th key={col} className="px-4 py-3 text-[11px] font-semibold text-slate-500">{col}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {rows.map((row, i) => (
-                                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                                    {columns.map(col => {
-                                                        const isInterviewer = row._type === 'interviewer'
-                                                        if (isInterviewer && col !== 'Speaker Tag') {
-                                                            if (col === columns[1]) {
-                                                                return (
-                                                                    <td key={col} colSpan={columns.length - 1} className="px-4 py-3 text-slate-400 italic text-xs">
-                                                                        Demographics skipped
-                                                                    </td>
-                                                                )
-                                                            }
-                                                            return null
-                                                        }
-
-                                                        return (
-                                                            <td key={col} className="px-4 py-2">
-                                                                <input 
-                                                                    type="text"
-                                                                    value={(row as any)[col] || ''}
-                                                                    onChange={e => handleUpdateRow(i, col, e.target.value)}
-                                                                    placeholder="--"
-                                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-medium text-slate-700 placeholder:text-slate-300"
-                                                                />
-                                                            </td>
-                                                        )
-                                                    })}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
 
 
                             <div className="flex gap-4 justify-end mt-8 pt-6 border-t border-slate-100">
