@@ -449,7 +449,7 @@ export default function TranscriptWorkspace({
             } else if (ds.type === 'highlight') {
                 const seg = ds.seg!;
                 const validSuggestions = (seg.suggestions || []).filter(s => s.status !== 'REJECTED');
-                const isHuman = validSuggestions.length === 0 && seg.codeAssignments?.length > 0;
+                const isHuman = seg.codeAssignments?.length > 0;
                 
                 if (validSuggestions.length === 0 && !isHuman) continue;
 
