@@ -96,7 +96,12 @@ export default function UploadDatasetWrapper({ projectId, asCard, asSidebarIcon 
             setTitle('')
             setFileContent(null)
             setPreprocessSteps([])
-            router.refresh()
+            
+            if (data.transcripts && data.transcripts.length > 0) {
+                router.push(`/projects/${projectId}/transcripts/${data.transcripts[0].id}`)
+            } else {
+                router.refresh()
+            }
         } catch (error: any) {
             alert(error.message || 'Failed to upload transcript')
         } finally {
