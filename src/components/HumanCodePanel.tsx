@@ -7,6 +7,7 @@ export default function HumanCodePanel({
     segmentId,
     onClose,
     onRemove,
+    projectId,
 }: {
     text: string
     codeName: string
