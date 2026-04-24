@@ -114,18 +114,19 @@ export default function Sidebar({ project }: { project: Project }) {
                                     </Link>
                                 )
                             })}
-                            {allTranscripts.length === 0 && (
+                            {allTranscripts.length === 0 ? (
                                 <div className="px-3 py-1 text-[11px] text-slate-400 italic">No transcripts</div>
+                            ) : (
+                                <div className="px-2 mt-2 mb-1">
+                                    <Link 
+                                        href={`/projects/${project.id}`} 
+                                        className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-md border border-dashed border-slate-300 text-[11px] font-medium text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                        Add New
+                                    </Link>
+                                </div>
                             )}
-                            <div className="px-2 mt-2 mb-1">
-                                <Link 
-                                    href={`/projects/${project.id}`} 
-                                    className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-md border border-dashed border-slate-300 text-[11px] font-medium text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                    Add New
-                                </Link>
-                            </div>
                         </div>
                     )}
                 </div>
