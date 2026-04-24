@@ -82,7 +82,6 @@ export default function HumanCodePanel({
                         <div className="flex justify-between"><span className="text-slate-400">Coded by</span><span className="text-purple-600">Human (Researcher)</span></div>
                         <div className="flex justify-between"><span className="text-slate-400">Timestamp</span><span>{ts}</span></div>
                     </div>
-                    </div>
                 </div>
 
                 {projectId && (
