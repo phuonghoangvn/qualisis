@@ -25,10 +25,9 @@ export default function Sidebar({ project }: { project: Project }) {
     const allTranscripts = project.datasets.flatMap((d) => d.transcripts)
 
     // Active detection helpers
-    const isCodingActive = pathname.includes('/transcripts') || pathname === `/projects/${project.id}/coding`
+    const isTranscriptsActive = pathname === `/projects/${project.id}` || pathname.includes('/transcripts')
     const isThemesActive = pathname.includes('/themes')
     const isCodebookActive = pathname.includes('/codebook')
-    const isPrepareActive = pathname === `/projects/${project.id}`
     const isReportActive = pathname.includes('/report')
     const isSearchActive = pathname.includes('/search')
 
@@ -64,43 +63,36 @@ export default function Sidebar({ project }: { project: Project }) {
             <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4">
                 {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mb-2">Workflow Steps</div>}
                 
-                {/* ① Prepare Data */}
-                <Link
-                    href={`/projects/${project.id}`}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-1 ${
-                        isPrepareActive
-                            ? 'bg-white border border-slate-200 shadow-sm text-indigo-700 font-semibold'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-medium border border-transparent'
-                    }`}
-                >
-                    <span className={isPrepareActive ? 'text-indigo-600' : 'text-slate-400'}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
-                    </span>
-                    {!collapsed && <span className="text-sm">① Upload & Prepare</span>}
-                </Link>
-
-                {/* ② Coding */}
-                <div>
-                    <button
-                        onClick={() => setCodingOpen(!codingOpen)}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all mb-1 ${
-                            isCodingActive
-                                ? 'bg-white border border-slate-200 shadow-sm text-indigo-700 font-semibold'
-                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-medium border border-transparent'
-                        }`}
-                    >
-                        <div className="flex items-center gap-3">
-                            <span className={isCodingActive ? 'text-indigo-600' : 'text-slate-400'}>
+                {/* ① Transcripts */}
+                <div className="mb-1">
+                    <div className="flex items-center w-full relative">
+                        <Link
+                            href={`/projects/${project.id}`}
+                            className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                                isTranscriptsActive
+                                    ? 'bg-white border border-slate-200 shadow-sm text-indigo-700 font-semibold'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-medium border border-transparent'
+                            }`}
+                        >
+                            <span className={isTranscriptsActive ? 'text-indigo-600' : 'text-slate-400'}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
                             </span>
-                            {!collapsed && <span className="text-sm">② Read & Code</span>}
-                        </div>
+                            {!collapsed && <span className="text-sm">① Transcripts</span>}
+                        </Link>
                         {!collapsed && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${codingOpen ? 'rotate-180' : ''}`}>
-                                <path d="m6 9 6 6 6-6" />
-                            </svg>
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setCodingOpen(!codingOpen);
+                                }}
+                                className="absolute right-2 p-1.5 rounded-md hover:bg-slate-100/50 text-slate-400 hover:text-slate-600 transition-colors z-10"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${codingOpen ? 'rotate-180' : ''}`}>
+                                    <path d="m6 9 6 6 6-6" />
+                                </svg>
+                            </button>
                         )}
-                    </button>
+                    </div>
 
                     {/* Transcripts sub-list */}
                     {codingOpen && !collapsed && (
@@ -125,11 +117,20 @@ export default function Sidebar({ project }: { project: Project }) {
                             {allTranscripts.length === 0 && (
                                 <div className="px-3 py-1 text-[11px] text-slate-400 italic">No transcripts</div>
                             )}
+                            <div className="px-2 mt-2 mb-1">
+                                <Link 
+                                    href={`/projects/${project.id}`} 
+                                    className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-md border border-dashed border-slate-300 text-[11px] font-medium text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                    Add New
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* ③ Theme Builder */}
+                {/* ② Theme Builder */}
                 <Link
                     href={`/projects/${project.id}/themes`}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-1 ${
@@ -141,10 +142,10 @@ export default function Sidebar({ project }: { project: Project }) {
                     <span className={isThemesActive ? 'text-indigo-600' : 'text-slate-400'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
                     </span>
-                    {!collapsed && <span className="text-sm">③ Theme Builder</span>}
+                    {!collapsed && <span className="text-sm">② Theme Builder</span>}
                 </Link>
 
-                {/* ④ Codebook */}
+                {/* ③ Codebook */}
                 <Link
                     href={`/projects/${project.id}/codebook`}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-1 ${
@@ -156,10 +157,10 @@ export default function Sidebar({ project }: { project: Project }) {
                     <span className={isCodebookActive ? 'text-indigo-600' : 'text-slate-400'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </span>
-                    {!collapsed && <span className="text-sm">④ Codebook</span>}
+                    {!collapsed && <span className="text-sm">③ Codebook</span>}
                 </Link>
 
-                {/* ⑤ Report */}
+                {/* ④ Report */}
                 <Link
                     href={`/projects/${project.id}/report`}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-4 ${
@@ -171,7 +172,7 @@ export default function Sidebar({ project }: { project: Project }) {
                     <span className={isReportActive ? 'text-indigo-600' : 'text-slate-400'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
                     </span>
-                    {!collapsed && <span className="text-sm">⑤ Export Report</span>}
+                    {!collapsed && <span className="text-sm">④ Export Report</span>}
                 </Link>
 
                 {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mt-6 mb-2">Utilities</div>}

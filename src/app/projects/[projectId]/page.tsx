@@ -43,7 +43,7 @@ export default async function ProjectDashboard({
                     </Link>
                     <div className="w-px h-6 bg-slate-200"></div>
                     <div>
-                        <h2 className="text-lg font-bold text-slate-800 tracking-tight">Dataset Workspace</h2>
+                        <h2 className="text-lg font-bold text-slate-800 tracking-tight">Data Management</h2>
                         <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
                             <span>{project.datasets.length === 0 ? 'No transcripts uploaded yet' : project.name}</span>
                         </div>
@@ -68,26 +68,19 @@ export default async function ProjectDashboard({
                                     <div className="relative flex items-start gap-5">
                                         <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white shadow-sm text-sm">1</div>
                                         <div className="pt-2">
-                                            <h4 className="font-bold text-slate-800 text-sm">Upload Data</h4>
-                                            <p className="text-sm text-slate-500 mt-1">Import TXT, DOCX, or PDF files to begin.</p>
+                                            <h4 className="font-bold text-slate-800 text-sm">Transcripts & Coding</h4>
+                                            <p className="text-sm text-slate-500 mt-1">Upload files, highlight text segments and assign codes.</p>
                                         </div>
                                     </div>
                                     <div className="relative flex items-start gap-5 opacity-50">
                                         <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white text-sm">2</div>
-                                        <div className="pt-2">
-                                            <h4 className="font-bold text-slate-800 text-sm">Read & Code</h4>
-                                            <p className="text-sm text-slate-500 mt-1">Highlight text segments and assign thematic codes.</p>
-                                        </div>
-                                    </div>
-                                    <div className="relative flex items-start gap-5 opacity-50">
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white text-sm">3</div>
                                         <div className="pt-2">
                                             <h4 className="font-bold text-slate-800 text-sm">Build Themes</h4>
                                             <p className="text-sm text-slate-500 mt-1">Group your codes into overarching themes.</p>
                                         </div>
                                     </div>
                                     <div className="relative flex items-start gap-5 opacity-50">
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white text-sm">4</div>
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 font-extrabold flex items-center justify-center flex-shrink-0 z-10 border-4 border-white text-sm">3</div>
                                         <div className="pt-2">
                                             <h4 className="font-bold text-slate-800 text-sm">Export Report</h4>
                                             <p className="text-sm text-slate-500 mt-1">Review the codebook and generate summaries.</p>
