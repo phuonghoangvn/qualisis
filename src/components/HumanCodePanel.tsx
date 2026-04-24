@@ -13,6 +13,7 @@ export default function HumanCodePanel({
     segmentId: string
     onClose: () => void
     onRemove?: (segId: string) => Promise<void>
+    projectId?: string
 }) {
     const ts = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     const [isDeleting, setIsDeleting] = useState(false)
@@ -81,7 +82,28 @@ export default function HumanCodePanel({
                         <div className="flex justify-between"><span className="text-slate-400">Coded by</span><span className="text-purple-600">Human (Researcher)</span></div>
                         <div className="flex justify-between"><span className="text-slate-400">Timestamp</span><span>{ts}</span></div>
                     </div>
+                    </div>
                 </div>
+
+                {projectId && (
+                    <div className="mt-5 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl relative overflow-hidden group animate-in fade-in slide-in-from-bottom-2">
+                        <div className="absolute right-0 top-0 opacity-10 text-indigo-500 scale-150 translate-x-2 -translate-y-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-[11px] font-bold text-indigo-600 mb-1 flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                Code saved to project
+                            </p>
+                            <p className="text-[11px] text-slate-600 mb-3 leading-relaxed">
+                                This code is ready to be clustered into broader themes.
+                            </p>
+                            <a href={`/projects/${projectId}/themes`} className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-white px-2.5 py-1.5 rounded-lg border border-indigo-200 shadow-sm transition-all hover:shadow hover:-translate-y-[1px]">
+                                Go to Theme Builder <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="p-4 bg-white border-t border-slate-200 space-y-2">

@@ -90,16 +90,31 @@ export async function POST(
         }
 
         // Delete existing auto-generated suggestions (keep human ones via codeAssignments)
-        const existingSegments = await prisma.segment.findMany({
+        const segmentsWithoutCodes = await prisma.segment.findMany({
+            where: { 
+                transcriptId: params.id,
+                codeAssignments: { none: {} }
+            },
+            select: { id: true }
+        })
+        
+        if (segmentsWithoutCodes.length > 0) {
+            await prisma.segment.deleteMany({
+                where: { id: { in: segmentsWithoutCodes.map(s => s.id) } }
+            })
+        }
+
+        // Delete any unaccepted AI suggestions for the remaining segments
+        const remainingSegments = await prisma.segment.findMany({
             where: { transcriptId: params.id },
             select: { id: true }
         })
-        if (existingSegments.length > 0) {
+        if (remainingSegments.length > 0) {
             await prisma.aISuggestion.deleteMany({
-                where: { segmentId: { in: existingSegments.map(s => s.id) } }
-            })
-            await prisma.segment.deleteMany({
-                where: { transcriptId: params.id }
+                where: { 
+                    segmentId: { in: remainingSegments.map(s => s.id) },
+                    status: { notIn: ['APPROVED', 'MODIFIED'] }
+                }
             })
         }
 

@@ -83,6 +83,15 @@ export default function TranscriptWorkspace({
     const [showMassReview, setShowMassReview] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | null>(null)
     const [showEditConfirm, setShowEditConfirm] = useState(false)
     const [showOnboarding, setShowOnboarding] = useState(false)
+    const [toastMessage, setToastMessage] = useState<{ message: string; visible: boolean } | null>(null)
+
+    const triggerToast = useCallback((message: string) => {
+        setToastMessage({ message, visible: true })
+        setTimeout(() => {
+            setToastMessage(prev => prev ? { ...prev, visible: false } : null)
+            setTimeout(() => setToastMessage(null), 300) // remove from DOM after fade out
+        }, 4000)
+    }, [])
 
     useEffect(() => {
         if (!mounted) return
@@ -823,7 +832,10 @@ export default function TranscriptWorkspace({
                     transcriptId={transcript.id}
                     projectId={projectId}
                     transcriptContent={transcript.content}
-                    onCodeApplied={() => router.refresh()}
+                    onCodeApplied={() => {
+                        triggerToast('Code saved! Available in Theme Builder.')
+                        router.refresh()
+                    }}
                 />
             </div>
 
@@ -837,7 +849,11 @@ export default function TranscriptWorkspace({
                         key={activePanel.segment.id}
                         segment={activePanel.segment}
                         onClose={() => setActivePanel(null)}
-                        onDecision={handleDecision}
+                        onDecision={(...args) => {
+                            handleDecision(...args);
+                            if (args[1] === 'ACCEPT' || args[1] === 'OVERRIDE') triggerToast('Code saved! Available in Theme Builder.');
+                        }}
+                        projectId={projectId}
                     />
                 )}
                 {activePanel?.type === 'human' && (
@@ -846,6 +862,7 @@ export default function TranscriptWorkspace({
                         codeName={activePanel.codeName}
                         segmentId={activePanel.segmentId}
                         onClose={() => setActivePanel(null)}
+                        projectId={projectId}
                         onRemove={async (segId: string) => {
                             setSegments(prev => prev.filter(s => s.id !== segId));
                             setStats(prev => ({ ...prev, totalHighlights: Math.max(0, prev.totalHighlights - 1), assignedCodes: Math.max(0, prev.assignedCodes - 1) }));
@@ -924,7 +941,10 @@ export default function TranscriptWorkspace({
                     initialTab={showMassReview}
                     transcriptTitle={transcript.title}
                     onClose={() => setShowMassReview(null)}
-                    onDecision={handleDecision}
+                    onDecision={(...args) => {
+                        handleDecision(...args);
+                        if (args[1] === 'ACCEPT' || args[1] === 'OVERRIDE') triggerToast('Code saved! Available in Theme Builder.');
+                    }}
                     onTrace={(segId) => {
                         setShowMassReview(null);
                         const el = document.querySelector(`[data-segment-id="${segId}"]`) as HTMLElement;
@@ -949,6 +969,24 @@ export default function TranscriptWorkspace({
                 }}
                 onCancel={() => setShowEditConfirm(false)}
             />
+
+            {/* Custom Toast Notification */}
+            {mounted && toastMessage && typeof document !== 'undefined' && createPortal(
+                <div className="fixed bottom-6 right-6 z-[9999] pointer-events-none">
+                    <div className={`bg-slate-900 text-white px-5 py-4 rounded-xl shadow-2xl border border-slate-700/50 flex flex-col gap-1.5 min-w-[300px] transition-all duration-300 ${toastMessage.visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                        <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span className="text-[13px] font-bold">{toastMessage.message}</span>
+                        </div>
+                        <a href={`/projects/${projectId}/themes`} className="pointer-events-auto text-[11px] font-medium text-indigo-300 hover:text-indigo-200 ml-7 underline underline-offset-2 w-max transition-colors">
+                            Click here to jump to Theme Builder
+                        </a>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* Onboarding Modal */}
             {mounted && showOnboarding && typeof document !== 'undefined' && createPortal(
