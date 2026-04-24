@@ -54,6 +54,7 @@ export default function AIComparePanel({
     segment,
     onClose,
     onDecision,
+    projectId,
 }: {
     segment: Segment & { codeAssignments?: { codebookEntry: { name: string } }[] }
     onClose: () => void
