@@ -282,7 +282,7 @@ export default function TranscriptWorkspace({
         return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); }
     }, [isAnalyzing])
 
-    const [researchContext, setResearchContext] = useState(DEFAULT_PROMPT)
+    const [researchContext, setResearchContext] = useState('')
     const [showFullPrompt, setShowFullPrompt] = useState(false)
     const [styleMode, setStyleMode] = useState<'explore' | 'style-copy'>('explore')
 
@@ -776,7 +776,7 @@ export default function TranscriptWorkspace({
                                                     {showFullPrompt ? 'Hide Full Prompt' : 'Show Full Prompt'}
                                                 </button>
                                                 <button 
-                                                    onClick={() => setResearchContext(DEFAULT_PROMPT)}
+                                                    onClick={() => setResearchContext('')}
                                                     className="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors uppercase tracking-widest"
                                                 >
                                                     Reset
@@ -806,17 +806,22 @@ export default function TranscriptWorkspace({
                                                 </button>
                                             </div>
                                             {styleMode === 'style-copy' && (
-                                                <p className="text-[9px] text-violet-600 font-semibold mt-2 flex items-center gap-1">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-                                                    AI will study your accepted & human codes from this project before analyzing
-                                                </p>
+                                                <div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                                                    <p className="text-[10px] font-bold text-amber-700 flex items-center gap-1.5 mb-1">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                                                        Requires existing codes to work
+                                                    </p>
+                                                    <p className="text-[9.5px] text-amber-600 leading-relaxed">
+                                                        This mode only works well if you have <strong>already coded at least one transcript</strong> in this project (manually or by accepting AI codes). If no codes exist yet, the AI will fall back to Explore Freely.
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
 
                                         <textarea
                                             value={researchContext}
                                             onChange={e => setResearchContext(e.target.value)}
-                                            placeholder="Tell the AI what to focus on (e.g., 'Focus specifically on negative emotional responses', or 'Analyze through the lens of Cognitive Behavioral Therapy')..."
+                                            placeholder={"Optional: Tell the AI what to focus on.\n\nExamples:\n• \"Focus on emotional regulation strategies\"\n• \"Analyse through a CBT lens\"\n• \"Prioritise mentions of social support and relationships\"\n• \"Code only negative experiences and pain points\""}
                                             className="w-full h-28 text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-y font-medium custom-scrollbar leading-relaxed"
                                         />
                                         <p className="text-[9px] text-slate-400 px-0.5">↑ Give the AI a specific analytical lens. This is injected into the systematic prompt below.</p>
