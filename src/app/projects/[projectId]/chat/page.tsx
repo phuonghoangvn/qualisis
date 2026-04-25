@@ -409,11 +409,28 @@ A continuous, well-structured academic narrative paragraph/section.`
                                 </div>
                                 <h3 className="text-2xl font-extrabold text-slate-800 mb-2">How can I help you analyze?</h3>
                                 <p className="text-slate-500 max-w-lg font-medium text-sm mb-10">
-                                    I am aware of your project's codebook and datasets. Ask me to refine themes, suggest methodologies, or brainstorm insights.
+                                    I am an AI assistant powered by your actual coded data. Ask me to find quotes, identify patterns, or compare themes across all transcripts.
                                 </p>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full text-left">
-                                    {promptCategories.flatMap(c => c.prompts).map((suggestion, idx) => (
+                                    {[
+                                        {
+                                            title: "Synthesize findings",
+                                            prompt: "What are the most common challenges participants mention across all transcripts?"
+                                        },
+                                        {
+                                            title: "Compare patterns",
+                                            prompt: "Are there any differences or tensions between how different participants describe their coping strategies?"
+                                        },
+                                        {
+                                            title: "Find specific quotes",
+                                            prompt: "Find exact quotes where participants talk about feeling overwhelmed by the process."
+                                        },
+                                        {
+                                            title: "Review a theme",
+                                            prompt: "Review my codebook. Which themes have the strongest supporting evidence in the data, and which are lacking?"
+                                        }
+                                    ].map((suggestion, idx) => (
                                         <button
                                             key={idx}
                                             onClick={() => {

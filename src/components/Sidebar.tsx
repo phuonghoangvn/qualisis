@@ -29,7 +29,6 @@ export default function Sidebar({ project }: { project: Project }) {
     const isThemesActive = pathname.includes('/themes')
     const isCodebookActive = pathname.includes('/codebook')
     const isReportActive = pathname.includes('/report')
-    const isSearchActive = pathname.includes('/search')
 
     return (
         <aside className={`${collapsed ? 'w-16' : 'w-[260px]'} flex flex-col h-full bg-slate-50 border-r border-slate-200 transition-all duration-200 flex-shrink-0`}>
@@ -172,20 +171,6 @@ export default function Sidebar({ project }: { project: Project }) {
 
                 {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mt-6 mb-2">Utilities</div>}
 
-                {/* Search & Query */}
-                <Link
-                    href={`/projects/${project.id}/search`}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-1 ${
-                        isSearchActive
-                            ? 'bg-white border border-slate-200 shadow-sm text-indigo-700 font-semibold'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-medium border border-transparent'
-                    }`}
-                >
-                    <span className={isSearchActive ? 'text-indigo-600' : 'text-slate-400'}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    </span>
-                    {!collapsed && <span className="text-sm">Search Data</span>}
-                </Link>
 
                 {/* Chat Copilot */}
                 <Link
