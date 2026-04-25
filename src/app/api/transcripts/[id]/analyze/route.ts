@@ -122,10 +122,22 @@ export async function POST(
         const savedSegments = []
         const BATCH_SIZE = 4; // 4 segments * ~3 models = 12 concurrent DB/API ops
 
+        // Load all protected (human-coded or accepted) segments to avoid overlap
+        const protectedSegments = await prisma.segment.findMany({
+            where: { transcriptId: params.id },
+            select: { startIndex: true, endIndex: true }
+        })
+
+        const isOverlappingProtected = (start: number, end: number) =>
+            protectedSegments.some(p => start < p.endIndex && end > p.startIndex)
+
         for (let i = 0; i < mergedSegments.length; i += BATCH_SIZE) {
             const batch = mergedSegments.slice(i, i + BATCH_SIZE);
             
             await Promise.all(batch.map(async (seg, batchIdx) => {
+                // Skip AI segment if it overlaps with any existing human/approved segment
+                if (isOverlappingProtected(seg.startIndex, seg.endIndex)) return;
+
                 const segment = await prisma.segment.create({
                     data: {
                         transcriptId: params.id,
