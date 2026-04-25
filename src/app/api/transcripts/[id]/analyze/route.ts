@@ -21,7 +21,7 @@ export async function POST(
 ) {
     try {
         const body = await req.json().catch(() => ({}))
-        const { models = ['gpt', 'claude', 'gemini'], researchContext } = body
+        const { models = ['gpt', 'claude', 'gemini'], researchContext, styleMode = 'explore' } = body
 
         const session = await getServerSession(authOptions)
         const userId = session?.user ? (session.user as any).id : null
@@ -60,9 +60,44 @@ export async function POST(
         const scoringModel = aiSettings.scoringModel || 'gpt-4o-mini';
 
         const combinedProjectContext = projectContextPieces.join('\n');
+
+        // ── Style-copy mode: fetch existing accepted/human codes as examples ──
+        let styleCopySection = ''
+        if (styleMode === 'style-copy') {
+            const existingSegments = await prisma.segment.findMany({
+                where: {
+                    transcript: { dataset: { projectId: project.id } },
+                    NOT: { id: params.id as any }, // exclude current transcript
+                    OR: [
+                        { codeAssignments: { some: {} } },
+                        { suggestions: { some: { status: { in: ['APPROVED', 'MODIFIED'] } } } }
+                    ]
+                },
+                include: {
+                    codeAssignments: { include: { codebookEntry: true } },
+                    suggestions: { where: { status: { in: ['APPROVED', 'MODIFIED'] } } }
+                },
+                take: 30
+            })
+
+            const examples: { quote: string; code: string }[] = []
+            for (const seg of existingSegments) {
+                if (seg.codeAssignments.length > 0) {
+                    examples.push({ quote: seg.text.substring(0, 120), code: seg.codeAssignments[0].codebookEntry.name })
+                } else if (seg.suggestions.length > 0) {
+                    examples.push({ quote: seg.text.substring(0, 120), code: seg.suggestions[0].label })
+                }
+            }
+
+            if (examples.length > 0) {
+                styleCopySection = `\n\n[RESEARCHER'S CODING STYLE — LEARN FROM THESE EXAMPLES]\nThe researcher has previously coded as follows. Study their style carefully: the level of abstraction, the type of phenomena they focus on, how they frame labels, and what they choose to highlight.\n\n${examples.map((e, i) => `${i + 1}. Quote: "${e.quote}"\n   → Code: "${e.code}"`).join('\n\n')}\n\nIMPORTANT: Do NOT copy these exact code names. Instead, internalize the researcher's analytical style and apply it to this new transcript. Create new codes in the same spirit — same level of abstraction, same conceptual framing, same depth of interpretation.`
+            }
+        }
+
         const finalResearchContext = [
             combinedProjectContext ? `[GLOBAL PROJECT CONTEXT]\n${combinedProjectContext}\n` : '',
-            researchContext ? `[SPECIFIC INSTRUCTIONS FOR THIS RUN]\n${researchContext}` : ''
+            researchContext ? `[SPECIFIC INSTRUCTIONS FOR THIS RUN]\n${researchContext}` : '',
+            styleCopySection
         ].filter(Boolean).join('\n') || 'Focus on identifying statements made by participants about their experiences, feelings, and perceptions.';
 
         // Call selected AI models in parallel

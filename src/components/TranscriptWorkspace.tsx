@@ -284,6 +284,7 @@ export default function TranscriptWorkspace({
 
     const [researchContext, setResearchContext] = useState(DEFAULT_PROMPT)
     const [showFullPrompt, setShowFullPrompt] = useState(false)
+    const [styleMode, setStyleMode] = useState<'explore' | 'style-copy'>('explore')
 
     // Build the full prompt preview so user can see what is actually sent
     const fullPromptPreview = buildSystematicPrompt(
@@ -318,7 +319,7 @@ export default function TranscriptWorkspace({
             const res = await fetch(`/api/transcripts/${transcript.id}/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ models, researchContext }),
+                body: JSON.stringify({ models, researchContext, styleMode }),
             })
             
             if (!res.ok) {
@@ -782,6 +783,36 @@ export default function TranscriptWorkspace({
                                                 </button>
                                             </div>
                                         </div>
+                                        {/* Style Mode Toggle */}
+                                        <div className="mb-4 p-3 rounded-xl border border-slate-200 bg-slate-50/80">
+                                            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2.5">AI Coding Mode</p>
+                                            <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStyleMode('explore')}
+                                                    className={`flex-1 flex flex-col items-start px-3 py-2 text-left transition-colors ${styleMode === 'explore' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                                >
+                                                    <span className={`text-[11px] font-bold ${styleMode === 'explore' ? 'text-white' : 'text-slate-700'}`}>🔍 Explore Freely</span>
+                                                    <span className={`text-[10px] leading-snug mt-0.5 ${styleMode === 'explore' ? 'text-indigo-200' : 'text-slate-400'}`}>AI generates fresh codes, may surface things you missed</span>
+                                                </button>
+                                                <div className="w-px bg-slate-200" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStyleMode('style-copy')}
+                                                    className={`flex-1 flex flex-col items-start px-3 py-2 text-left transition-colors ${styleMode === 'style-copy' ? 'bg-violet-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                                >
+                                                    <span className={`text-[11px] font-bold ${styleMode === 'style-copy' ? 'text-white' : 'text-slate-700'}`}>🎨 Copy My Style</span>
+                                                    <span className={`text-[10px] leading-snug mt-0.5 ${styleMode === 'style-copy' ? 'text-violet-200' : 'text-slate-400'}`}>AI learns from your existing codes and matches your approach</span>
+                                                </button>
+                                            </div>
+                                            {styleMode === 'style-copy' && (
+                                                <p className="text-[9px] text-violet-600 font-semibold mt-2 flex items-center gap-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+                                                    AI will study your accepted & human codes from this project before analyzing
+                                                </p>
+                                            )}
+                                        </div>
+
                                         <textarea
                                             value={researchContext}
                                             onChange={e => setResearchContext(e.target.value)}
