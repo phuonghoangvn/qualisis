@@ -42,7 +42,13 @@ WHAT TO CODE:
 - Emotional expressions ("it was overwhelming", "I felt relief")
 - Turning points and changes ("that's when things shifted for me")
 
-Stay close to the data. Be open-minded. Use the participant's own language when creating code labels where possible (in-vivo coding). Each code should capture ONE distinct phenomenon.`;
+HOW TO LABEL CODES — ANALYTICAL THINKING:
+Think beyond paraphrasing. Ask yourself: "What recurring pattern or underlying phenomenon does this quote reveal about how people experience this topic?"
+A good code label is a THEORETICAL CONSTRUCT — it names a pattern or mechanism, not just restates the words.
+- Instead of describing WHAT was said → capture WHAT IT REVEALS or WHAT IT MEANS analytically.
+- Example: Quote: "I lock myself in the bathroom to do breathing" → BAD label: "Breathing in private space" → GOOD label: "Somatic regulation through physical withdrawal"
+- Example: Quote: "I feel less tense after the exercise" → BAD label: "Feeling less tense" → GOOD label: "Embodied relief as outcome of practice"
+Keep labels concise (3-7 words) and analytically meaningful. Each code should capture ONE distinct phenomenon.`;
 
     // 4. Constraints
     const constraints = `[CONSTRAINTS]
@@ -52,9 +58,9 @@ Stay close to the data. Be open-minded. Use the participant's own language when 
 4. EXISTENCE CHECK: Every quote must exist verbatim in the transcript. Do not invent or paraphrase.
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
-7. HIGHLY DESCRIPTIVE CONTEXTUAL LABELS: Code labels should act as detailed, descriptive summaries of the text, capturing the specific nuance and context of the participant's situation (e.g., "Worry about family due to unstable home country"). Do NOT use generic tags.
-8. SENTENCE-LIKE PHRASING: Write code labels as descriptive phrases or short sentences (MUST be less than 8 words in length) that clearly communicate WHAT is happening and WHY.
-9. CAPTURE SPECIFICS: Make sure to include the specific trigger, outcome, or underlying sentiment directly in the code label name.
+7. ANALYTICAL LABELS: Code labels must be THEORETICAL CONSTRUCTS that name an underlying pattern or phenomenon — not paraphrases. Ask: "What does this tell us about how people experience this topic in general?" Labels should be concise (3-7 words) and interpretive.
+8. AVOID PURELY DESCRIPTIVE LABELS: Do not create labels that merely restate or summarise the quote. Bad: "Feeling calmer after breathing." Good: "Somatic regulation through breath-work."
+9. CAPTURE THE MECHANISM OR PATTERN: Prioritize labels that reveal WHY or HOW something happens — the underlying mechanism, tension, or strategy.
 10. HARD QUOTA: DO NOT generate more than 8 to 12 highlighted codes for this segment. Prioritize ONLY the top 8-12 most profound segments.
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
@@ -70,24 +76,25 @@ SKIP THESE (not analytically relevant, DO NOT CODE):
 Return a raw valid JSON array. Each object must follow this exact structure:
 [
   {
-    "theme": "Broad overarching theme or category name (e.g., 'Stressors and Challenges', 'Effectiveness and Benefits of Breathing', 'Coping Strategies')",
-    "label": "Descriptive code label (3-10 words, capturing the specific situation, e.g., 'Chronic work-related anxiety', 'Positive impact of breathing on evening stress')",
+    "theme": "Broad theoretical theme name (e.g., 'Agency and self-regulation', 'Embodied experience of practice', 'Tension between control and overwhelm')",
+    "label": "Analytical code label (3-7 words, naming a pattern or phenomenon, e.g., 'Somatic regulation through breath-work', 'Agency reclaimed through routine', 'Anxiety as embodied physical state')",
     "text": "Exact verbatim quote from the transcript (the Sample Excerpt)",
     "sentiment": "Positive" | "Negative" | "Neutral",
     "confidence": "HIGH" | "MEDIUM" | "LOW",
-    "explanation": "Brief justification for why this quote is analytically relevant"
+    "explanation": "Brief justification for why this quote is analytically relevant and what pattern/phenomenon it reveals"
   }
 ]
 
 IMPORTANT RULES FOR THEMES:
-- Group your codes under broad, meaningful themes (e.g., "Stressors and Challenges", "Coping Strategies", "Effectiveness and Benefits of Breathing").
+- Themes are THEORETICAL CONSTRUCTS that describe recurring patterns across the data — they should tell something general and abstract about the data.
+- Group your codes under broad, conceptual themes (e.g., "Agency and self-regulation", "Embodied anxiety management", "Perceived efficacy of practice").
 - Reuse the SAME theme name for all codes that belong to the same category. Do NOT create a unique theme for every single code.
 - Aim for 3-7 distinct themes per transcript.
 
 IMPORTANT RULES FOR CODE LABELS:
-- Each code label should be 3-10 words, descriptive, and capture the specific nuance of the quote.
-- Examples of GOOD code labels: "Chronic work-related anxiety", "Fear of judgment during job interviews", "Positive use of box breathing in conflict situations".
-- Examples of BAD code labels: "Stress", "Hope", "Breathing" (too vague and abstract).
+- Each code label should be 3-7 words, analytical, and name an underlying phenomenon or pattern.
+- Examples of GOOD code labels: "Agency reclaimed through structured routine", "Somatic relief as validation of practice", "Physical withdrawal as regulatory strategy".
+- Examples of BAD code labels: "Feeling better", "Using breathing", "Anxiety reduced" (too descriptive, not analytical).
 
 Return ONLY the JSON array. No markdown wrappers. Code SELECTIVELY — quality over quantity.`;
 
@@ -103,24 +110,30 @@ export const buildThemeGroupingPrompt = (
     researchContext: string,
 ) => {
     return `[ROLE]
-You are a senior qualitative researcher performing Step 3-4 of thematic analysis: grouping initial codes into meaningful categories (themes).
+You are a senior qualitative researcher performing Step 3-4 of thematic analysis: grouping initial codes into meaningful themes.
 
-[TASK — CREATING CATEGORIES/THEMES (Steps 3-4)]
+[THEORETICAL FRAMING]
+Themes are NOT summaries of content — they are THEORETICAL CONSTRUCTS that describe recurring patterns in the data and tell us something general and meaningful about participants' experiences. A good theme:
+- Names an underlying phenomenon or mechanism (not just a topic area)
+- Captures what the data is TELLING US about human experience in this context
+- Works at a level of abstraction above the individual codes
+- Could be understood as answering: "What does this pattern reveal about how people experience X?"
+
+[TASK — CREATING THEMES (Steps 3-4)]
 You have completed initial coding (Step 2). Now you must:
 
 1. Review ALL the codes below carefully.
-2. Group related codes together into CATEGORIES (themes).
-3. Create a hierarchy: each Category has sub-categories (the original codes that belong to it).
+2. Group related codes together into THEMES (theoretical constructs).
+3. Create a hierarchy: each Theme has sub-categories (the original codes that belong to it).
 4. Not every code needs to be used — some initial codes can be dropped if they are not meaningful enough.
 5. You CAN create new combined codes by merging two or more similar codes.
-6. Categories do not have to be the same type — they can be about objects, processes, differences, emotions, strategies, etc.
-7. Look for CONNECTIONS between categories — how do they relate to each other?
+6. Look for CONNECTIONS between themes — how do they relate to each other?
 
 GUIDELINES:
-- Be creative and open-minded
-- Work at a more ABSTRACT, GENERAL level than the individual codes
-- Categories should capture broader patterns or phenomena
-- A good theme tells a "story" — it has a clear central concept
+- Be creative and analytical — think about what the patterns MEAN, not just what they describe
+- Work at an ABSTRACT, THEORETICAL level above the individual codes
+- A good theme name reads like a theoretical concept: e.g., "Embodied agency through regulation", "Tension between vulnerability and control", "Practice as meaning-making"
+- Avoid descriptive theme names like "Coping strategies" or "Benefits of breathing" — these describe topics, not patterns
 - Aim for 3-7 main themes for a typical interview
 - Each theme should have 2-5 sub-categories
 
@@ -134,12 +147,12 @@ ${researchContext}
 Return a JSON array of theme suggestions:
 [
   {
-    "name": "Theme Name (abstract, conceptual)",
-    "description": "What this theme captures — the central concept or pattern",
+    "name": "Theme Name (theoretical construct — e.g., 'Embodied agency through regulation', 'Tension between overwhelm and control')",
+    "description": "What recurring pattern or phenomenon this theme captures, and what it tells us about participants' experiences in general",
     "subCategories": ["Code Label 1", "Code Label 2", "Code Label 3"],
-    "reason": "Why these codes belong together and why this theme is significant",
+    "reason": "Why these codes belong together and what theoretical insight this theme provides",
     "confidenceScore": 75,
-    "connections": "How this theme connects to other themes in the data"
+    "connections": "How this theme connects to or tensions with other themes in the data"
   }
 ]
 Return ONLY the JSON array. No markdown wrappers.`;
