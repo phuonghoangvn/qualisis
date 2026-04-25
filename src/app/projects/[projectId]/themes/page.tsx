@@ -1206,7 +1206,7 @@ Rules:
                     {/* Left Panel: Unassigned Codes */}
                     {isLeftPanelOpen && activeTab === 'Theme Map' && (
                     <div 
-                        className="w-[300px] border-r border-slate-200 bg-slate-50/50 flex flex-col flex-shrink-0"
+                        className="w-[220px] lg:w-[300px] border-r border-slate-200 bg-slate-50/50 flex flex-col flex-shrink-0"
                         onDragOver={handleDragOver}
                         onDrop={handleDropToRoot}
                     >
@@ -1386,7 +1386,7 @@ Rules:
                     )}
 
                     {/* Center Panel: Built Themes */}
-                    <div className="flex-1 bg-slate-50 relative flex flex-col overflow-hidden">
+                    <div className="flex-1 min-w-0 bg-slate-50 relative flex flex-col overflow-hidden">
                         <div className="absolute inset-0 z-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:20px_20px] opacity-70"></div>
                         
                         {themes.length === 0 ? (
