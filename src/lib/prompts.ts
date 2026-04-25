@@ -48,6 +48,18 @@ A good code label is a THEORETICAL CONSTRUCT — it names a pattern or mechanism
 - Instead of describing WHAT was said → capture WHAT IT REVEALS or WHAT IT MEANS analytically.
 - Example: Quote: "I lock myself in the bathroom to do breathing" → BAD label: "Breathing in private space" → GOOD label: "Somatic regulation through physical withdrawal"
 - Example: Quote: "I feel less tense after the exercise" → BAD label: "Feeling less tense" → GOOD label: "Embodied relief as outcome of practice"
+
+HANDLING MULTI-DIMENSIONAL QUOTES:
+Some quotes contain multiple distinct dimensions (e.g., both physical AND mental effects, both emotional AND behavioral changes). You MUST handle these carefully:
+- If a quote covers 2+ clearly different dimensions, SPLIT it into multiple shorter quotes and code each one separately.
+  - Example: "I don't feel as tense physically, and mentally, it feels like I can think more clearly."
+    → Split into TWO codes:
+      1. text: "I don't feel as tense physically" → label: "Somatic tension relief through practice"
+      2. text: "mentally, it feels like I can think more clearly" → label: "Cognitive clarity as outcome of regulation"
+- If the dimensions are inseparable and the quote only makes sense as a whole, use a label that explicitly captures BOTH dimensions.
+  - Example: "It calms me both physically and mentally" → label: "Integrated somatic-cognitive relief"
+NEVER reduce a multi-dimensional quote to just one of its dimensions. This loses data.
+
 Keep labels concise (3-7 words) and analytically meaningful. Each code should capture ONE distinct phenomenon.`;
 
     // 4. Constraints
@@ -57,11 +69,12 @@ Keep labels concise (3-7 words) and analytically meaningful. Each code should ca
 3. NO SPEAKER TAGS: Never include labels like "Interviewer:", "P1:", "Anna:" in the extracted text.
 4. EXISTENCE CHECK: Every quote must exist verbatim in the transcript. Do not invent or paraphrase.
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
-6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
+6. ONE PHENOMENON PER CODE: Each code captures one distinct idea. If a quote contains 2+ clearly different phenomena (e.g., physical AND mental effects), SPLIT it into multiple separate quote entries with separate codes.
 7. ANALYTICAL LABELS: Code labels must be THEORETICAL CONSTRUCTS that name an underlying pattern or phenomenon — not paraphrases. Ask: "What does this tell us about how people experience this topic in general?" Labels should be concise (3-7 words) and interpretive.
 8. AVOID PURELY DESCRIPTIVE LABELS: Do not create labels that merely restate or summarise the quote. Bad: "Feeling calmer after breathing." Good: "Somatic regulation through breath-work."
 9. CAPTURE THE MECHANISM OR PATTERN: Prioritize labels that reveal WHY or HOW something happens — the underlying mechanism, tension, or strategy.
-10. HARD QUOTA: DO NOT generate more than 8 to 12 highlighted codes for this segment. Prioritize ONLY the top 8-12 most profound segments.
+10. NEVER REDUCE MULTI-DIMENSIONAL QUOTES: If a participant mentions both physical and mental effects, or both emotional and behavioral changes, do NOT reduce the code to just one dimension. Either split the quote or use a label that covers both.
+11. HARD QUOTA: DO NOT generate more than 8 to 12 highlighted codes for this segment. Prioritize ONLY the top 8-12 most profound segments.
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
 SKIP THESE (not analytically relevant, DO NOT CODE):
