@@ -74,9 +74,26 @@ export default function ChatPage({ params }: { params: { projectId: string } }) 
         scrollToBottom()
     }, [messages])
 
-    const clearChat = () => {
+    // Load initial chat history
+    useEffect(() => {
+        fetch(`/api/projects/${params.projectId}/chat`)
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setMessages(data)
+                }
+            })
+            .catch(err => console.error('Failed to load chat history', err))
+    }, [params.projectId])
+
+    const clearChat = async () => {
         if (window.confirm('Are you sure you want to clear this conversation?')) {
             setMessages([])
+            try {
+                await fetch(`/api/projects/${params.projectId}/chat`, { method: 'DELETE' })
+            } catch (err) {
+                console.error('Failed to clear chat history from server', err)
+            }
         }
     }
 
