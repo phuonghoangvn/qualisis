@@ -1,10 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Sidebar from '@/components/Sidebar'
-import { Send, Bot, User, Sparkles, AlertCircle, Trash2, Library, X, Paperclip } from 'lucide-react'
-
-import mammoth from 'mammoth'
+import { Sparkles, Send, Bot, Library, Trash2, AlertCircle, User, X } from 'lucide-react'
 
 // Enhanced markdown renderer to support tables and better styling
 function renderMarkdown(md: string): string {
@@ -62,10 +59,8 @@ export default function ChatPage({ params }: { params: { projectId: string } }) 
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [showHandbook, setShowHandbook] = useState(false)
-    const [attachedFile, setAttachedFile] = useState<File | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
-    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -100,36 +95,15 @@ export default function ChatPage({ params }: { params: { projectId: string } }) 
 
     const handleSubmit = async (e?: React.FormEvent) => {
         e?.preventDefault()
-        if ((!input.trim() && !attachedFile) || isLoading) return
+        if (!input.trim() || isLoading) return
 
         setIsLoading(true)
         setError(null)
 
-        let finalContent = input.trim()
-
-        if (attachedFile) {
-            try {
-                let fileText = ''
-                if (attachedFile.name.endsWith('.docx')) {
-                    const arrayBuffer = await attachedFile.arrayBuffer()
-                    const result = await mammoth.extractRawText({ arrayBuffer })
-                    fileText = result.value
-                } else {
-                    fileText = await attachedFile.text()
-                }
-                finalContent += `\n\n[Attached File: ${attachedFile.name}]\n${fileText}`
-            } catch (err) {
-                console.error("File parse error", err)
-                setError("Failed to extract text from the attached file. Is it a valid .txt or .docx file?")
-                setIsLoading(false)
-                return
-            }
-        }
-
+        const finalContent = input.trim()
         const userMsg = { role: 'user', content: finalContent }
         setMessages(prev => [...prev, userMsg])
         setInput('')
-        setAttachedFile(null)
 
         try {
             const res = await fetch(`/api/projects/${params.projectId}/chat`, {
@@ -425,27 +399,27 @@ A continuous, well-structured academic narrative paragraph/section.`
                                 <div className="w-20 h-20 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                                     <Bot className="w-10 h-10 text-indigo-500" />
                                 </div>
-                                <h3 className="text-2xl font-extrabold text-slate-800 mb-2">How can I help you analyze?</h3>
+                                <h3 className="text-2xl font-extrabold text-slate-800 mb-2">Your Data is Pre-Loaded & Ready!</h3>
                                 <p className="text-slate-500 max-w-lg font-medium text-sm mb-10">
-                                    I am an AI assistant powered by your actual coded data. Ask me to find quotes, identify patterns, or compare themes across all transcripts.
+                                    I have automatically memorized all your transcripts, codebook, and themes in this project. You don't need to attach any files. Try out some of my core capabilities:
                                 </p>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full text-left">
                                     {[
                                         {
-                                            title: "Synthesize findings",
+                                            title: "🔍 Full-Text Search & Synthesis",
                                             prompt: "What are the most common challenges participants mention across all transcripts?"
                                         },
                                         {
-                                            title: "Compare patterns",
+                                            title: "🔗 Clickable Quote Traceability",
+                                            prompt: "Find exact quotes where participants talk about feeling overwhelmed. (Click the blue links in my response to jump to the source!)"
+                                        },
+                                        {
+                                            title: "🧠 Thematic Comparison",
                                             prompt: "Are there any differences or tensions between how different participants describe their coping strategies?"
                                         },
                                         {
-                                            title: "Find specific quotes",
-                                            prompt: "Find exact quotes where participants talk about feeling overwhelmed by the process."
-                                        },
-                                        {
-                                            title: "Review a theme",
+                                            title: "📖 Prompt Handbook",
                                             prompt: "Review my codebook. Which themes have the strongest supporting evidence in the data, and which are lacking?"
                                         }
                                     ].map((suggestion, idx) => (
@@ -507,33 +481,7 @@ A continuous, well-structured academic narrative paragraph/section.`
                                 <AlertCircle className="w-4 h-4" /> {error}
                             </div>
                         )}
-                        {attachedFile && (
-                            <div className="mb-3 flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-xl w-max max-w-full animate-[fade-in-up_0.2s_ease-out_both]">
-                                <Paperclip className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                                <span className="text-xs font-bold text-indigo-700 truncate">{attachedFile.name}</span>
-                                <button type="button" onClick={() => setAttachedFile(null)} className="ml-2 text-indigo-400 hover:text-indigo-600 transition-colors">
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        )}
                         <form onSubmit={handleSubmit} className="relative flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-2 focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all shadow-inner">
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={(e) => {
-                                    if (e.target.files && e.target.files[0]) {
-                                        setAttachedFile(e.target.files[0])
-                                    }
-                                }} 
-                                className="hidden" 
-                            />
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-10 h-10 rounded-xl hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all flex-shrink-0"
-                            >
-                                <Paperclip className="w-4 h-4" />
-                            </button>
                             <textarea
                                 ref={inputRef}
                                 value={input}
@@ -545,7 +493,7 @@ A continuous, well-structured academic narrative paragraph/section.`
                             />
                             <button
                                 type="submit"
-                                disabled={(!input.trim() && !attachedFile) || isLoading}
+                                disabled={!input.trim() || isLoading}
                                 className="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-300 text-white flex items-center justify-center transition-all flex-shrink-0"
                             >
                                 <Send className="w-4 h-4" />
