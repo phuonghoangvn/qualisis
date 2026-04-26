@@ -423,6 +423,14 @@ export default function TranscriptWorkspace({
                 router.refresh()
                 setAnalysisRun(true)
             }, 0)
+
+            // ── Auto-generate embeddings in background (non-blocking) ──────
+            // Fire-and-forget: generate vector embeddings for all segments of this transcript
+            // so the chatbot can use semantic search instead of full-text injection
+            fetch(`/api/transcripts/${transcript.id}/embed`, { method: 'POST' })
+                .then(r => r.json())
+                .then(d => console.log('[Embeddings] Generated:', d.embedded, 'segments'))
+                .catch(e => console.warn('[Embeddings] Non-critical error:', e.message))
         } catch (e: any) {
             console.error(e)
             alert('Analysis failed: ' + (e.message || String(e)))
