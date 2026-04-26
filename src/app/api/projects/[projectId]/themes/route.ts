@@ -89,6 +89,18 @@ export async function GET(
                     }
                 }
 
+                if (link.codebookEntry.type === 'OBSERVATION' && link.codebookEntry.examplesIn) {
+                    try {
+                        const parsed = JSON.parse(link.codebookEntry.examplesIn);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((p: any) => {
+                                codeParticipantMap.set(p.id, { id: p.id, name: p.name });
+                                themeParticipantMap.set(p.id, { id: p.id, name: p.name });
+                            });
+                        }
+                    } catch (err) {}
+                }
+
                 const { codeAssignments, ...restCodeEntry } = link.codebookEntry as any
                 return {
                     ...link,

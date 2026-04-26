@@ -43,6 +43,15 @@ export async function GET(req: Request) {
                         participantsMap.set(tr.id, { id: tr.id, name: tr.title })
                     }
                 }
+
+                if (e.type === 'OBSERVATION' && e.examplesIn) {
+                    try {
+                        const parsed = JSON.parse(e.examplesIn);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((p: any) => participantsMap.set(p.id, { id: p.id, name: p.name }));
+                        }
+                    } catch (err) {}
+                }
                 
                 // If it's an OBSERVATION, keep it. Otherwise compute AI-ASSISTED or MANUAL
                 const computedType = e.type === 'OBSERVATION' ? 'OBSERVATION' : (hasAISuggestion ? 'AI-ASSISTED' : 'MANUAL')
