@@ -84,6 +84,9 @@ export default function TranscriptWorkspace({
     const [showEditConfirm, setShowEditConfirm] = useState(false)
     const [showOnboarding, setShowOnboarding] = useState(false)
     const [toastMessage, setToastMessage] = useState<{ message: string; visible: boolean } | null>(null)
+    const [showObsPanel, setShowObsPanel] = useState(false)
+    const [obsForm, setObsForm] = useState({ label: '', note: '', context: '' })
+    const [obsSaving, setObsSaving] = useState(false)
 
     const triggerToast = useCallback((message: string) => {
         setToastMessage({ message, visible: true })
@@ -101,6 +104,30 @@ export default function TranscriptWorkspace({
             setShowOnboarding(true)
         }
     }, [mounted, projectId, segments.length])
+
+    const createObservationCode = async () => {
+        if (!obsForm.label.trim()) return
+        setObsSaving(true)
+        try {
+            await fetch('/api/codebook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId,
+                    name: obsForm.label.trim(),
+                    definition: obsForm.note.trim() || null,
+                    memo: obsForm.context.trim() || null,
+                    type: 'OBSERVATION',
+                    examplesIn: '',
+                    examplesOut: '',
+                })
+            })
+            setObsForm({ label: '', note: '', context: '' })
+            setShowObsPanel(false)
+            triggerToast('Memo saved to Unassigned Codes!')
+        } catch {}
+        setObsSaving(false)
+    }
 
     const handleDecision = useCallback(async (segId: string, action: string, label?: string, note?: string, specificSuggestionId?: string) => {
         // Find the segment to get its suggestions
@@ -708,6 +735,16 @@ export default function TranscriptWorkspace({
                             className={`px-4 py-2 border rounded-lg text-sm font-semibold transition-colors shadow-sm bg-white ${isEditingText ? 'border-emerald-300 text-emerald-600 hover:bg-emerald-50' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                         >
                             {isSaving ? 'Saving...' : isEditingText ? 'Save Changes' : 'Edit Transcript'}
+                        </button>
+
+                        {/* Memo Button */}
+                        <button 
+                            onClick={() => setShowObsPanel(true)}
+                            className="flex items-center gap-2 px-4 py-2 border border-violet-200 bg-violet-50 rounded-lg text-sm font-bold text-violet-700 hover:bg-violet-100 transition-colors shadow-sm"
+                            title="Log a researcher insight or observation"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                            New Memo
                         </button>
 
                         {/* Export Button */}
