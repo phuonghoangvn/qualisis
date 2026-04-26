@@ -52,9 +52,30 @@ export async function POST(
             select: { id: true, title: true, content: true, status: true }
         })
 
-        const transcriptsContext = allTranscripts.length > 0
-            ? allTranscripts.map(t => `--- BEGIN TRANSCRIPT: "${t.title}" (ID: ${t.id}) ---\n${t.content}\n--- END TRANSCRIPT: "${t.title}" ---`).join('\n\n')
-            : 'No transcripts available.'
+        let totalChars = 0;
+        const maxChars = 350000; // ~90k tokens, well within GPT-4o's 128k limit
+        
+        let transcriptsContext = 'No transcripts available.';
+        if (allTranscripts.length > 0) {
+            const contextBlocks = [];
+            for (const t of allTranscripts) {
+                let content = t.content;
+                if (totalChars + content.length > maxChars) {
+                    const allowed = Math.max(0, maxChars - totalChars);
+                    if (allowed > 500) {
+                        content = content.substring(0, allowed) + '\n\n[...REMAINDER OF TRANSCRIPT TRUNCATED DUE TO CONTEXT LIMITS...]';
+                        totalChars += content.length;
+                        contextBlocks.push(`--- BEGIN TRANSCRIPT: "${t.title}" (ID: ${t.id}) ---\n${content}\n--- END TRANSCRIPT: "${t.title}" ---`);
+                    } else {
+                        contextBlocks.push(`--- TRANSCRIPT OMITTED: "${t.title}" (ID: ${t.id}) [CONTEXT LIMIT REACHED] ---`);
+                    }
+                } else {
+                    totalChars += content.length;
+                    contextBlocks.push(`--- BEGIN TRANSCRIPT: "${t.title}" (ID: ${t.id}) ---\n${content}\n--- END TRANSCRIPT: "${t.title}" ---`);
+                }
+            }
+            transcriptsContext = contextBlocks.join('\n\n');
+        }
 
         // ── LAYER 3: Build Rich System Prompt ─────────────────────────────
         const codebookContext = codebook.length > 0
