@@ -1165,6 +1165,68 @@ export default function TranscriptWorkspace({
                 </div>,
                 document.body
             )}
+
+            {/* Observation / Memo Modal */}
+            {mounted && showObsPanel && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 animate-in zoom-in-95 duration-300 relative">
+                        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-violet-100 text-violet-600 rounded-md">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-[14px] font-extrabold text-violet-900">New Research Memo</h3>
+                                    <p className="text-[11px] text-slate-500 font-medium">Capture your deductive thoughts or field notes.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowObsPanel(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </div>
+                        <div className="p-5 flex flex-col gap-4">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">Observation Label <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    value={obsForm.label}
+                                    onChange={e => setObsForm(prev => ({ ...prev, label: e.target.value }))}
+                                    onKeyDown={e => { if (e.key === 'Enter' && obsForm.label.trim()) createObservationCode() }}
+                                    placeholder="e.g. Participants avoid eye contact when talking about money"
+                                    className="w-full text-sm text-slate-800 bg-white border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">Context & Evidence</label>
+                                <textarea
+                                    value={obsForm.note}
+                                    onChange={e => setObsForm(prev => ({ ...prev, note: e.target.value }))}
+                                    placeholder="Why are you noting this? What evidence — verbal, non-verbal, or contextual — supports this?"
+                                    rows={3}
+                                    className="w-full text-sm text-slate-800 bg-white border border-slate-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                />
+                            </div>
+                        </div>
+                        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowObsPanel(false)}
+                                className="px-3 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded hover:bg-slate-100"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={createObservationCode}
+                                disabled={!obsForm.label.trim() || obsSaving}
+                                className="px-4 py-1.5 text-xs font-bold text-white bg-violet-600 rounded hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                            >
+                                {obsSaving ? 'Saving...' : 'Save Memo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     )
 }
