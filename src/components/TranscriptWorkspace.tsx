@@ -31,7 +31,10 @@ type Segment = {
     speaker: string | null
     order: number
     suggestions: Suggestion[]
-    codeAssignments: { codebookEntry: { name: string } }[]
+    codeAssignments: { 
+        codebookEntry: { name: string }
+        aiSuggestionId?: string | null 
+    }[]
 }
 
 type Transcript = {
@@ -529,7 +532,8 @@ export default function TranscriptWorkspace({
             } else if (ds.type === 'highlight') {
                 const seg = ds.seg!;
                 const validSuggestions = (seg.suggestions || []).filter(s => s.status !== 'REJECTED');
-                const isHuman = seg.codeAssignments?.length > 0;
+                const humanAssignments = seg.codeAssignments?.filter(c => !c.aiSuggestionId) || [];
+                const isHuman = humanAssignments.length > 0;
                 
                 if (validSuggestions.length === 0 && !isHuman) continue;
 
@@ -541,7 +545,7 @@ export default function TranscriptWorkspace({
                 const activeBgRgb: string[] = [];
 
                 if (isHuman) {
-                    label = seg.codeAssignments[0].codebookEntry.name;
+                    label = humanAssignments[0].codebookEntry.name;
                     modelProviders.push('Human');
                     activeColors.push('#a855f7');
                     activeBgRgb.push('168, 85, 247');

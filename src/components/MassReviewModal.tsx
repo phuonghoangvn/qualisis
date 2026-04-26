@@ -177,14 +177,15 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
 
         for (const seg of segments) {
             const valid = seg.suggestions.filter(s => s.status !== 'REJECTED');
-            const isHuman = valid.length === 0 && seg.codeAssignments.length > 0;
+            const humanAssignments = seg.codeAssignments?.filter(c => !(c as any).aiSuggestionId) || [];
+            const isHuman = valid.length === 0 && humanAssignments.length > 0;
             
             if (isHuman) {
                 flat.push({
                     segment: seg,
                     suggestion: {
                         id: seg.id + '-human',
-                        label: seg.codeAssignments[0].codebookEntry.name,
+                        label: humanAssignments[0].codebookEntry.name,
                         status: 'APPROVED',
                         confidence: '100',
                         explanation: 'Human created',
