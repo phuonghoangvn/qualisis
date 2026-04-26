@@ -225,7 +225,7 @@ export default function CodebookPage() {
                                                 <button onClick={() => { setEditingCodeDef(link.codebookEntry.id); setCodeDefDraft(link.codebookEntry.definition || '') }} className="group/def w-full text-left">
                                                     {link.codebookEntry.definition ? (
                                                         <p className="text-[11px] text-slate-500 leading-relaxed group-hover/def:text-slate-700 transition-colors">{link.codebookEntry.definition}</p>
-                                                    ) : link.codebookEntry.examplesIn ? (
+                                                    ) : link.codebookEntry.examplesIn && link.codebookEntry.type !== 'OBSERVATION' ? (
                                                         <div>
                                                             <span className="inline-block text-[8px] font-extrabold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest mb-1">Inclusion criteria</span>
                                                             <p className="text-[11px] text-slate-400 italic leading-relaxed group-hover/def:text-slate-600 transition-colors">{link.codebookEntry.examplesIn}</p>
