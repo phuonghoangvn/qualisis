@@ -279,9 +279,43 @@ export default function TranscriptWorkspace({
             if (targetQuote) {
                 const cleanQuote = targetQuote.replace(/^["']|["']$/g, '').trim()
                 if (cleanQuote) {
-                    // Try to find the exact text in the browser natively
-                    // window.find highlights the match and scrolls it into view automatically.
-                    // To ensure it searches from the top, we first reset selection
+                    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+                    const normQuote = normalize(cleanQuote)
+                    
+                    if (normQuote.length > 5) {
+                        const elements = Array.from(document.querySelectorAll('[data-segment-id]')) as HTMLElement[]
+                        let bestMatch = null
+                        let bestScore = 0
+                        
+                        for (const el of elements) {
+                            const normEl = normalize(el.textContent || '')
+                            if (!normEl) continue
+                            
+                            if (normEl.includes(normQuote) || normQuote.includes(normEl)) {
+                                const score = Math.min(normEl.length, normQuote.length)
+                                if (score > bestScore && score > 5) {
+                                    bestScore = score
+                                    bestMatch = el
+                                }
+                            }
+                        }
+                        
+                        if (bestMatch) {
+                            bestMatch.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            bestMatch.style.transition = 'box-shadow 0.2s ease, outline 0.2s ease'
+                            bestMatch.style.outline = '2.5px solid #f59e0b'
+                            bestMatch.style.outlineOffset = '3px'
+                            bestMatch.style.borderRadius = '4px'
+                            setTimeout(() => {
+                                bestMatch.style.outline = ''
+                                bestMatch.style.outlineOffset = ''
+                            }, 2000)
+                            window.getSelection()?.removeAllRanges()
+                            return
+                        }
+                    }
+
+                    // Fallback to native text search
                     window.getSelection()?.removeAllRanges()
                     const found = (window as any).find(cleanQuote, false, false, true, false, false, false)
                     if (found) return
