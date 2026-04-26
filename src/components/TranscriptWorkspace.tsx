@@ -109,13 +109,16 @@ export default function TranscriptWorkspace({
         if (!obsForm.label.trim()) return
         setObsSaving(true)
         try {
+            const sourceText = `(Source: ${transcript.title})`
+            const finalNote = obsForm.note.trim() ? `${obsForm.note.trim()}\n\n${sourceText}` : sourceText
+
             await fetch('/api/codebook', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     projectId,
                     name: obsForm.label.trim(),
-                    definition: obsForm.note.trim() || null,
+                    definition: finalNote,
                     memo: obsForm.context.trim() || null,
                     type: 'OBSERVATION',
                     examplesIn: '',
