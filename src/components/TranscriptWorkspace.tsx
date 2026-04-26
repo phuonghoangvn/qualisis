@@ -240,27 +240,45 @@ export default function TranscriptWorkspace({
         setMounted(true)
     }, [])
 
-    // ── Deep-link: scroll to segment from ?segment= query param ──────────────
+    // ── Deep-link: scroll to segment from ?segment= query param or quote ─────
     useEffect(() => {
         const targetSegId = searchParams?.get('segment')
-        if (!targetSegId || !mounted) return
+        const targetQuote = searchParams?.get('quote')
+        if ((!targetSegId && !targetQuote) || !mounted) return
 
         // Retry a few times because the segment elements render async
         let attempts = 0
         const tryScroll = () => {
-            const el = document.querySelector(`[data-segment-id="${targetSegId}"]`) as HTMLElement | null
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                // Flash animation: golden ring that fades out
-                el.style.transition = 'box-shadow 0.2s ease, outline 0.2s ease'
-                el.style.outline = '2.5px solid #f59e0b'
-                el.style.outlineOffset = '3px'
-                el.style.borderRadius = '4px'
-                setTimeout(() => {
-                    el.style.outline = ''
-                    el.style.outlineOffset = ''
-                }, 2000)
-            } else if (attempts < 10) {
+            if (targetQuote) {
+                const cleanQuote = targetQuote.replace(/^["']|["']$/g, '').trim()
+                if (cleanQuote) {
+                    // Try to find the exact text in the browser natively
+                    // window.find highlights the match and scrolls it into view automatically.
+                    // To ensure it searches from the top, we first reset selection
+                    window.getSelection()?.removeAllRanges()
+                    const found = window.find(cleanQuote, false, false, true, false, false, false)
+                    if (found) return
+                }
+            }
+
+            if (targetSegId) {
+                const el = document.querySelector(`[data-segment-id="${targetSegId}"]`) as HTMLElement | null
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    // Flash animation: golden ring that fades out
+                    el.style.transition = 'box-shadow 0.2s ease, outline 0.2s ease'
+                    el.style.outline = '2.5px solid #f59e0b'
+                    el.style.outlineOffset = '3px'
+                    el.style.borderRadius = '4px'
+                    setTimeout(() => {
+                        el.style.outline = ''
+                        el.style.outlineOffset = ''
+                    }, 2000)
+                    return
+                }
+            }
+            
+            if (attempts < 10) {
                 attempts++
                 setTimeout(tryScroll, 300)
             }

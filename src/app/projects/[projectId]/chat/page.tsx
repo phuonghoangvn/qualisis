@@ -47,6 +47,7 @@ function renderMarkdown(md: string): string {
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         // Only apply inline code if not already in a table cell (table cells did it manually above)
         .replace(/(?<!<td[^>]*>.*)`([^`]+)`(?!.*<\/td>)/g, '<code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-md text-[0.85em] font-mono border border-slate-200">$1</code>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-2 font-medium bg-indigo-50/50 px-1 py-0.5 rounded transition-colors">$1</a>')
         .replace(/^- (.+)$/gm, '<li class="ml-4 mb-1">$1</li>')
         .replace(/(<li.*<\/li>\n?)+/g, (block) => `<ul class="list-disc mb-4 text-[13px] text-slate-700">${block}</ul>`)
         // Wrap non-HTML lines in paragraph
