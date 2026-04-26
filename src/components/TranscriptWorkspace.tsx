@@ -256,7 +256,7 @@ export default function TranscriptWorkspace({
                     // window.find highlights the match and scrolls it into view automatically.
                     // To ensure it searches from the top, we first reset selection
                     window.getSelection()?.removeAllRanges()
-                    const found = window.find(cleanQuote, false, false, true, false, false, false)
+                    const found = (window as any).find(cleanQuote, false, false, true, false, false, false)
                     if (found) return
                 }
             }
