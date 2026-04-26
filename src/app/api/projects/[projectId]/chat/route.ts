@@ -49,11 +49,11 @@ export async function POST(
         // Fetch ALL raw transcripts for this project to leverage Prompt Caching.
         const allTranscripts = await prisma.transcript.findMany({
             where: { dataset: { projectId } },
-            select: { id: true, title: true, text: true, status: true }
+            select: { id: true, title: true, content: true, status: true }
         })
 
         const transcriptsContext = allTranscripts.length > 0
-            ? allTranscripts.map(t => `--- BEGIN TRANSCRIPT: "${t.title}" (ID: ${t.id}) ---\n${t.text}\n--- END TRANSCRIPT: "${t.title}" ---`).join('\n\n')
+            ? allTranscripts.map(t => `--- BEGIN TRANSCRIPT: "${t.title}" (ID: ${t.id}) ---\n${t.content}\n--- END TRANSCRIPT: "${t.title}" ---`).join('\n\n')
             : 'No transcripts available.'
 
         // ── LAYER 3: Build Rich System Prompt ─────────────────────────────
@@ -106,7 +106,7 @@ When the researcher asks a question:
         await prisma.chatMessage.create({
             data: {
                 projectId,
-                userId: session.user.id,
+                userId: (session.user as any).id,
                 role: 'user',
                 content: latestUserMessage.content
             }
@@ -129,7 +129,7 @@ When the researcher asks a question:
         await prisma.chatMessage.create({
             data: {
                 projectId,
-                userId: session.user.id,
+                userId: (session.user as any).id,
                 role: 'assistant',
                 content: responseText
             }
@@ -162,7 +162,7 @@ export async function GET(
 
     try {
         const messages = await prisma.chatMessage.findMany({
-            where: { projectId: params.projectId, userId: session.user.id },
+            where: { projectId: params.projectId, userId: (session.user as any).id },
             orderBy: { createdAt: 'asc' }
         })
         
@@ -183,7 +183,7 @@ export async function DELETE(
 
     try {
         await prisma.chatMessage.deleteMany({
-            where: { projectId: params.projectId, userId: session.user.id }
+            where: { projectId: params.projectId, userId: (session.user as any).id }
         })
         return NextResponse.json({ success: true })
     } catch (error: any) {
