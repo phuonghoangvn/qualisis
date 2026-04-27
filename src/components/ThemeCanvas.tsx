@@ -41,6 +41,8 @@ export type ThemeNodeData = {
     onDelete: (id: string, name: string) => void
     onRemoveCode: (themeId: string, codeId: string) => void
     onDropCode: (themeId: string, codeId: string, fromThemeId?: string) => void
+    onDragStartCode: (codeId: string, themeId: string) => void
+    onDragEndCode: () => void
     draggingCodeId: string | null
     draggingFromThemeId: string | null
 }
@@ -112,13 +114,18 @@ function ThemeNode({ data, selected }: NodeProps) {
                             draggable
                             onDragStart={e => {
                                 e.stopPropagation()
+                                d.onDragStartCode(link.codebookEntry.id, d.id)
                                 e.dataTransfer.setData('application/json', JSON.stringify({
                                     codeId: link.codebookEntry.id,
                                     fromThemeId: d.id
                                 }))
                                 e.dataTransfer.effectAllowed = 'move'
                             }}
-                            className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold group/chip cursor-grab active:cursor-grabbing ${link.codebookEntry.type === 'OBSERVATION' ? 'bg-violet-50 text-violet-700 border border-violet-100' : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300'}`}
+                            onDragEnd={e => {
+                                e.stopPropagation()
+                                d.onDragEndCode()
+                            }}
+                            className={`nodrag flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold group/chip cursor-grab active:cursor-grabbing ${link.codebookEntry.type === 'OBSERVATION' ? 'bg-violet-50 text-violet-700 border border-violet-100' : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300'}`}
                         >
                             <span className="truncate">{link.codebookEntry.name}</span>
                             <button className="opacity-0 group-hover/chip:opacity-100 text-slate-300 hover:text-rose-500 transition-all flex-shrink-0" title="Remove code" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); d.onRemoveCode(d.id, link.codebookEntry.id) }}>
@@ -205,11 +212,14 @@ interface ThemeCanvasInnerProps {
     onRemoveCode: (themeId: string, codeId: string) => void
     onPositionSave: (themeId: string, x: number, y: number) => void
     onCreateTheme: (name: string, x: number, y: number) => void
+    onDragStartCode: (codeId: string, themeId: string) => void
+    onDragEndCode: () => void
 }
 
 function ThemeCanvasInner({
     themes, draggingCodeId, draggingFromThemeId,
     onDropCode, onDropOnCanvas, onEdit, onDelete, onRemoveCode, onPositionSave, onCreateTheme,
+    onDragStartCode, onDragEndCode
 }: ThemeCanvasInnerProps) {
     const { screenToFlowPosition } = useReactFlow()
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -226,9 +236,9 @@ function ThemeCanvasInner({
                 x: (theme as any).positionX ?? (i % 4) * 380 + 40,
                 y: (theme as any).positionY ?? Math.floor(i / 4) * 380 + 40,
             },
-            data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, draggingCodeId, draggingFromThemeId },
+            data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, draggingCodeId, draggingFromThemeId },
         }))
-    }, [onEdit, onDelete, onRemoveCode, onDropCode, draggingCodeId, draggingFromThemeId])
+    }, [onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, draggingCodeId, draggingFromThemeId])
 
     const [nodes, setNodes, onNodesChange] = useNodesState(makeNodes(themes))
     const [edges, , onEdgesChange] = useEdgesState([])
@@ -360,6 +370,8 @@ interface ThemeCanvasProps {
     onRemoveCode: (themeId: string, codeId: string) => void
     onPositionSave: (themeId: string, x: number, y: number) => void
     onCreateTheme: (name: string, x: number, y: number) => void
+    onDragStartCode: (codeId: string, themeId: string) => void
+    onDragEndCode: () => void
 }
 
 export default function ThemeCanvas(props: ThemeCanvasProps) {

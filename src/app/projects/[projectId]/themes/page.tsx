@@ -1502,6 +1502,16 @@ Rules:
                             onRemoveCode={handleCanvasRemoveCode}
                             onPositionSave={handleCanvasPositionSave}
                             onCreateTheme={handleCanvasCreateTheme}
+                            onDragStartCode={(codeId, themeId) => {
+                                setDraggingType('code')
+                                setDraggingCodeId(codeId)
+                                setDraggingFromThemeId(themeId)
+                            }}
+                            onDragEndCode={() => {
+                                setDraggingType(null)
+                                setDraggingCodeId(null)
+                                setDraggingFromThemeId(null)
+                            }}
                         />
                     </div>
                 </div>
