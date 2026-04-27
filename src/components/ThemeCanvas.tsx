@@ -152,7 +152,101 @@ function ThemeNode({ data, selected }: NodeProps) {
     )
 }
 
-const nodeTypes = { themeCard: ThemeNode }
+// ─── Suggested Theme Card Node (Ghost Node) ───────────────────────────────────
+export type SuggestedThemeNodeData = {
+    name: string
+    description: string
+    reason?: string
+    confidenceScore?: number
+    codes: { id: string; name: string; type: string }[]
+    onAccept: (name: string) => void
+    onReject: (name: string) => void
+}
+
+function SuggestedThemeNode({ data, selected }: NodeProps) {
+    const d = data as SuggestedThemeNodeData
+    const [expanded, setExpanded] = useState(false)
+
+    const codesToShow = expanded ? d.codes : d.codes.slice(0, 4)
+    const hiddenCount = d.codes.length - 4
+
+    return (
+        <div
+            className={`w-[320px] rounded-2xl border-2 border-dashed transition-all shadow-lg flex flex-col relative
+                bg-indigo-50/80 border-indigo-300 backdrop-blur-sm
+                ${selected ? 'ring-4 ring-indigo-500/20 ring-offset-2 border-indigo-400' : 'hover:border-indigo-400'}
+            `}
+            style={{ cursor: 'default' }}
+        >
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-indigo-400 to-violet-400 rounded-l-2xl" />
+
+            <div className="p-4 flex flex-col gap-3">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col gap-1 flex-1">
+                        <div className="flex items-center gap-1.5">
+                            <svg className="text-indigo-500" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Suggested</span>
+                            {d.confidenceScore && (
+                                <span className="text-[10px] font-bold text-indigo-400 bg-white/60 px-1.5 py-0.5 rounded-md ml-auto">
+                                    {Math.round(d.confidenceScore * 100)}% Match
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-sm font-extrabold text-indigo-950 leading-snug break-words">{d.name}</p>
+                    </div>
+                </div>
+
+                {/* Description & Reason */}
+                <div className="flex flex-col gap-1.5">
+                    <p className="text-[11px] text-indigo-800/80 leading-relaxed break-words">{d.description}</p>
+                    {d.reason && (
+                        <div className="bg-white/50 rounded-lg p-2 mt-1 border border-indigo-100/50">
+                            <p className="text-[10px] font-semibold text-indigo-500 mb-0.5">Why this group?</p>
+                            <p className="text-[10px] text-indigo-700 leading-relaxed italic">{d.reason}</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Code chips */}
+                <div className="flex flex-col gap-1 min-h-[28px] p-2 -mx-1 bg-white/40 rounded-xl border border-white/60">
+                    {codesToShow.map(code => (
+                        <span key={code.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold bg-white/80 text-indigo-900 border border-indigo-100 shadow-sm">
+                            <span className="truncate">{code.name}</span>
+                        </span>
+                    ))}
+                    {hiddenCount > 0 && !expanded && <button className="text-[10px] text-indigo-600 font-bold text-center hover:text-indigo-800 py-0.5" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setExpanded(true) }}>+{hiddenCount} more</button>}
+                    {expanded && d.codes.length > 4 && <button className="text-[10px] text-indigo-400 font-bold text-center hover:text-indigo-600 py-0.5" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setExpanded(false) }}>Show less</button>}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2">
+                    <button
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); d.onAccept(d.name) }}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-1.5"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Accept Theme
+                    </button>
+                    <button
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); d.onReject(d.name) }}
+                        className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-500 text-xs font-bold rounded-xl transition-all shadow-sm border border-slate-200 hover:border-rose-200"
+                        title="Reject Suggestion"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
+            <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
+        </div>
+    )
+}
+
+const nodeTypes = { themeCard: ThemeNode, suggestedThemeCard: SuggestedThemeNode }
 
 // ─── Floating create form (screen-space overlay, not a flow node) ─────────────
 interface FloatingCreateFormProps {
@@ -214,12 +308,15 @@ interface ThemeCanvasInnerProps {
     onCreateTheme: (name: string, x: number, y: number) => void
     onDragStartCode: (codeId: string, themeId: string) => void
     onDragEndCode: () => void
+    aiSuggestions?: any[]
+    onAcceptSuggestion?: (name: string) => void
+    onRejectSuggestion?: (name: string) => void
 }
 
 function ThemeCanvasInner({
     themes, draggingCodeId, draggingFromThemeId,
     onDropCode, onDropOnCanvas, onEdit, onDelete, onRemoveCode, onPositionSave, onCreateTheme,
-    onDragStartCode, onDragEndCode
+    onDragStartCode, onDragEndCode, aiSuggestions = [], onAcceptSuggestion, onRejectSuggestion
 }: ThemeCanvasInnerProps) {
     const { screenToFlowPosition } = useReactFlow()
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -228,8 +325,8 @@ function ThemeCanvasInner({
     // Pending creation: screen coords + flow coords
     const [pendingCreate, setPendingCreate] = useState<{ sx: number; sy: number; fx: number; fy: number } | null>(null)
 
-    const makeNodes = useCallback((ts: ThemeNodeData[]): Node[] => {
-        return ts.map((theme, i) => ({
+    const makeNodes = useCallback((ts: ThemeNodeData[], suggs: any[]): Node[] => {
+        const regularNodes: Node[] = ts.map((theme, i) => ({
             id: theme.id,
             type: 'themeCard',
             position: {
@@ -238,20 +335,37 @@ function ThemeCanvasInner({
             },
             data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, draggingCodeId, draggingFromThemeId },
         }))
-    }, [onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, draggingCodeId, draggingFromThemeId])
 
-    const [nodes, setNodes, onNodesChange] = useNodesState(makeNodes(themes))
+        const suggNodes: Node[] = suggs.map((sugg, i) => ({
+            id: `suggestion-${sugg.name}`,
+            type: 'suggestedThemeCard',
+            position: {
+                // Place suggestions below regular themes, or offset them
+                x: (i % 3) * 380 + 100,
+                y: Math.floor(i / 3) * 380 + Math.max(800, ts.length * 200),
+            },
+            data: {
+                ...sugg,
+                onAccept: (name: string) => onAcceptSuggestion?.(name),
+                onReject: (name: string) => onRejectSuggestion?.(name),
+            }
+        }))
+
+        return [...regularNodes, ...suggNodes]
+    }, [onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, draggingCodeId, draggingFromThemeId, onAcceptSuggestion, onRejectSuggestion])
+
+    const [nodes, setNodes, onNodesChange] = useNodesState(makeNodes(themes, aiSuggestions))
     const [edges, , onEdgesChange] = useEdgesState([])
 
     useEffect(() => {
         setNodes(prev => {
-            const newNodes = makeNodes(themes)
+            const newNodes = makeNodes(themes, aiSuggestions)
             return newNodes.map(n => {
                 const existing = prev.find(p => p.id === n.id)
                 return existing ? { ...n, position: existing.position } : n
             })
         })
-    }, [themes, makeNodes, setNodes])
+    }, [themes, aiSuggestions, makeNodes, setNodes])
 
     useEffect(() => {
         setNodes(prev => prev.map(n => ({ ...n, data: { ...n.data, draggingCodeId, draggingFromThemeId } })))
@@ -372,6 +486,9 @@ interface ThemeCanvasProps {
     onCreateTheme: (name: string, x: number, y: number) => void
     onDragStartCode: (codeId: string, themeId: string) => void
     onDragEndCode: () => void
+    aiSuggestions?: any[]
+    onAcceptSuggestion?: (name: string) => void
+    onRejectSuggestion?: (name: string) => void
 }
 
 export default function ThemeCanvas(props: ThemeCanvasProps) {

@@ -481,7 +481,7 @@ export default function ThemesPage() {
     const [themeSuggestions, setThemeSuggestions] = useState<ThemeSuggestion[]>([])
     const [loading, setLoading] = useState(true)
     const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-    const [acceptingId, setAcceptingId] = useState<number | null>(null)
+    const [acceptingId, setAcceptingId] = useState<string | null>(null)
     const [suggestionsRemainingAfterBatch, setSuggestionsRemainingAfterBatch] = useState(0)
     const [suggestionBatchOffset, setSuggestionBatchOffset] = useState(0)
     const [suggestionsTotalUnassigned, setSuggestionsTotalUnassigned] = useState(0)
@@ -1023,16 +1023,16 @@ Rules:
 
 
     // Accept a theme suggestion → create theme in DB
-    const acceptSuggestion = async (index: number) => {
-        const suggestion = themeSuggestions[index]
+    const acceptSuggestion = async (suggestionName: string) => {
+        const suggestion = themeSuggestions.find(s => s.name === suggestionName)
         if (!suggestion) return
 
-        // Capture BEFORE any await — the cleanup useEffect can shift the array while we wait
-        const suggestionName = suggestion.name
+        // Verify if any codes from the suggestion are already assigned
         const codeIds = suggestion.codes.map(c => c.id)
+        const activeCodeIdsInSuggestion = unassignedCodes.filter(c => codeIds.includes(c.id)).map(c => c.id)
 
-        if (codeIds.length === 0) {
-            // Codes already cleaned out — just dismiss the card
+        if (activeCodeIdsInSuggestion.length === 0) {
+            alert('Không thể tạo Theme này vì toàn bộ codes trong gợi ý đã được phân loại vào các Themes khác.')
             setThemeSuggestions(prev => {
                 const updated = prev.filter(s => s.name !== suggestionName)
                 saveSuggestionsCache(updated)
@@ -1041,7 +1041,7 @@ Rules:
             return
         }
 
-        setAcceptingId(index)
+        setAcceptingId(suggestionName)
         try {
             const res = await fetch(`/api/projects/${projectId}/themes`, {
                 method: 'POST',
@@ -1049,14 +1049,14 @@ Rules:
                 body: JSON.stringify({
                     name: suggestion.name,
                     description: suggestion.description,
-                    codeIds
+                    codeIds: activeCodeIdsInSuggestion
                 })
             })
 
             const data = await res.json()
 
             if (res.ok) {
-                // Filter by NAME (stable), not by index (which may have shifted during await)
+                // Filter by NAME (stable)
                 setThemeSuggestions(prev => {
                     const updated = prev.filter(s => s.name !== suggestionName)
                     saveSuggestionsCache(updated)
@@ -1076,12 +1076,9 @@ Rules:
         }
     }
 
-    const rejectSuggestion = (index: number) => {
-        const suggestion = themeSuggestions[index]
-        if (!suggestion) return
-        const name = suggestion.name
+    const rejectSuggestion = (name: string) => {
         addRejectedName(name)
-        // Filter by NAME (stable), not by index
+        // Filter by NAME (stable)
         setThemeSuggestions(prev => {
             const updated = prev.filter(s => s.name !== name)
             saveSuggestionsCache(updated)
@@ -1512,6 +1509,9 @@ Rules:
                                 setDraggingCodeId(null)
                                 setDraggingFromThemeId(null)
                             }}
+                            aiSuggestions={themeSuggestions}
+                            onAcceptSuggestion={acceptSuggestion}
+                            onRejectSuggestion={rejectSuggestion}
                         />
                     </div>
                 </div>
@@ -1736,11 +1736,11 @@ Rules:
                                     </div>
                                     <div className="flex gap-2">
                                         <button
-                                            onClick={() => acceptSuggestion(idx)}
-                                            disabled={acceptingId === idx}
+                                            onClick={() => acceptSuggestion(suggestion.name)}
+                                            disabled={acceptingId === suggestion.name}
                                             className="flex-1 py-2 bg-[#5B55D6] hover:bg-[#4C47B2] disabled:bg-indigo-300 text-white text-[13px] font-extrabold rounded-md shadow-sm transition-colors flex items-center justify-center gap-1.5 focus:ring-4 focus:ring-indigo-100 outline-none"
                                         >
-                                            {acceptingId === idx ? (
+                                            {acceptingId === suggestion.name ? (
                                                 <>
                                                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -1756,8 +1756,8 @@ Rules:
                                             )}
                                         </button>
                                         <button
-                                            onClick={() => rejectSuggestion(idx)}
-                                            disabled={acceptingId === idx}
+                                            onClick={() => rejectSuggestion(suggestion.name)}
+                                            disabled={acceptingId === suggestion.name}
                                             className="px-3 py-2 bg-slate-100/50 hover:bg-slate-200 text-slate-500 text-[13px] font-extrabold rounded-md shadow-sm transition-colors flex items-center justify-center focus:ring-4 focus:ring-slate-100 outline-none border border-slate-200"
                                             title="Reject suggestion"
                                         >
