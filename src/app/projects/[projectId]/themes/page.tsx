@@ -499,15 +499,11 @@ export default function ThemesPage() {
     const [synthLoading, setSynthLoading] = useState(false)
     const [synthSuggestions, setSynthSuggestions] = useState<any[]>([])
     const [synthAcceptingId, setSynthAcceptingId] = useState<number | null>(null)
-    const [lastMergedThemeId, setLastMergedThemeId] = useState<string | null>(null)
-    const [undoingMerge, setUndoingMerge] = useState(false)
 
     // Drag-over state: tracks which card is being hovered during a drag
     const [dragOverThemeId, setDragOverThemeId] = useState<string | null>(null)
-    // What type of thing is being dragged: 'code', 'theme', or 'mega'
-    const [draggingType, setDraggingType] = useState<'code' | 'theme' | 'mega' | null>(null)
-    // Toast for unsupported operations
-    const [dropWarning, setDropWarning] = useState<string | null>(null)
+    // What type of thing is being dragged: 'code'
+    const [draggingType, setDraggingType] = useState<'code' | null>(null)
 
     const visibleThemes = useMemo(() => {
         if (!themeSearchQuery.trim()) return themes;
@@ -516,8 +512,8 @@ export default function ThemesPage() {
     }, [themes, themeSearchQuery])
 
     // Theme Modal states (used for both create and edit)
-    const [newThemeModal, setNewThemeModal] = useState({ open: false, id: undefined as string | undefined, name: '', description: '', isMegaTheme: false as boolean | undefined })
-    const [inlineThemeInput, setInlineThemeInput] = useState({ isOpen: false, isMegaTheme: false, name: '' })
+    const [newThemeModal, setNewThemeModal] = useState({ open: false, id: undefined as string | undefined, name: '', description: '' })
+    const [inlineThemeInput, setInlineThemeInput] = useState({ isOpen: false, name: '' })
 
     // Prompt editor state for theme suggestions
     const DEFAULT_THEME_PROMPT = `Group these codes into meaningful THEMES.
@@ -580,13 +576,11 @@ Rules:
 
 
     // Code Drag & Drop Helpers
-    const handleDragStart = (e: React.DragEvent, payload: { codeId?: string, fromThemeId?: string, themeId?: string, isMega?: boolean, fromMegaThemeId?: string }) => {
+    const handleDragStart = (e: React.DragEvent, payload: { codeId: string, fromThemeId?: string }) => {
         e.stopPropagation()
         e.dataTransfer.setData('application/json', JSON.stringify(payload))
         e.dataTransfer.effectAllowed = 'move'
-        if (payload.codeId) setDraggingType('code')
-        else if (payload.isMega) setDraggingType('mega')
-        else setDraggingType('theme')
+        setDraggingType('code')
     }
 
     const handleDragEnd = () => {
@@ -613,17 +607,6 @@ Rules:
         setDragOverThemeId(null)
         try {
             const data = JSON.parse(e.dataTransfer.getData('application/json'))
-            
-            // If dragging from a mega-theme -> Root: remove sub-theme from mega-theme
-            if (data.fromMegaThemeId && data.themeId) {
-                await fetch(`/api/projects/${projectId}/themes`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ themeId: data.fromMegaThemeId, action: 'REMOVE_THEME', subThemeId: data.themeId })
-                })
-                fetchData()
-                return
-            }
 
             // If dragging code from a theme -> Root: remove code from theme
             if (data.fromThemeId && data.codeId) {
@@ -637,39 +620,13 @@ Rules:
         } catch (err) {}
     }
 
-    const handleDropOnTheme = async (e: React.DragEvent, targetThemeId: string, targetIsMega?: boolean) => {
+    const handleDropOnTheme = async (e: React.DragEvent, targetThemeId: string) => {
         e.preventDefault()
         e.stopPropagation()
         setDragOverThemeId(null)
         setDraggingType(null)
         try {
             const data = JSON.parse(e.dataTransfer.getData('application/json'))
-
-            // Block: dragging a Mega-Theme onto a Mega-Theme
-            if (data.themeId && data.isMega && targetIsMega) {
-                setDropWarning('❌ Cannot nest a Mega-Theme inside another Mega-Theme. Drag a regular Theme instead.')
-                setTimeout(() => setDropWarning(null), 4000)
-                return
-            }
-
-            // Block: dragging a Mega-Theme onto a regular theme (would create weird nesting)
-            if (data.themeId && data.isMega && !targetIsMega) {
-                setDropWarning('❌ Cannot drop a Mega-Theme onto a regular Theme. You can only move regular Themes into Mega-Themes.')
-                setTimeout(() => setDropWarning(null), 4000)
-                return
-            }
-            
-            // Dragging a regular Theme onto a Mega-Theme (or any theme to group it)
-            if (data.themeId) {
-                if (data.themeId === targetThemeId) return // Cannot drop onto itself
-                await fetch(`/api/projects/${projectId}/themes`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ themeId: targetThemeId, action: 'ADD_THEME', subThemeId: data.themeId })
-                })
-                fetchData()
-                return
-            }
 
             // Dragging a Code
             if (!data.codeId) return
@@ -713,17 +670,17 @@ Rules:
                 body: JSON.stringify({ 
                     name: newThemeModal.name.trim(),
                     description: newThemeModal.description.trim(),
-                    isMegaTheme: newThemeModal.isMegaTheme
+                    isMeta: false
                 })
             })
         }
-        setNewThemeModal({ open: false, id: undefined, name: '', description: '', isMegaTheme: false })
+        setNewThemeModal({ open: false, id: undefined, name: '', description: '' })
         fetchData()
     }
 
     const createInlineTheme = async () => {
         if (!inlineThemeInput.name.trim()) {
-            setInlineThemeInput({ isOpen: false, isMegaTheme: false, name: '' });
+            setInlineThemeInput({ isOpen: false, name: '' });
             return;
         }
         await fetch(`/api/projects/${projectId}/themes`, {
@@ -732,10 +689,10 @@ Rules:
             body: JSON.stringify({ 
                 name: inlineThemeInput.name.trim(),
                 description: '',
-                isMegaTheme: inlineThemeInput.isMegaTheme
+                isMeta: false
             })
         });
-        setInlineThemeInput({ isOpen: false, isMegaTheme: false, name: '' });
+        setInlineThemeInput({ isOpen: false, name: '' });
         fetchData();
     }
 
@@ -753,7 +710,7 @@ Rules:
                     body: JSON.stringify({ 
                         name: 'Untitled Theme',
                         description: '',
-                        isMegaTheme: false
+                        isMeta: false
                     })
                 });
                 const newTheme = await res.json();
@@ -1105,7 +1062,6 @@ Rules:
             if (res.ok) {
                 const data = await res.json()
                 setSynthSuggestions(prev => prev.filter((_, i) => i !== index))
-                setLastMergedThemeId(data.newThemeId || null)
                 await fetchData()
                 if (synthSuggestions.length <= 1) setSynthModalOpen(false)
             } else {
@@ -1127,25 +1083,6 @@ Rules:
         setSuggestionBatchOffset(0)
         setSuggestionsRemainingAfterBatch(0)
         setSuggestionsTotalUnassigned(0)
-    }
-
-    const handleUndoMerge = async () => {
-        if (!lastMergedThemeId) return
-        setUndoingMerge(true)
-        try {
-            const res = await fetch(`/api/projects/${projectId}/themes/undo-merge`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ themeId: lastMergedThemeId })
-            })
-            if (res.ok) {
-                setLastMergedThemeId(null)
-                await fetchData()
-                // Codes returned to unassigned — old suggestions are stale, reset to fresh state
-                resetSuggestions()
-            }
-        } catch (e) {}
-        setUndoingMerge(false)
     }
 
     const totalCodes = unassignedCodes.length + themes.reduce((acc, t) => {
@@ -1196,25 +1133,14 @@ Rules:
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
                                 AI Auto-Cluster
                             </button>
-                            {/* Two separate create buttons — clearly distinguishable */}
-                            <div className="flex items-center rounded-lg overflow-hidden border border-slate-800 shadow-sm">
-                                <button
-                                    onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: false, name: '' })}
-                                    className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-700 transition-colors border-r border-slate-600"
-                                    title="Create a regular theme to group codes"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                    New Theme
-                                </button>
-                                <button
-                                    onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: true, name: '' })}
-                                    className="flex items-center gap-2 bg-slate-800 text-indigo-300 px-4 py-2.5 text-sm font-semibold hover:bg-slate-700 transition-colors"
-                                    title="Create a Mega-Theme — a folder that groups multiple themes together"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                    Mega-Theme
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => setInlineThemeInput({ isOpen: true, name: '' })}
+                                className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-700 transition-colors"
+                                title="Create a new theme to group codes"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                New Theme
+                            </button>
                         </div>
                     </div>
                     
@@ -1470,34 +1396,6 @@ Rules:
                                 onDragOver={e => e.preventDefault()}
                                 onDrop={handleDropToRoot}
                             >
-                                {/* Undo Merge Toast */}
-                                {lastMergedThemeId && (
-                                    <div className="max-w-6xl mx-auto mb-4">
-                                        <div className="flex items-center justify-between bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 shadow-sm">
-                                            <div className="flex items-center gap-2.5">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
-                                                <p className="text-[12px] font-bold text-amber-800">Themes merged successfully. You can undo this action.</p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={handleUndoMerge}
-                                                    disabled={undoingMerge}
-                                                    className="flex items-center gap-1.5 bg-white border border-amber-400 text-amber-700 text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors shadow-sm disabled:opacity-50"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                                                    {undoingMerge ? 'Undoing...' : 'Undo Merge'}
-                                                </button>
-                                                <button
-                                                    onClick={() => setLastMergedThemeId(null)}
-                                                    className="text-amber-400 hover:text-amber-600 p-1 rounded-lg hover:bg-amber-100 transition-colors"
-                                                    title="Dismiss"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                                 <div className="max-w-6xl mx-auto mb-6 relative">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                                     <input
@@ -1529,151 +1427,6 @@ Rules:
                                             )}
                                             <div className="flex overflow-x-auto gap-6 pb-8 items-start custom-scrollbar h-[calc(100vh-200px)]">
                                     {visibleThemes.map(theme => {
-                                        // ── MEGA-THEME (container — isMeta=true, with OR without children) ──
-                                        if (theme.isMeta) {
-                                            const totalChildCodes = (theme.children || []).reduce((s, c) => s + (c.codeLinks?.length || 0), 0)
-                                            const isDragTarget = dragOverThemeId === theme.id
-                                            // Block drop if user is dragging a mega-theme
-                                            const isBlockedDrop = draggingType === 'mega'
-                                            return (
-                                                <div
-                                                    key={theme.id}
-                                                    draggable
-                                                    onDragStart={e => handleDragStart(e, { themeId: theme.id, isMega: true })}
-                                                    onDragEnd={handleDragEnd}
-                                                    onDragOver={e => !isBlockedDrop && handleDragOver(e, theme.id)}
-                                                    onDragLeave={e => handleDragLeave(e, theme.id)}
-                                                    onDrop={e => handleDropOnTheme(e, theme.id, true)}
-                                                    className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 bg-gradient-to-br from-violet-50 to-indigo-50 border-2 rounded-2xl p-5 shadow-md relative group/card transition-all duration-150 flex flex-col max-h-full ${
-                                                        isBlockedDrop
-                                                            ? 'cursor-not-allowed opacity-60 border-rose-200'
-                                                            : isDragTarget
-                                                                ? 'cursor-grab border-indigo-500 shadow-lg shadow-indigo-100 scale-[1.01]'
-                                                                : 'cursor-grab active:cursor-grabbing border-indigo-200'
-                                                    }`}
-                                                >
-                                                    {/* Drag-over drop hint */}
-                                                    {isDragTarget && (
-                                                        <div className="absolute inset-0 rounded-2xl border-2 border-indigo-500 pointer-events-none z-10 flex items-center justify-center">
-                                                            <span className="bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-md flex items-center gap-1.5">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                                                Drop to add to this Mega-Theme
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    {/* Mega-theme badge */}
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-violet-700 bg-violet-100 border border-violet-300 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                                                Mega-Theme
-                                                            </span>
-                                                            <h3 className="text-sm font-extrabold text-indigo-900 leading-snug">{theme.name}</h3>
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <button
-                                                                onClick={() => setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '', isMegaTheme: true })}
-                                                                title="Edit name & description"
-                                                                className="w-6 h-6 flex items-center justify-center text-indigo-300 hover:text-indigo-600 hover:bg-indigo-100 rounded-md transition-colors"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => deleteTheme(theme.id, theme.name)}
-                                                                title="Delete mega-theme"
-                                                                className="w-6 h-6 flex items-center justify-center text-indigo-300 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    {theme.description && (
-                                                        <p className="text-[11px] text-indigo-700/70 mb-4 leading-relaxed italic">{theme.description}</p>
-                                                    )}
-                                                    {/* Child sub-theme cards */}
-                                                    <div className="flex flex-col gap-3">
-                                                        {(theme.children || []).length === 0 && (
-                                                            <div className="border-2 border-dashed border-indigo-200 rounded-xl p-5 text-center">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-300 mx-auto mb-2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                                                <p className="text-[11px] font-bold text-indigo-300">Drag themes here to group them</p>
-                                                                <p className="text-[10px] text-indigo-200 mt-0.5">This Mega-Theme is empty</p>
-                                                            </div>
-                                                        )}
-                                                        {(theme.children || []).map(child => {
-                                                            const childCodes = child.codeLinks || []
-                                                            const isChildExpanded = expandedThemes[child.id]
-                                                            const childCodesToShow = isChildExpanded ? childCodes : childCodes.slice(0, 3)
-                                                            const childHiddenCount = childCodes.length - 3
-                                                            const isChildDragTarget = dragOverThemeId === child.id
-                                                            return (
-                                                                <div
-                                                                    key={child.id}
-                                                                    draggable
-                                                                    onDragStart={e => { e.stopPropagation(); handleDragStart(e, { themeId: child.id, fromMegaThemeId: theme.id }) }}
-                                                                    onDragEnd={handleDragEnd}
-                                                                    onDragOver={e => handleDragOver(e, child.id)}
-                                                                    onDragLeave={e => handleDragLeave(e, child.id)}
-                                                                    onDrop={(e) => handleDropOnTheme(e, child.id)}
-                                                                    className={`bg-white border rounded-xl p-3.5 shadow-sm transition-all relative group/child ${
-                                                                        isChildDragTarget
-                                                                            ? 'border-indigo-400 shadow-md shadow-indigo-100 bg-indigo-50/40'
-                                                                            : 'border-indigo-100 hover:shadow-md'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-start justify-between mb-2">
-                                                                        <h4 className="text-[12px] font-bold text-slate-800 leading-snug pr-2">{child.name}</h4>
-                                                                        <div className="flex items-center gap-1 flex-shrink-0">
-                                                                            <button onClick={() => setNewThemeModal({ open: true, id: child.id, name: child.name, description: child.description || '', isMegaTheme: false })} title="Edit" className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                                                                            </button>
-                                                                            <button onClick={() => deleteTheme(child.id, child.name)} title="Delete" className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                    {child.description && <p className="text-[10px] text-slate-400 mb-2 italic leading-relaxed line-clamp-2">{child.description}</p>}
-                                                                    <div className="flex flex-wrap gap-1 mb-2 min-h-[24px] p-1.5 -mx-1 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-                                                                        {childCodes.length === 0 && <div className="text-[10px] text-slate-300 italic mx-auto py-0.5">Drop codes here</div>}
-                                                                        {childCodesToShow.map(link => (
-                                                                            <span
-                                                                                key={link.codebookEntry.id}
-                                                                                draggable
-                                                                                onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, { codeId: link.codebookEntry.id, fromThemeId: child.id }) }}
-                                                                                className="flex items-center gap-1 bg-white border border-indigo-200 text-indigo-700 text-[10px] font-semibold pl-1.5 pr-1 py-0.5 rounded-md shadow-sm cursor-grab hover:border-indigo-400"
-                                                                            >
-                                                                                <span>{link.codebookEntry.name}</span>
-                                                                                <button onClick={async (e) => { e.stopPropagation(); await fetch(`/api/projects/${projectId}/themes`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({themeId: child.id, action:'REMOVE_CODE', codeId: link.codebookEntry.id}) }); fetchData() }} className="text-slate-300 hover:text-rose-500 ml-1">
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                                                                </button>
-                                                                            </span>
-                                                                        ))}
-                                                                        {childHiddenCount > 0 && (
-                                                                            <button onClick={() => setExpandedThemes(p => ({...p, [child.id]: !isChildExpanded}))} className="w-full text-center text-[10px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50/50 rounded py-0.5 mt-1">
-                                                                                {isChildExpanded ? 'Collapse' : `+ ${childHiddenCount} more codes`}
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-[10px] text-slate-400 font-medium">{childCodes.length} codes · {child.participantsCount || 0} participants</div>
-                                                                </div>
-                                                            )
-                                                        })}
-                                                    </div>
-                                                    {/* Mega-theme footer */}
-                                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-indigo-100">
-                                                        <span className="text-[10px] text-indigo-500 font-bold">{(theme.children || []).length} sub-themes · {totalChildCodes} total codes</span>
-                                                        <button
-                                                            onClick={() => { setLastMergedThemeId(theme.id); setTimeout(handleUndoMerge, 0) }}
-                                                            className="text-[10px] font-bold text-indigo-400 hover:text-rose-500 flex items-center gap-1"
-                                                            title="Dissolve this mega-theme (sub-themes stay)"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                                                            Dissolve
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )
-                                        }
-
                                         // ── REGULAR THEME CARD ──
                                         const codesArr = theme.codeLinks || [];
                                         const isExpanded = expandedThemes[theme.id];
@@ -1684,13 +1437,10 @@ Rules:
                                         return (
                                             <div 
                                             key={theme.id}
-                                            draggable
-                                            onDragStart={e => handleDragStart(e, { themeId: theme.id })}
-                                            onDragEnd={handleDragEnd}
                                             onDragOver={e => handleDragOver(e, theme.id)}
                                             onDragLeave={e => handleDragLeave(e, theme.id)}
                                             onDrop={(e) => handleDropOnTheme(e, theme.id)}
-                                            className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border rounded-2xl p-5 shadow-sm transition-all relative group/card cursor-grab active:cursor-grabbing flex flex-col max-h-full overflow-hidden ${
+                                            className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border rounded-2xl p-5 shadow-sm transition-all relative group/card flex flex-col max-h-full overflow-hidden ${
                                                 isRegularDragTarget
                                                     ? 'bg-indigo-50 border-indigo-400 shadow-md shadow-indigo-100'
                                                     : 'bg-white border-slate-200/80 hover:shadow-md hover:border-slate-300'
@@ -1703,24 +1453,17 @@ Rules:
                                                 <div className="absolute inset-0 rounded-2xl pointer-events-none z-10 flex items-end justify-center pb-3">
                                                     <span className="bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                                        Drop code here · or drag onto a Mega-Theme to nest
+                                                        Drop code here to group
                                                     </span>
                                                 </div>
                                             )}
                                             <div className="flex items-center justify-between mb-2.5">
                                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    {/* Drag handle indicator */}
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300 flex-shrink-0 ml-1"><title>Drag to group into a Mega-Theme</title><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-                                                    {/* "Theme" badge — mirrors Mega-Theme badge for clear type labeling */}
-                                                    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-                                                        Theme
-                                                    </span>
                                                     <h3 className="text-sm font-extrabold text-slate-800 truncate">{theme.name}</h3>
                                                 </div>
                                                 <div className="flex items-center gap-1 flex-shrink-0">
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '', isMegaTheme: false }) }}
+                                                        onClick={(e) => { e.stopPropagation(); setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '' }) }}
                                                         title="Edit name & description"
                                                         className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                                                     >
@@ -1806,13 +1549,13 @@ Rules:
 
                                     {/* Inline Create Column */}
                                     {inlineThemeInput.isOpen && (
-                                        <div className="min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border-2 border-indigo-500 rounded-2xl p-5 shadow-lg shadow-indigo-100 bg-indigo-50 flex flex-col justify-center gap-3">
+                                        <div className="min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border-2 border-indigo-500 rounded-2xl p-5 shadow-lg shadow-indigo-100 bg-indigo-50 flex flex-col gap-3 h-fit">
                                             <h3 className="text-[12px] font-extrabold text-indigo-700 tracking-wide uppercase">
-                                                {inlineThemeInput.isMegaTheme ? 'Create Mega-Theme' : 'Create Theme'}
+                                                Create Theme
                                             </h3>
                                             <input 
                                                 autoFocus 
-                                                placeholder="Type name & press Enter..." 
+                                                placeholder="Name your theme..." 
                                                 className="w-full bg-white border border-indigo-300 rounded-xl px-4 py-3 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-indigo-200 text-indigo-900"
                                                 value={inlineThemeInput.name}
                                                 onChange={(e) => setInlineThemeInput({...inlineThemeInput, name: e.target.value})}
@@ -1820,8 +1563,22 @@ Rules:
                                                     if (e.key === 'Enter') createInlineTheme();
                                                     else if (e.key === 'Escape') setInlineThemeInput({isOpen: false, isMegaTheme: false, name: ''});
                                                 }}
-                                                onBlur={createInlineTheme}
                                             />
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <button 
+                                                    onClick={createInlineTheme}
+                                                    disabled={!inlineThemeInput.name.trim()}
+                                                    className="flex-1 bg-indigo-600 text-white font-bold text-sm py-2.5 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Create
+                                                </button>
+                                                <button 
+                                                    onClick={() => setInlineThemeInput({isOpen: false, isMegaTheme: false, name: ''})}
+                                                    className="px-4 py-2.5 rounded-lg text-sm font-bold text-indigo-400 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 

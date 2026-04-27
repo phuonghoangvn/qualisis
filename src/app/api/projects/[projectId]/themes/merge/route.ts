@@ -21,35 +21,40 @@ export async function POST(
 
         let newThemeId: string = ''
         await prisma.$transaction(async (tx) => {
-            // 1. Create the new mega/overarching theme (container only — no code links)
+            // 1. Create the new combined theme
             const newTheme = await tx.theme.create({
                 data: {
                     name,
                     description,
                     projectId: params.projectId,
                     status: 'DRAFT',
-                    memo: 'META:Synthesized container theme'
+                    memo: 'Merged from multiple themes'
                 }
             })
             newThemeId = newTheme.id
 
-            // 2. Link sub-themes to the mega-theme via ThemeRelation (SUBTHEME_OF)
-            //    Sub-themes stay alive (status stays DRAFT) — they are NOT hidden
-            for (const subThemeId of uniqueMergedIds) {
-                // Check if the relation already exists before creating
-                const existing = await tx.themeRelation.findFirst({
-                    where: { sourceId: subThemeId, targetId: newTheme.id, relationType: 'SUBTHEME_OF' }
+            // 2. Find all code entries linked to the sub-themes
+            const existingLinks = await tx.themeCode.findMany({
+                where: { themeId: { in: uniqueMergedIds } }
+            })
+
+            // 3. Deduplicate codes so they are only added once
+            const uniqueCodeIds = Array.from(new Set(existingLinks.map(l => l.codebookEntryId)))
+
+            // 4. Link these codes to the new theme
+            for (const codeId of uniqueCodeIds) {
+                await tx.themeCode.create({
+                    data: {
+                        themeId: newThemeId,
+                        codebookEntryId: codeId
+                    }
                 })
-                if (!existing) {
-                    await tx.themeRelation.create({
-                        data: {
-                            sourceId: subThemeId,
-                            targetId: newTheme.id,
-                            relationType: 'SUBTHEME_OF'
-                        }
-                    })
-                }
             }
+
+            // 5. Delete the old themes entirely
+            await tx.theme.deleteMany({
+                where: { id: { in: uniqueMergedIds } }
+            })
         })
 
         return NextResponse.json({ success: true, newThemeId })
