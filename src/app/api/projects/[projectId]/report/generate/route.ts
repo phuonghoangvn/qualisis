@@ -42,25 +42,11 @@ export async function POST(
                         }
                     }
                 },
-                // Fetch hierarchy relations
-                relationsIn: { where: { relationType: 'SUBTHEME_OF' }, select: { sourceId: true } },
-                relationsOut: { where: { relationType: 'SUBTHEME_OF' }, select: { targetId: true } },
             },
             orderBy: { createdAt: 'desc' }
         })
 
-        // 3. Build hierarchy map
-        const themeMap = new Map(rawThemes.map(t => [t.id, t]))
-
-        const isMeta = (t: typeof rawThemes[0]) =>
-            t.relationsIn.length > 0 || (t.memo && t.memo.startsWith('META:'))
-        const parentId = (t: typeof rawThemes[0]) =>
-            t.relationsOut[0]?.targetId ?? null
-
-        // Top-level only (no parent), then optionally with children
-        const topLevel = rawThemes.filter(t => !parentId(t))
-
-        // Helper: format a single theme's codes into text
+        // 3. Helper: format a single theme's codes into text
         const formatCodes = (theme: typeof rawThemes[0]) => {
             if (theme.codeLinks.length === 0) return '  (no codes assigned yet)'
             return theme.codeLinks.map(link => {
@@ -72,25 +58,10 @@ export async function POST(
             }).join('\n\n')
         }
 
-        // 4. Build a hierarchy-aware structured prompt payload
-        const themesSummary = topLevel.map(theme => {
-            if (isMeta(theme)) {
-                // Mega-Theme: render as overarching section with sub-themes
-                const childIds = theme.relationsIn.map(r => r.sourceId)
-                const children = childIds.map(id => themeMap.get(id)).filter(Boolean) as typeof rawThemes
-
-                const childrenText = children.length > 0
-                    ? children.map(child =>
-                        `  ### Sub-Theme: ${child.name}\n  Description: ${child.description || '(no description)'}\n\n  Codes:\n${formatCodes(child).split('\n').map(l => '  ' + l).join('\n')}`
-                    ).join('\n\n')
-                    : '  (no sub-themes assigned yet)'
-
-                return `## MEGA-THEME: ${theme.name} [Overarching Category]\nDescription: ${theme.description || '(no description)'}\nThis is an overarching mega-theme that groups the following sub-themes:\n\n${childrenText}`
-            } else {
-                // Regular standalone theme
-                return `## Theme: ${theme.name}\nDescription: ${theme.description || '(no description)'}\n\nCodes:\n${formatCodes(theme)}`
-            }
-        }).join('\n\n---\n\n')
+        // 4. Build flat theme summary for prompt
+        const themesSummary = rawThemes.map(theme =>
+            `## Theme: ${theme.name}\nDescription: ${theme.description || '(no description)'}\n\nCodes:\n${formatCodes(theme)}`
+        ).join('\n\n---\n\n')
 
         const researchQuestions = project.researchQuestion || '(not specified)'
 
@@ -106,32 +77,27 @@ TOPIC: ${project.description || '(see project name)'}
 RESEARCH QUESTION:
 ${researchQuestions}
 
-CODEBOOK DATA (Hierarchical Structure):
+CODEBOOK DATA:
 ${themesSummary}
 
 ---
 
 Instructions:
 1. Write an INTRODUCTION paragraph (2-3 sentences) framing the overall findings
-2. IMPORTANT — respect the hierarchy:
-   - MEGA-THEMEs are overarching categories. Write them as top-level sections (## heading).
-   - Sub-Themes under a Mega-Theme get their own subsections (### heading) nested inside.
-   - Standalone Themes (no Mega-Theme parent) get their own ## sections.
-3. For each theme/sub-theme, write a FULL narrative paragraph (100-200 words) that:
+2. For each theme, write a FULL narrative paragraph (100-200 words) that:
    - States what the theme represents and its significance
    - Weaves in 2-3 verbatim participant quotes as evidence (format: *"quote text"* [ParticipantName])
    - Explains how the codes within the theme relate to each other
    - Links back to the research question if relevant
-4. Write a SYNTHESIS paragraph (3-4 sentences) identifying cross-cutting patterns across themes
-5. Use this exact heading structure:
+3. Write a SYNTHESIS paragraph (3-4 sentences) identifying cross-cutting patterns across themes
+4. Use this exact heading structure:
    - # Thematic Findings
-   - ## 1. [Mega-Theme or Standalone Theme Name]
-   - ### 1.1 [Sub-Theme Name] (only if Mega-Theme)
+   - ## 1. [Theme Name]
    - ## Synthesis and Cross-Cutting Patterns
 
 Be specific, analytical, and evidence-based. Do NOT invent quotes — use only those provided above.`
 
-        // 4. Call OpenAI
+        // 5. Call OpenAI
         const completion = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [
@@ -144,7 +110,7 @@ Be specific, analytical, and evidence-based. Do NOT invent quotes — use only t
 
         const reportMarkdown = completion.choices[0]?.message?.content || ''
 
-        // 5. Build full report with metadata sections
+        // 6. Build full report with metadata sections
         const now = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
         const participantSet = new Set<string>()
         rawThemes.forEach(t => t.codeLinks.forEach(l =>
@@ -153,43 +119,24 @@ Be specific, analytical, and evidence-based. Do NOT invent quotes — use only t
             })
         ))
 
-        // Count only top-level themes for metadata
-        const megaThemeCount = topLevel.filter(t => isMeta(t)).length
-        const standaloneCount = topLevel.filter(t => !isMeta(t)).length
         const totalCodesCount = rawThemes.reduce((acc, t) => acc + t.codeLinks.length, 0)
 
-        // Build hierarchy-aware appendix table
-        const appendixRows = topLevel.flatMap(t => {
-            if (isMeta(t)) {
-                // Mega-Theme header row + sub-theme rows
-                const childIds = t.relationsIn.map(r => r.sourceId)
-                const children = childIds.map(id => themeMap.get(id)).filter(Boolean) as typeof rawThemes
-                const childRows = children.flatMap(child => child.codeLinks.map(l => {
-                    const codeDef = `**${l.codebookEntry.name}**<br>_${(l.codebookEntry.definition || 'No definition provided').replace(/\|/g, '/')}_`
-                    const sampleQuote = l.codebookEntry.codeAssignments.find(a => a.segment?.text)?.segment
-                    const quoteHtml = sampleQuote ? `"${sampleQuote.text.replace(/\|/g, '/')}"<br>— ${sampleQuote.transcript?.title || 'Participant'}` : '—'
-                    return `| ↳ *${child.name}* *(sub-theme of ${t.name})* | ${codeDef} | ${quoteHtml} |`
-                }))
-                return [
-                    `| **◆ ${t.name}** *(Mega-Theme)* | — | — |`,
-                    ...childRows
-                ]
-            } else {
-                return t.codeLinks.map(l => {
-                    const codeDef = `**${l.codebookEntry.name}**<br>_${(l.codebookEntry.definition || 'No definition provided').replace(/\|/g, '/')}_`
-                    const sampleQuote = l.codebookEntry.codeAssignments.find(a => a.segment?.text)?.segment
-                    const quoteHtml = sampleQuote ? `"${sampleQuote.text.replace(/\|/g, '/')}"<br>— ${sampleQuote.transcript?.title || 'Participant'}` : '—'
-                    return `| **${t.name}** | ${codeDef} | ${quoteHtml} |`
-                })
-            }
-        })
+        // Build flat appendix table
+        const appendixRows = rawThemes.flatMap(t =>
+            t.codeLinks.map(l => {
+                const codeDef = `**${l.codebookEntry.name}**<br>_${(l.codebookEntry.definition || 'No definition provided').replace(/\|/g, '/')}_`
+                const sampleQuote = l.codebookEntry.codeAssignments.find(a => a.segment?.text)?.segment
+                const quoteHtml = sampleQuote ? `"${sampleQuote.text.replace(/\|/g, '/')}"<br>— ${sampleQuote.transcript?.title || 'Participant'}` : '—'
+                return `| **${t.name}** | ${codeDef} | ${quoteHtml} |`
+            })
+        )
 
         const fullReport = `# Research Report: ${project.name}
 
 **Generated:** ${now}  
 **Analysis Method:** AI-Assisted Thematic Analysis (QualiSIS)  
 **Participants:** ${participantSet.size}  
-**Mega-Themes:** ${megaThemeCount} | **Standalone Themes:** ${standaloneCount}  
+**Themes:** ${rawThemes.length}  
 **Total Codes:** ${totalCodesCount}
 
 ---
@@ -206,7 +153,7 @@ ${reportMarkdown}
 
 ## Appendix: Codebook Summary
 
-| Theme / Sub-Theme | Code · Definition | Sample Excerpt |
+| Theme | Code · Definition | Sample Excerpt |
 |---|---|---|
 ${appendixRows.join('\n')}
 

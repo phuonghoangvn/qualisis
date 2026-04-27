@@ -62,7 +62,6 @@ export default function CodebookPage() {
 
     // Only count top-level themes for display
     const topLevelThemes = themes.filter(t => !t.parentId)
-    const megaThemeCount = topLevelThemes.filter(t => t.isMeta).length
     const assignedCount = themes.reduce((acc, t) => acc + (t.codeLinks?.length || 0), 0)
     const totalParticipants = new Set(
         themes.flatMap(t => t.codeLinks.flatMap(l => (l.codebookEntry.participants || []).map(p => p.id)))
@@ -130,7 +129,7 @@ export default function CodebookPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <span className="text-[11px] font-bold bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full">
-                        {topLevelThemes.length} themes{megaThemeCount > 0 ? ` (${megaThemeCount} mega)` : ''} · {assignedCount} codes · {totalParticipants} participants
+                        {topLevelThemes.length} themes · {assignedCount} codes · {totalParticipants} participants
                     </span>
                     <a
                         href={`/api/projects/${projectId}/codebook/export`}
@@ -164,22 +163,19 @@ export default function CodebookPage() {
                     <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
                             <tr>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[16%] border-r border-slate-200">Mega-Theme</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[16%] border-r border-slate-200">Theme</th>
-
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[14%]">Code</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[20%]">Definition</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[18%]">Sample Evidence</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[12%]">Participant IDs</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[22%] border-r border-slate-200">Theme</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[16%]">Code</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[22%]">Definition</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[22%]">Sample Evidence</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[14%]">Participant IDs</th>
                             </tr>
                         </thead>
                         <tbody>
                             {topLevelThemes.flatMap((theme) => {
-                                // Shared cell content for Mega-Themes and Themes
-                                const renderThemeInfo = (t: any, isMega: boolean, totalPieces?: number) => (
+                                // Shared cell content for Themes
+                                const renderThemeInfo = (t: any) => (
                                     <div className="flex flex-col gap-2">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest">{isMega ? 'Mega-Theme' : 'Theme'}</span>
                                             <span className="font-bold text-slate-800 text-[13px]">{t.name}</span>
                                         </div>
                                         <div className="flex gap-2 flex-wrap">
@@ -261,48 +257,18 @@ export default function CodebookPage() {
                                     </>
                                 )
 
-                                if (theme.isMeta) {
-                                    const validChildren = (theme.children || []).filter((c: any) => c.codeLinks && c.codeLinks.length > 0)
-                                    if (validChildren.length === 0) return null
-                                    const megaRowSpan = validChildren.reduce((sum: number, c: any) => sum + c.codeLinks.length, 0)
-                                    const totalMegaPieces = theme.piecesCount
-
-                                    return validChildren.flatMap((sub: any, subIdx: number) => {
-                                        return sub.codeLinks.map((link: any, linkIdx: number) => (
-                                            <tr key={`${theme.id}-${sub.id}-${link.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
-                                                {subIdx === 0 && linkIdx === 0 && (
-                                                    <td rowSpan={megaRowSpan} className="px-5 py-4 border-r border-slate-100 align-top bg-violet-50/30">
-                                                        {renderThemeInfo(theme, true, totalMegaPieces)}
-                                                    </td>
-                                                )}
-                                                {linkIdx === 0 && (
-                                                    <td rowSpan={sub.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-slate-50/30">
-                                                        {renderThemeInfo(sub, false)}
-                                                    </td>
-                                                )}
-                                                {renderCodeCells(link)}
-                                            </tr>
-                                        ))
-                                    })
-                                } else {
-                                    // Standalone Theme
-                                    if (!theme.codeLinks || theme.codeLinks.length === 0) return null
-                                    return theme.codeLinks.map((link: any, linkIdx: number) => (
-                                        <tr key={`${theme.id}-${link.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
-                                            {linkIdx === 0 && (
-                                                <td rowSpan={theme.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-slate-50/30">
-                                                    <span className="text-[11px] text-slate-400 italic">—</span>
-                                                </td>
-                                            )}
-                                            {linkIdx === 0 && (
-                                                <td rowSpan={theme.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-white">
-                                                    {renderThemeInfo(theme, false)}
-                                                </td>
-                                            )}
-                                            {renderCodeCells(link)}
-                                        </tr>
-                                    ))
-                                }
+                                // All themes are standalone in the flat model
+                                if (!theme.codeLinks || theme.codeLinks.length === 0) return null
+                                return theme.codeLinks.map((link: any, linkIdx: number) => (
+                                    <tr key={`${theme.id}-${link.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
+                                        {linkIdx === 0 && (
+                                            <td rowSpan={theme.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-slate-50/30">
+                                                {renderThemeInfo(theme)}
+                                            </td>
+                                        )}
+                                        {renderCodeCells(link)}
+                                    </tr>
+                                ))
                             })}
                         </tbody>
                     </table>
