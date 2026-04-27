@@ -517,6 +517,7 @@ export default function ThemesPage() {
 
     // Theme Modal states (used for both create and edit)
     const [newThemeModal, setNewThemeModal] = useState({ open: false, id: undefined as string | undefined, name: '', description: '', isMegaTheme: false as boolean | undefined })
+    const [inlineThemeInput, setInlineThemeInput] = useState({ isOpen: false, isMegaTheme: false, name: '' })
 
     // Prompt editor state for theme suggestions
     const DEFAULT_THEME_PROMPT = `Group these codes into meaningful THEMES.
@@ -718,6 +719,53 @@ Rules:
         }
         setNewThemeModal({ open: false, id: undefined, name: '', description: '', isMegaTheme: false })
         fetchData()
+    }
+
+    const createInlineTheme = async () => {
+        if (!inlineThemeInput.name.trim()) {
+            setInlineThemeInput({ isOpen: false, isMegaTheme: false, name: '' });
+            return;
+        }
+        await fetch(`/api/projects/${projectId}/themes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                name: inlineThemeInput.name.trim(),
+                description: '',
+                isMegaTheme: inlineThemeInput.isMegaTheme
+            })
+        });
+        setInlineThemeInput({ isOpen: false, isMegaTheme: false, name: '' });
+        fetchData();
+    }
+
+    const handleDropOnNewTheme = async (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragOverThemeId(null);
+        
+        try {
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            if (data.type === 'code') {
+                // Instantly create a theme and add the code
+                const res = await fetch(`/api/projects/${projectId}/themes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name: 'Untitled Theme',
+                        description: '',
+                        isMegaTheme: false
+                    })
+                });
+                const newTheme = await res.json();
+                
+                await fetch(`/api/projects/${projectId}/themes`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ themeId: newTheme.id, action: 'ADD_CODE', codeId: data.id })
+                });
+                fetchData();
+            }
+        } catch (err) {}
     }
 
     // Delete a theme
@@ -1151,7 +1199,7 @@ Rules:
                             {/* Two separate create buttons — clearly distinguishable */}
                             <div className="flex items-center rounded-lg overflow-hidden border border-slate-800 shadow-sm">
                                 <button
-                                    onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '', isMegaTheme: false })}
+                                    onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: false, name: '' })}
                                     className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-700 transition-colors border-r border-slate-600"
                                     title="Create a regular theme to group codes"
                                 >
@@ -1159,7 +1207,7 @@ Rules:
                                     New Theme
                                 </button>
                                 <button
-                                    onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '', isMegaTheme: true })}
+                                    onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: true, name: '' })}
                                     className="flex items-center gap-2 bg-slate-800 text-indigo-300 px-4 py-2.5 text-sm font-semibold hover:bg-slate-700 transition-colors"
                                     title="Create a Mega-Theme — a folder that groups multiple themes together"
                                 >
@@ -1408,7 +1456,7 @@ Rules:
                                         Start by creating a theme container. You can then drag and drop codes from the left panel into it.
                                     </p>
                                     <button
-                                        onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '', isMegaTheme: false })}
+                                        onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: false, name: '' })}
                                         className="bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-slate-700 hover:-translate-y-0.5 transition-all inline-flex items-center gap-2"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -1755,6 +1803,45 @@ Rules:
                                         </div>
                                         )
                                     })}
+
+                                    {/* Inline Create Column */}
+                                    {inlineThemeInput.isOpen && (
+                                        <div className="min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border-2 border-indigo-500 rounded-2xl p-5 shadow-lg shadow-indigo-100 bg-indigo-50 flex flex-col justify-center gap-3">
+                                            <h3 className="text-[12px] font-extrabold text-indigo-700 tracking-wide uppercase">
+                                                {inlineThemeInput.isMegaTheme ? 'Create Mega-Theme' : 'Create Theme'}
+                                            </h3>
+                                            <input 
+                                                autoFocus 
+                                                placeholder="Type name & press Enter..." 
+                                                className="w-full bg-white border border-indigo-300 rounded-xl px-4 py-3 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-indigo-200 text-indigo-900"
+                                                value={inlineThemeInput.name}
+                                                onChange={(e) => setInlineThemeInput({...inlineThemeInput, name: e.target.value})}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') createInlineTheme();
+                                                    else if (e.key === 'Escape') setInlineThemeInput({isOpen: false, isMegaTheme: false, name: ''});
+                                                }}
+                                                onBlur={createInlineTheme}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Drop to Create Theme Area */}
+                                    <div 
+                                        className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all h-[150px] ${
+                                            draggingType === 'code' ? 'border-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:border-indigo-500 cursor-copy' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 hover:border-slate-300 cursor-pointer'
+                                        }`}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={handleDropOnNewTheme}
+                                        onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: false, name: '' })}
+                                    >
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${draggingType === 'code' ? 'bg-indigo-600 text-white animate-bounce' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                        </div>
+                                        <span className={`text-[12px] font-bold ${draggingType === 'code' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                            {draggingType === 'code' ? 'Drop to create Theme from this code' : 'Add New Theme'}
+                                        </span>
+                                    </div>
+
                                 </div>
                             </div>
                         )}
