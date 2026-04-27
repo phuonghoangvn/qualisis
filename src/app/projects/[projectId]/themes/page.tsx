@@ -1492,11 +1492,11 @@ Rules:
                                                     </span>
                                                 </div>
                                             )}
-                                            <div className="flex items-center justify-between mb-2.5">
-                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <h3 className="text-sm font-extrabold text-slate-800 truncate">{theme.name}</h3>
+                                            <div className="flex items-start justify-between mb-2.5">
+                                                <div className="flex flex-col gap-1 flex-1 min-w-0 pr-3">
+                                                    <h3 className="text-sm font-extrabold text-slate-800 break-words leading-snug">{theme.name}</h3>
                                                 </div>
-                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '' }) }}
                                                         title="Edit name & description"
@@ -1514,7 +1514,7 @@ Rules:
                                                 </div>
                                             </div>
                                             {theme.description && (
-                                                <p className="text-xs text-slate-500 mb-3 leading-relaxed line-clamp-2">{theme.description}</p>
+                                                <p className="text-xs text-slate-500 mb-3 leading-relaxed break-words">{theme.description}</p>
                                             )}
                                             <div className="flex flex-col gap-1.5 mb-3 min-h-[30px] p-2 -mx-2 bg-slate-50/50 rounded-lg border border-dashed border-slate-200 overflow-y-auto flex-1 custom-scrollbar">
                                                 {codesArr.length === 0 && (
