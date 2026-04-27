@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 
 type Suggestion = {
     id: string
@@ -73,8 +72,6 @@ export default function AIComparePanel({
         initialAccepted ? { action: initialAccepted.status === 'APPROVED' ? 'ACCEPT' : 'OVERRIDE', label: initialLabel } : null
     )
     const [loading, setLoading] = useState(false)
-    const [mounted, setMounted] = useState(false)
-    useEffect(() => { setMounted(true) }, [])
 
     // Compute consensus
     const labels = segment.suggestions.map(s => s.label)
@@ -116,27 +113,18 @@ export default function AIComparePanel({
         dot: `bg-${confColorBase}-500`
     }
 
-    const [pendingAction, setPendingAction] = useState<{ action: string, label: string } | null>(null)
-    const [decisionMemo, setDecisionMemo] = useState('')
 
-    const handleInitialClick = (action: string, chosenLabel: string) => {
-        setPendingAction({ action, label: chosenLabel })
-        setDecisionMemo('')
-    }
-
-    async function submitDecision() {
-        if (!pendingAction || loading) return
+    const handleInitialClick = async (action: string, chosenLabel: string) => {
+        if (loading) return
         setLoading(true)
         try {
-            if (pendingAction.action === 'RESTORE') {
+            if (action === 'RESTORE') {
                 setDecided(null)
-                await onDecision(segment.id, 'RESTORE', undefined, decisionMemo || undefined)
+                await onDecision(segment.id, 'RESTORE')
             } else {
-                setDecided({ action: pendingAction.action, label: pendingAction.label })
-                await onDecision(segment.id, pendingAction.action, pendingAction.label || undefined, decisionMemo || undefined)
+                setDecided({ action, label: chosenLabel })
+                await onDecision(segment.id, action, chosenLabel || undefined)
             }
-            setPendingAction(null)
-            setDecisionMemo('')
         } catch (e) {
             console.error('Decision failed:', e)
         } finally {
@@ -144,79 +132,10 @@ export default function AIComparePanel({
         }
     }
 
-    // Confirmation overlay — fixed position modal so overflow:hidden panels don't clip it
-    const decisionLabel = pendingAction?.action === 'REJECT'
-        ? 'Rejecting this AI suggestion'
-        : (pendingAction?.label || '')
 
-    const confirmationOverlay = pendingAction ? (
-        <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(2px)' }}
-            onClick={(e) => { if (e.target === e.currentTarget) setPendingAction(null) }}
-        >
-            <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-slate-100 flex flex-col items-center">
-                <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mb-3 border border-indigo-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
-                </div>
-                <h3 className="text-[15px] font-extrabold text-slate-800 tracking-tight text-center mb-1">
-                    {pendingAction.action === 'ACCEPT' ? 'Accept AI Code?' : pendingAction.action === 'REJECT' ? 'Reject Suggestion?' : 'Override AI Code?'}
-                </h3>
-                <p className="text-[12px] font-medium text-slate-500 mb-5 text-center leading-relaxed">
-                    {pendingAction.action === 'REJECT'
-                        ? 'This suggestion will be marked as rejected.'
-                        : <span>Label: <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded font-bold">{decisionLabel}</span></span>
-                    }
-                </p>
-
-                <div className="w-full text-left mb-5">
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">
-                        Analytical Memo <span className="text-slate-300 normal-case font-medium">(optional)</span>
-                    </label>
-                    <textarea
-                        value={decisionMemo}
-                        onChange={e => setDecisionMemo(e.target.value)}
-                        placeholder="Why are you making this decision?"
-                        className="w-full text-[13px] font-medium p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all placeholder:text-slate-300 resize-none"
-                        rows={3}
-                        autoFocus
-                    />
-                    <p className="text-[9px] text-slate-400 mt-1.5 font-medium px-1">
-                        ✎ This note will be saved to the Codebook for reflexive analysis.
-                    </p>
-                </div>
-
-                <div className="flex w-full gap-2">
-                    <button
-                        onClick={() => { setPendingAction(null); setDecisionMemo('') }}
-                        disabled={loading}
-                        className="flex-1 py-2.5 text-[12px] font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-40"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={submitDecision}
-                        disabled={loading}
-                        className={`flex-1 py-2.5 text-[12px] font-bold text-white rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 ${
-                            pendingAction.action === 'REJECT'
-                                ? 'bg-rose-500 hover:bg-rose-600'
-                                : 'bg-indigo-600 hover:bg-indigo-700'
-                        }`}
-                    >
-                        {loading
-                            ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            : pendingAction.action === 'REJECT' ? 'Confirm Reject' : 'Confirm'
-                        }
-                    </button>
-                </div>
-            </div>
-        </div>
-    ) : null;
 
     return (
         <div className="flex flex-col h-full">
-            {/* Render memo overlay via portal so it appears above everything */}
-            {mounted && confirmationOverlay && createPortal(confirmationOverlay, document.body)}
             {/* Header */}
             <div className="p-4 border-b border-slate-200 bg-white flex items-start justify-between shadow-sm flex-shrink-0">
                 <div className="flex-1 min-w-0">
