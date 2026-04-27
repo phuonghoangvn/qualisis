@@ -499,6 +499,8 @@ export default function ThemesPage() {
     const [synthLoading, setSynthLoading] = useState(false)
     const [synthSuggestions, setSynthSuggestions] = useState<any[]>([])
     const [synthAcceptingId, setSynthAcceptingId] = useState<number | null>(null)
+    const [lastMergedThemeId, setLastMergedThemeId] = useState<string | null>(null)
+    const [undoingMerge, setUndoingMerge] = useState(false)
 
     // Drag-over state: tracks which card is being hovered during a drag
     const [dragOverThemeId, setDragOverThemeId] = useState<string | null>(null)
@@ -1062,6 +1064,7 @@ Rules:
             if (res.ok) {
                 const data = await res.json()
                 setSynthSuggestions(prev => prev.filter((_, i) => i !== index))
+                setLastMergedThemeId(data.newThemeId || null)
                 await fetchData()
                 if (synthSuggestions.length <= 1) setSynthModalOpen(false)
             } else {
@@ -1083,6 +1086,23 @@ Rules:
         setSuggestionBatchOffset(0)
         setSuggestionsRemainingAfterBatch(0)
         setSuggestionsTotalUnassigned(0)
+    }
+
+    const handleUndoMerge = async () => {
+        if (!lastMergedThemeId) return
+        setUndoingMerge(true)
+        try {
+            const res = await fetch(`/api/projects/${projectId}/themes/undo-merge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ themeId: lastMergedThemeId })
+            })
+            if (res.ok) {
+                setLastMergedThemeId(null)
+                await fetchData()
+            }
+        } catch (e) {}
+        setUndoingMerge(false)
     }
 
     const totalCodes = unassignedCodes.length + themes.reduce((acc, t) => {
@@ -1111,32 +1131,38 @@ Rules:
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => exportCodebookCSV(themes, `codebook_${projectId}.csv`)}
-                                className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
-                                title="Export codebook to CSV (opens in Excel, Numbers, Google Sheets)"
+                                className="flex items-center gap-2 bg-white border border-slate-200 text-slate-500 px-3.5 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 hover:text-slate-700 transition-colors"
+                                title="Export codebook to CSV"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                                 Export CSV
                             </button>
+                            
+                            <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                            
+                            <button
+                                onClick={() => setIsRightPanelOpen(true)}
+                                className="flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-100 hover:border-indigo-300 transition-all"
+                                title="Let AI analyze unassigned codes and suggest new themes"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                Suggest Themes (AI)
+                            </button>
+
                             <button
                                 onClick={handleSynthesize}
                                 disabled={themes.length < 3}
-                                className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                                className="flex items-center gap-1.5 bg-violet-50 text-violet-700 border border-violet-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-violet-100 hover:border-violet-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Let AI analyze existing themes and merge similar ones together"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
-                                Synthesize Themes
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+                                Merge Themes (AI)
                             </button>
-                            <button
-                                onClick={() => setIsRightPanelOpen(true)}
-                                className="flex items-center gap-2 bg-indigo-50 text-indigo-600 border border-indigo-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-100 hover:border-indigo-300 transition-all"
-                                title="Let AI analyze and suggest themes"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                AI Auto-Cluster
-                            </button>
+
                             <button
                                 onClick={() => setInlineThemeInput({ isOpen: true, name: '' })}
-                                className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-700 transition-colors"
-                                title="Create a new theme to group codes"
+                                className="flex items-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-700 hover:-translate-y-0.5 transition-all ml-2"
+                                title="Create a new manual theme"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                                 New Theme
@@ -1408,6 +1434,34 @@ Rules:
                                 </div>
                                 
 
+
+                                            {lastMergedThemeId && (
+                                                <div className="max-w-6xl mx-auto mb-4">
+                                                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-300 rounded-xl px-4 py-3 shadow-sm">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                                                            <p className="text-[12px] font-bold text-emerald-800">Themes merged successfully.</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={handleUndoMerge}
+                                                                disabled={undoingMerge}
+                                                                className="flex items-center gap-1.5 bg-white border border-emerald-400 text-emerald-700 text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors shadow-sm disabled:opacity-50"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                                                                {undoingMerge ? 'Undoing...' : 'Undo Merge'}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setLastMergedThemeId(null)}
+                                                                className="text-emerald-400 hover:text-emerald-600 p-1 rounded-lg hover:bg-emerald-100 transition-colors"
+                                                                title="Dismiss"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             <div className="flex overflow-x-auto gap-6 pb-8 items-start custom-scrollbar h-[calc(100vh-200px)]">
                                     {visibleThemes.map(theme => {

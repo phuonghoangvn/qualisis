@@ -28,7 +28,7 @@ export async function POST(
                     description,
                     projectId: params.projectId,
                     status: 'DRAFT',
-                    memo: 'Merged from multiple themes'
+                    memo: `Merged from multiple themes:${uniqueMergedIds.join(',')}`
                 }
             })
             newThemeId = newTheme.id
@@ -51,9 +51,11 @@ export async function POST(
                 })
             }
 
-            // 5. Delete the old themes entirely
-            await tx.theme.deleteMany({
-                where: { id: { in: uniqueMergedIds } }
+            // 5. Soft-delete the old themes by setting their status to MERGED
+            // This allows us to undo the merge later
+            await tx.theme.updateMany({
+                where: { id: { in: uniqueMergedIds } },
+                data: { status: 'MERGED' }
             })
         })
 
