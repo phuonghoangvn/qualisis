@@ -126,12 +126,13 @@ ${codesSummary}
 ${remainingAfterBatch > 0 ? `\nNOTE: There are ${remainingAfterBatch} more codes in subsequent batches. Focus on grouping AS MANY of the above codes as possible.` : ''}
 
 RULES:
-1. EXHAUSTIVE GROUPING REQUIRED: You MUST aggressively group the codes into themes. Your goal is to place EVERY SINGLE CODE into a theme if logically possible. Do not leave codes out. Create as many themes as needed to cover the data.
-2. Theme name = a plain-English sentence stating the finding directly (e.g. "Users distrust AI because it feels opaque"). No jargon words like "Dynamics", "Patterns", "Collaboration".
-3. Each code may appear in at most ONE theme.
-4. Minimum 2 codes per theme. No upper limit on codes per theme.
-5. If a code clearly belongs to an existing theme listed above, use that EXACT theme name.
-6. "Researcher Observation" and "Human Created" codes are EQUALLY VALID for grouping — treat them the same as AI-Assisted codes. Do NOT skip them just because they have 0 instances.
+1. SELECTIVE & COHESIVE GROUPING: Do NOT force codes into themes if they do not fit perfectly. It is completely fine to leave codes out. Prioritize high-quality, tightly connected groups over exhaustive grouping.
+2. MUTUALLY EXCLUSIVE THEMES: Each theme must capture a distinctly different phenomenon. There should be NO overlapping concepts between your suggested themes.
+3. Theme name = a plain-English sentence stating the finding directly (e.g. "Users distrust AI because it feels opaque"). No jargon words like "Dynamics", "Patterns", "Collaboration".
+4. Each code may appear in at most ONE theme.
+5. Minimum 2 codes per theme. No upper limit on codes per theme.
+6. If a code clearly belongs to an existing theme listed above, use that EXACT theme name.
+7. "Researcher Observation" and "Human Created" codes are EQUALLY VALID for grouping — treat them the same as AI-Assisted codes. Do NOT skip them just because they have 0 instances.
 ${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? `7. REJECTED by user — DO NOT use or recreate: ${(rejectedNames as string[]).map((n: string) => `"${n}"`).join(', ')}` : ''}
 ${userInstructions ? `${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? '8' : '7'}. EXTRA INSTRUCTIONS: ${userInstructions}` : ''}
 

@@ -1524,7 +1524,7 @@ Rules:
                                                     </div>
                                                 </div>
                                             )}
-                                            <div className="columns-1 lg:columns-2 2xl:columns-3 gap-5 max-w-6xl mx-auto space-y-5">
+                                            <div className="flex overflow-x-auto gap-6 pb-8 items-start custom-scrollbar h-[calc(100vh-200px)]">
                                     {visibleThemes.map(theme => {
                                         // ── MEGA-THEME (container — isMeta=true, with OR without children) ──
                                         if (theme.isMeta) {
@@ -1541,7 +1541,7 @@ Rules:
                                                     onDragOver={e => !isBlockedDrop && handleDragOver(e, theme.id)}
                                                     onDragLeave={e => handleDragLeave(e, theme.id)}
                                                     onDrop={e => handleDropOnTheme(e, theme.id, true)}
-                                                    className={`bg-gradient-to-br from-violet-50 to-indigo-50 border-2 rounded-2xl p-5 shadow-md relative group/card break-inside-avoid transition-all duration-150 ${
+                                                    className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 bg-gradient-to-br from-violet-50 to-indigo-50 border-2 rounded-2xl p-5 shadow-md relative group/card transition-all duration-150 flex flex-col max-h-full ${
                                                         isBlockedDrop
                                                             ? 'cursor-not-allowed opacity-60 border-rose-200'
                                                             : isDragTarget
@@ -1679,7 +1679,7 @@ Rules:
                                         const isRegularDragTarget = dragOverThemeId === theme.id;
                                         
                                         return (
-                                        <div 
+                                            <div 
                                             key={theme.id}
                                             draggable
                                             onDragStart={e => handleDragStart(e, { themeId: theme.id })}
@@ -1687,7 +1687,7 @@ Rules:
                                             onDragOver={e => handleDragOver(e, theme.id)}
                                             onDragLeave={e => handleDragLeave(e, theme.id)}
                                             onDrop={(e) => handleDropOnTheme(e, theme.id)}
-                                            className={`border rounded-2xl p-5 shadow-sm transition-all relative group/card break-inside-avoid cursor-grab active:cursor-grabbing overflow-hidden ${
+                                            className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border rounded-2xl p-5 shadow-sm transition-all relative group/card cursor-grab active:cursor-grabbing flex flex-col max-h-full overflow-hidden ${
                                                 isRegularDragTarget
                                                     ? 'bg-indigo-50 border-indigo-400 shadow-md shadow-indigo-100'
                                                     : 'bg-white border-slate-200/80 hover:shadow-md hover:border-slate-300'
@@ -1735,11 +1735,11 @@ Rules:
                                             {theme.description && (
                                                 <p className="text-xs text-slate-500 mb-3 leading-relaxed line-clamp-2">{theme.description}</p>
                                             )}
-                                            <div className="flex flex-wrap gap-1.5 mb-3 min-h-[30px] p-2 -mx-2 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
+                                            <div className="flex flex-col gap-1.5 mb-3 min-h-[30px] p-2 -mx-2 bg-slate-50/50 rounded-lg border border-dashed border-slate-200 overflow-y-auto flex-1 custom-scrollbar">
                                                 {codesArr.length === 0 && (
                                                     <div className="text-[10px] text-slate-400 font-medium italic mx-auto w-full text-center py-1">Drop codes here</div>
                                                 )}
-                                                {codesToShow.map(link => (
+                                                {codesArr.map(link => (
                                                     <span 
                                                         key={link.codebookEntry.id} 
                                                         draggable
@@ -1787,17 +1787,6 @@ Rules:
                                                         </div>
                                                     </span>
                                                 ))}
-                                                {hiddenCount > 0 && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setExpandedThemes(p => ({...p, [theme.id]: !isExpanded}));
-                                                        }}
-                                                        className="w-full text-center text-[10px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 rounded-md py-1 mt-1 transition-colors"
-                                                    >
-                                                        {isExpanded ? 'Collapse list' : `+ ${hiddenCount} more codes`}
-                                                    </button>
-                                                )}
                                             </div>
                                             <div className="flex items-center justify-between mt-1">
                                                 <div className="text-[11px] font-medium text-slate-400">
