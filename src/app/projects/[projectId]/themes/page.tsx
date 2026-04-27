@@ -1140,6 +1140,14 @@ Rules:
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
                                 Synthesize Themes
                             </button>
+                            <button
+                                onClick={() => setIsRightPanelOpen(true)}
+                                className="flex items-center gap-2 bg-indigo-50 text-indigo-600 border border-indigo-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-100 hover:border-indigo-300 transition-all"
+                                title="Let AI analyze and suggest themes"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                AI Auto-Cluster
+                            </button>
                             {/* Two separate create buttons — clearly distinguishable */}
                             <div className="flex items-center rounded-lg overflow-hidden border border-slate-800 shadow-sm">
                                 <button
@@ -1391,74 +1399,21 @@ Rules:
                         
                         {themes.length === 0 ? (
                             <div className="flex-1 flex flex-col items-center justify-center relative z-10 p-8">
-                                <div className="text-center mb-10">
-                                    <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight mb-3">Build Your Themes</h2>
-                                    <p className="text-slate-500 max-w-lg mx-auto leading-relaxed">
-                                        You have <strong>{unassignedCodes.length}</strong> codes ready to be clustered. Choose how you want to start analyzing your data.
+                                <div className="text-center mb-8">
+                                    <div className="w-16 h-16 bg-white border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center mx-auto mb-6 text-slate-300">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                    </div>
+                                    <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight mb-2">Ready to cluster {unassignedCodes.length} codes?</h2>
+                                    <p className="text-slate-500 max-w-sm mx-auto leading-relaxed mb-8">
+                                        Start by creating a theme container. You can then drag and drop codes from the left panel into it.
                                     </p>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
-                                    {/* Manual Mode Card */}
-                                    <div className="bg-white border-2 border-slate-200/60 rounded-3xl p-8 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50 transition-all group flex flex-col h-full">
-                                        <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                        </div>
-                                        <h3 className="text-xl font-bold text-slate-800 mb-3">Build from Scratch</h3>
-                                        <p className="text-sm text-slate-500 leading-relaxed mb-8 flex-1">
-                                            Create empty theme categories and manually drag-and-drop codes from the left panel into them. Best for deductive research and fine-grained control.
-                                        </p>
-                                        
-                                        {/* Visual Hint */}
-                                        <div className="bg-slate-50 rounded-xl p-4 mb-8 border border-slate-100 relative overflow-hidden h-24 flex items-center justify-center">
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-[shimmer_2s_infinite] -skew-x-12"></div>
-                                            <div className="flex items-center gap-4 opacity-70">
-                                                <div className="w-20 h-8 bg-white border border-slate-200 rounded shadow-sm"></div>
-                                                <svg className="text-slate-400 animate-[bounce-x_1.5s_infinite]" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                                                <div className="w-24 h-16 bg-white border-2 border-dashed border-slate-300 rounded-lg"></div>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '', isMegaTheme: false })}
-                                            className="w-full bg-white border-2 border-indigo-100 text-indigo-600 px-6 py-3.5 rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-50 hover:border-indigo-200 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                            Create Blank Theme
-                                        </button>
-                                    </div>
-
-                                    {/* AI Mode Card */}
-                                    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-8 shadow-xl shadow-indigo-200 hover:-translate-y-1 transition-transform group flex flex-col h-full relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
-                                        
-                                        <div className="w-14 h-14 bg-white/20 text-white rounded-2xl flex items-center justify-center mb-6 backdrop-blur-sm group-hover:rotate-12 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
-                                        </div>
-                                        <h3 className="text-xl font-bold text-white mb-3">Auto-Cluster with AI</h3>
-                                        <p className="text-sm text-indigo-100 leading-relaxed mb-8 flex-1">
-                                            Let AI analyze all your unassigned codes and suggest a logical thematic structure. You can review, modify, or reject any suggestion before saving.
-                                        </p>
-
-                                        {/* Visual Hint */}
-                                        <div className="bg-white/10 rounded-xl p-4 mb-8 border border-white/20 relative overflow-hidden h-24 flex items-center justify-center">
-                                            <div className="flex gap-2">
-                                                <div className="w-10 h-10 bg-white/20 rounded flex items-center justify-center animate-pulse"><div className="w-4 h-1 bg-white/50 rounded"></div></div>
-                                                <div className="w-10 h-10 bg-white/20 rounded flex items-center justify-center animate-pulse delay-75"><div className="w-4 h-1 bg-white/50 rounded"></div></div>
-                                                <div className="w-10 h-10 bg-white/20 rounded flex items-center justify-center animate-pulse delay-150"><div className="w-4 h-1 bg-white/50 rounded"></div></div>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => {
-                                                setIsRightPanelOpen(true);
-                                            }}
-                                            className="w-full bg-white text-indigo-600 px-6 py-3.5 rounded-xl text-sm font-extrabold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                            Open AI Assistant
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '', isMegaTheme: false })}
+                                        className="bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-slate-700 hover:-translate-y-0.5 transition-all inline-flex items-center gap-2"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                        Add New Theme
+                                    </button>
                                 </div>
                             </div>
                         ) : (
