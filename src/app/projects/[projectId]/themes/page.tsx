@@ -654,14 +654,14 @@ Rules:
 
     // Save a new or updated theme via modal
     const saveTheme = async () => {
-        if (!newThemeModal.name.trim()) return
+        const finalName = newThemeModal.name.trim() || 'Untitled Theme'
         
         if (newThemeModal.id) {
             await fetch(`/api/projects/${projectId}/themes/${newThemeModal.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    name: newThemeModal.name.trim(),
+                    name: finalName,
                     description: newThemeModal.description.trim()
                 })
             })
@@ -670,7 +670,7 @@ Rules:
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    name: newThemeModal.name.trim(),
+                    name: finalName,
                     description: newThemeModal.description.trim(),
                     isMeta: false
                 })
@@ -681,15 +681,12 @@ Rules:
     }
 
     const createInlineTheme = async () => {
-        if (!inlineThemeInput.name.trim()) {
-            setInlineThemeInput({ isOpen: false, name: '' });
-            return;
-        }
+        const finalName = inlineThemeInput.name.trim() || 'Untitled Theme'
         await fetch(`/api/projects/${projectId}/themes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                name: inlineThemeInput.name.trim(),
+                name: finalName,
                 description: '',
                 isMeta: false
             })
@@ -1605,8 +1602,7 @@ Rules:
                                             <div className="flex items-center gap-2 mt-1">
                                                 <button 
                                                     onClick={createInlineTheme}
-                                                    disabled={!inlineThemeInput.name.trim()}
-                                                    className="flex-1 bg-indigo-600 text-white font-bold text-sm py-2.5 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    className="flex-1 bg-indigo-600 text-white font-bold text-sm py-2.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors"
                                                 >
                                                     Create
                                                 </button>
@@ -2065,8 +2061,7 @@ Rules:
                             </button>
                             <button
                                 onClick={saveTheme}
-                                disabled={!newThemeModal.name.trim()}
-                                className="text-white bg-slate-800 hover:bg-slate-900 px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors disabled:opacity-50"
+                                className="text-white bg-slate-800 hover:bg-slate-900 px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors"
                             >
                                 {newThemeModal.id ? 'Save Changes' : 'Create Theme'}
                             </button>
