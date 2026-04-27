@@ -1445,7 +1445,7 @@ Rules:
                     <div className="flex-1 min-w-0 bg-slate-50 relative flex flex-col overflow-hidden">
                         <div className="absolute inset-0 z-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:20px_20px] opacity-70"></div>
                         
-                        {themes.length === 0 ? (
+                        {(themes.length === 0 && !inlineThemeInput.isOpen && draggingType !== 'code') ? (
                             <div className="flex-1 flex flex-col items-center justify-center relative z-10 p-8">
                                 <div className="text-center mb-8">
                                     <div className="w-16 h-16 bg-white border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center mx-auto mb-6 text-slate-300">
