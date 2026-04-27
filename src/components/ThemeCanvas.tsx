@@ -107,7 +107,19 @@ function ThemeNode({ data, selected }: NodeProps) {
                 <div className="flex flex-col gap-1 min-h-[28px] p-2 -mx-1 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
                     {codesArr.length === 0 && <p className="text-[10px] text-slate-400 italic text-center py-1">Drop codes here</p>}
                     {codesToShow.map(link => (
-                        <span key={link.codebookEntry.id} className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold group/chip ${link.codebookEntry.type === 'OBSERVATION' ? 'bg-violet-50 text-violet-700 border border-violet-100' : 'bg-white text-slate-700 border border-slate-200'}`}>
+                        <span
+                            key={link.codebookEntry.id}
+                            draggable
+                            onDragStart={e => {
+                                e.stopPropagation()
+                                e.dataTransfer.setData('application/json', JSON.stringify({
+                                    codeId: link.codebookEntry.id,
+                                    fromThemeId: d.id
+                                }))
+                                e.dataTransfer.effectAllowed = 'move'
+                            }}
+                            className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold group/chip cursor-grab active:cursor-grabbing ${link.codebookEntry.type === 'OBSERVATION' ? 'bg-violet-50 text-violet-700 border border-violet-100' : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300'}`}
+                        >
                             <span className="truncate">{link.codebookEntry.name}</span>
                             <button className="opacity-0 group-hover/chip:opacity-100 text-slate-300 hover:text-rose-500 transition-all flex-shrink-0" title="Remove code" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); d.onRemoveCode(d.id, link.codebookEntry.id) }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
