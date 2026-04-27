@@ -773,10 +773,10 @@ Rules:
         })
     }
 
-    const handleCanvasDoubleClick = async (x: number, y: number) => {
-        const res = await fetch(`/api/projects/${projectId}/themes`, {
+    const handleCanvasCreateTheme = async (name: string, x: number, y: number) => {
+        await fetch(`/api/projects/${projectId}/themes`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'Untitled Theme', description: '', isMeta: false, positionX: x, positionY: y })
+            body: JSON.stringify({ name: name || 'Untitled Theme', description: '', isMeta: false, positionX: x, positionY: y })
         })
         fetchData()
     }
@@ -1482,11 +1482,18 @@ Rules:
                         {themes.length === 0 && (
                             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                 <div className="text-center">
-                                    <div className="w-16 h-16 bg-white border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center mx-auto mb-6 text-slate-300">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                    <div className="w-16 h-16 bg-white border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-5 text-slate-300 shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                                     </div>
                                     <h2 className="text-xl font-extrabold text-slate-700 tracking-tight mb-2">Ready to cluster {unassignedCodes.length} codes?</h2>
-                                    <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">Click <strong>+ New Theme</strong> above or double-click anywhere on the canvas. Then drag codes from the left panel onto a theme card.</p>
+                                    <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed mb-6">Double-click anywhere on the canvas, or use the button below.</p>
+                                    <button
+                                        className="pointer-events-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all inline-flex items-center gap-2"
+                                        onClick={() => handleCanvasCreateTheme('Untitled Theme', 100, 100)}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                        Create your first theme
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -1502,7 +1509,7 @@ Rules:
                             onDelete={deleteTheme}
                             onRemoveCode={handleCanvasRemoveCode}
                             onPositionSave={handleCanvasPositionSave}
-                            onDoubleClickCanvas={handleCanvasDoubleClick}
+                            onCreateTheme={handleCanvasCreateTheme}
                         />
                     </div>
                 </div>
