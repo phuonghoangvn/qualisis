@@ -1511,6 +1511,11 @@ Rules:
                             aiSuggestions={themeSuggestions}
                             onAcceptSuggestion={acceptSuggestion}
                             onRejectSuggestion={rejectSuggestion}
+                            onDismissAllSuggestions={() => {
+                                setThemeSuggestions([])
+                                clearSuggestionsCache()
+                                resetSuggestions()
+                            }}
                             suggestionsLoading={suggestionsLoading}
                             suggestionsRemainingAfterBatch={suggestionsRemainingAfterBatch}
                             onLoadNextBatch={() => generateSuggestions(false, suggestionBatchOffset)}
