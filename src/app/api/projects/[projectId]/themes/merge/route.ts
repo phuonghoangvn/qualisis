@@ -34,7 +34,7 @@ export async function POST(
             newThemeId = newTheme.id
 
             // 2. Find all code entries linked to the sub-themes
-            const existingLinks = await tx.themeCode.findMany({
+            const existingLinks = await tx.themeCodeLink.findMany({
                 where: { themeId: { in: uniqueMergedIds } }
             })
 
@@ -43,7 +43,7 @@ export async function POST(
 
             // 4. Link these codes to the new theme
             for (const codeId of uniqueCodeIds) {
-                await tx.themeCode.create({
+                await tx.themeCodeLink.create({
                     data: {
                         themeId: newThemeId,
                         codebookEntryId: codeId

@@ -1382,7 +1382,7 @@ Rules:
                                         Start by creating a theme container. You can then drag and drop codes from the left panel into it.
                                     </p>
                                     <button
-                                        onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: false, name: '' })}
+                                        onClick={() => setInlineThemeInput({ isOpen: true, name: '' })}
                                         className="bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-slate-700 hover:-translate-y-0.5 transition-all inline-flex items-center gap-2"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -1407,24 +1407,8 @@ Rules:
                                     />
                                 </div>
                                 
-                                                            {/* Drag-active global hint banner */}
-                                            {draggingType === 'theme' && (
-                                                <div className="max-w-6xl mx-auto mb-4">
-                                                    <div className="flex items-center gap-2 bg-indigo-600 text-white text-[11px] font-bold px-4 py-2.5 rounded-xl shadow-md">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                                        Thả theme này vào một <strong>Mega-Theme</strong> để nhóm lại — hoặc thả vào <strong>Unassigned Codes</strong> để bỏ nhóm.
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {/* Drop warning toast */}
-                                            {dropWarning && (
-                                                <div className="max-w-6xl mx-auto mb-4">
-                                                    <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-700 text-[12px] font-bold px-4 py-3 rounded-xl shadow-sm">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-                                                        {dropWarning}
-                                                    </div>
-                                                </div>
-                                            )}
+
+
                                             <div className="flex overflow-x-auto gap-6 pb-8 items-start custom-scrollbar h-[calc(100vh-200px)]">
                                     {visibleThemes.map(theme => {
                                         // ── REGULAR THEME CARD ──
@@ -1561,7 +1545,7 @@ Rules:
                                                 onChange={(e) => setInlineThemeInput({...inlineThemeInput, name: e.target.value})}
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') createInlineTheme();
-                                                    else if (e.key === 'Escape') setInlineThemeInput({isOpen: false, isMegaTheme: false, name: ''});
+                                                    else if (e.key === 'Escape') setInlineThemeInput({isOpen: false, name: ''});
                                                 }}
                                             />
                                             <div className="flex items-center gap-2 mt-1">
@@ -1573,7 +1557,7 @@ Rules:
                                                     Create
                                                 </button>
                                                 <button 
-                                                    onClick={() => setInlineThemeInput({isOpen: false, isMegaTheme: false, name: ''})}
+                                                    onClick={() => setInlineThemeInput({isOpen: false, name: ''})}
                                                     className="px-4 py-2.5 rounded-lg text-sm font-bold text-indigo-400 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
                                                 >
                                                     Cancel
@@ -1589,7 +1573,7 @@ Rules:
                                         }`}
                                         onDragOver={(e) => e.preventDefault()}
                                         onDrop={handleDropOnNewTheme}
-                                        onClick={() => setInlineThemeInput({ isOpen: true, isMegaTheme: false, name: '' })}
+                                        onClick={() => setInlineThemeInput({ isOpen: true, name: '' })}
                                     >
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${draggingType === 'code' ? 'bg-indigo-600 text-white animate-bounce' : 'bg-white border border-slate-200 text-slate-400'}`}>
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -1974,35 +1958,22 @@ Rules:
                 </div>
             )}
 
-            {/* New Theme / Mega-Theme Modal */}
+            {/* New Theme Modal */}
             {newThemeModal.open && (
                 <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-                        {/* Modal header — colour coded by type */}
-                        <div className={`px-6 py-5 border-b border-slate-100 ${
-                            newThemeModal.isMegaTheme ? 'bg-gradient-to-r from-violet-50 to-indigo-50' : 'bg-slate-50'
-                        }`}>
+                        {/* Modal header */}
+                        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
                             <div className="flex items-center gap-3 mb-0.5">
-                                {newThemeModal.isMegaTheme ? (
-                                    <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center flex-shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                    </div>
-                                ) : (
-                                    <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-                                    </div>
-                                )}
+                                <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                                </div>
                                 <div>
                                     <h3 className="text-[15px] font-extrabold text-slate-800">
-                                        {newThemeModal.id
-                                            ? `Edit ${newThemeModal.isMegaTheme ? 'Mega-Theme' : 'Theme'}`
-                                            : newThemeModal.isMegaTheme ? 'Create Mega-Theme' : 'Create New Theme'
-                                        }
+                                        {newThemeModal.id ? 'Edit Theme' : 'Create New Theme'}
                                     </h3>
                                     <p className="text-[11px] text-slate-500">
-                                        {newThemeModal.isMegaTheme
-                                            ? 'A Mega-Theme is a folder — drag regular themes into it to group them.'
-                                            : 'A Theme groups related codes together. Drag codes from the left panel.'}
+                                        A Theme groups related codes together. Drag codes from the left panel.
                                     </p>
                                 </div>
                             </div>
@@ -2011,7 +1982,7 @@ Rules:
                         <div className="p-6 space-y-4">
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-widest mb-1.5">
-                                    {newThemeModal.isMegaTheme ? 'Mega-Theme Name' : 'Theme Name'}
+                                    Theme Name
                                 </label>
                                 <input
                                     type="text"
@@ -2019,12 +1990,8 @@ Rules:
                                     value={newThemeModal.name}
                                     onChange={e => setNewThemeModal({ ...newThemeModal, name: e.target.value })}
                                     onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveTheme() }}
-                                    className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 font-bold ${
-                                        newThemeModal.isMegaTheme
-                                            ? 'border-indigo-200 focus:ring-indigo-400 focus:border-indigo-400'
-                                            : 'border-slate-300 focus:ring-indigo-500'
-                                    }`}
-                                    placeholder={newThemeModal.isMegaTheme ? 'e.g. Trust & Transparency' : 'e.g. Navigation & Wayfinding'}
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                                    placeholder="e.g. Navigation & Wayfinding"
                                 />
                             </div>
                             <div>
@@ -2033,69 +2000,21 @@ Rules:
                                     value={newThemeModal.description}
                                     onChange={e => setNewThemeModal({ ...newThemeModal, description: e.target.value })}
                                     className="w-full h-24 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-medium text-slate-600"
-                                    placeholder={newThemeModal.isMegaTheme
-                                        ? 'What overarching concept does this mega-theme represent?'
-                                        : 'What does this theme represent? Explain the central concept...'}
+                                    placeholder="What does this theme represent? Explain the central concept..."
                                 />
                             </div>
-                            {/* Mega-Theme type toggle — only for new themes */}
-                            {!newThemeModal.id && (
-                                <div className="pt-1">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Type</p>
-                                    <div className="flex rounded-xl border border-slate-200 overflow-hidden">
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewThemeModal(prev => ({ ...prev, isMegaTheme: false }))}
-                                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-bold transition-colors ${
-                                                !newThemeModal.isMegaTheme
-                                                    ? 'bg-slate-800 text-white'
-                                                    : 'bg-white text-slate-500 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-                                            Theme
-                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                                                !newThemeModal.isMegaTheme ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
-                                            }`}>Groups codes</span>
-                                        </button>
-                                        <div className="w-px bg-slate-200" />
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewThemeModal(prev => ({ ...prev, isMegaTheme: true }))}
-                                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-bold transition-colors ${
-                                                newThemeModal.isMegaTheme
-                                                    ? 'bg-indigo-600 text-white'
-                                                    : 'bg-white text-slate-500 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                            Mega-Theme
-                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                                                newThemeModal.isMegaTheme ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
-                                            }`}>Groups themes</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         <div className="flex items-center justify-end gap-2 px-6 pb-6">
-                            <button onClick={() => setNewThemeModal({ open: false, id: undefined, name: '', description: '', isMegaTheme: false })} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors">
+                            <button onClick={() => setNewThemeModal({ open: false, id: undefined, name: '', description: '' })} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors">
                                 Cancel
                             </button>
                             <button
                                 onClick={saveTheme}
                                 disabled={!newThemeModal.name.trim()}
-                                className={`text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors disabled:opacity-50 ${
-                                    newThemeModal.isMegaTheme
-                                        ? 'bg-indigo-600 hover:bg-indigo-700'
-                                        : 'bg-slate-800 hover:bg-slate-900'
-                                }`}
+                                className="text-white bg-slate-800 hover:bg-slate-900 px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors disabled:opacity-50"
                             >
-                                {newThemeModal.id
-                                    ? 'Save Changes'
-                                    : newThemeModal.isMegaTheme ? 'Create Mega-Theme' : 'Create Theme'
-                                }
+                                {newThemeModal.id ? 'Save Changes' : 'Create Theme'}
                             </button>
                         </div>
                     </div>
