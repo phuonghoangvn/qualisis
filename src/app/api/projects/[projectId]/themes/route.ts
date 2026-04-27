@@ -175,7 +175,7 @@ export async function POST(
 ) {
     try {
         const body = await req.json()
-        const { name, description, codeIds, isMegaTheme } = body
+        const { name, description, codeIds, isMegaTheme, positionX, positionY } = body
 
         const session = await getServerSession(authOptions)
         const userId = session?.user ? (session.user as any).id : null
@@ -240,6 +240,8 @@ export async function POST(
                 description: description ?? null,
                 memo: isMegaTheme ? 'META:Synthesized container theme' : null,
                 status: 'DRAFT',
+                positionX: positionX ?? null,
+                positionY: positionY ?? null,
                 codeLinks: uniqueCodeIds.length > 0 ? {
                     create: uniqueCodeIds.map((codeId: any) => ({
                         codebookEntryId: codeId

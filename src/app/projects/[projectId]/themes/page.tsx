@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import ThematicMatrixView from '@/components/ThematicMatrixView'
 import ConfirmModal from '@/components/ConfirmModal'
+import ThemeCanvas from '@/components/ThemeCanvas'
 type CodeEntry = {
     id: string
     name: string
@@ -506,6 +507,8 @@ export default function ThemesPage() {
     const [dragOverThemeId, setDragOverThemeId] = useState<string | null>(null)
     // What type of thing is being dragged: 'code'
     const [draggingType, setDraggingType] = useState<'code' | null>(null)
+    const [draggingCodeId, setDraggingCodeId] = useState<string | null>(null)
+    const [draggingFromThemeId, setDraggingFromThemeId] = useState<string | null>(null)
 
     const visibleThemes = useMemo(() => {
         if (!themeSearchQuery.trim()) return themes;
@@ -583,11 +586,15 @@ Rules:
         e.dataTransfer.setData('application/json', JSON.stringify(payload))
         e.dataTransfer.effectAllowed = 'move'
         setDraggingType('code')
+        setDraggingCodeId(payload.codeId)
+        setDraggingFromThemeId(payload.fromThemeId ?? null)
     }
 
     const handleDragEnd = () => {
         setDraggingType(null)
         setDragOverThemeId(null)
+        setDraggingCodeId(null)
+        setDraggingFromThemeId(null)
     }
 
     const handleDragOver = (e: React.DragEvent, themeId?: string) => {
@@ -698,30 +705,88 @@ Rules:
     const handleDropOnNewTheme = async (e: React.DragEvent) => {
         e.preventDefault();
         setDragOverThemeId(null);
-        
         try {
-            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-            if (data.type === 'code') {
-                // Instantly create a theme and add the code
+            const data = JSON.parse(e.dataTransfer.getData('application/json'));
+            if (data.codeId) {
                 const res = await fetch(`/api/projects/${projectId}/themes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        name: 'Untitled Theme',
-                        description: '',
-                        isMeta: false
-                    })
+                    body: JSON.stringify({ name: 'Untitled Theme', description: '', isMeta: false })
                 });
                 const newTheme = await res.json();
-                
+                if (data.fromThemeId) {
+                    await fetch(`/api/projects/${projectId}/themes`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ themeId: data.fromThemeId, action: 'REMOVE_CODE', codeId: data.codeId })
+                    });
+                }
                 await fetch(`/api/projects/${projectId}/themes`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ themeId: newTheme.id, action: 'ADD_CODE', codeId: data.id })
+                    body: JSON.stringify({ themeId: newTheme.id, action: 'ADD_CODE', codeId: data.codeId })
                 });
                 fetchData();
             }
         } catch (err) {}
+    }
+
+    const handleCanvasDropCode = async (themeId: string, codeId: string, fromThemeId?: string) => {
+        if (fromThemeId === themeId) return
+        if (fromThemeId) {
+            await fetch(`/api/projects/${projectId}/themes`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ themeId: fromThemeId, action: 'REMOVE_CODE', codeId })
+            })
+        }
+        await fetch(`/api/projects/${projectId}/themes`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ themeId, action: 'ADD_CODE', codeId })
+        })
+        fetchData()
+    }
+
+    const handleCanvasDropOnEmpty = async (codeId: string, x: number, y: number, fromThemeId?: string) => {
+        // Create new theme at that canvas position, assign the code
+        const res = await fetch(`/api/projects/${projectId}/themes`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Untitled Theme', description: '', isMeta: false, positionX: x, positionY: y })
+        })
+        const newTheme = await res.json()
+        if (fromThemeId) {
+            await fetch(`/api/projects/${projectId}/themes`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ themeId: fromThemeId, action: 'REMOVE_CODE', codeId })
+            })
+        }
+        await fetch(`/api/projects/${projectId}/themes`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ themeId: newTheme.id, action: 'ADD_CODE', codeId })
+        })
+        fetchData()
+    }
+
+    const handleCanvasPositionSave = async (themeId: string, x: number, y: number) => {
+        await fetch(`/api/projects/${projectId}/themes/${themeId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ positionX: x, positionY: y })
+        })
+    }
+
+    const handleCanvasDoubleClick = async (x: number, y: number) => {
+        const res = await fetch(`/api/projects/${projectId}/themes`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Untitled Theme', description: '', isMeta: false, positionX: x, positionY: y })
+        })
+        fetchData()
+    }
+
+    const handleCanvasRemoveCode = async (themeId: string, codeId: string) => {
+        await fetch(`/api/projects/${projectId}/themes`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ themeId, action: 'REMOVE_CODE', codeId })
+        })
+        fetchData()
     }
 
     // Delete a theme
@@ -1390,255 +1455,57 @@ Rules:
                     </div>
                     )}
 
-                    {/* Center Panel: Built Themes */}
-                    <div className="flex-1 min-w-0 bg-slate-50 relative flex flex-col overflow-hidden">
-                        <div className="absolute inset-0 z-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:20px_20px] opacity-70"></div>
-                        
-                        {(themes.length === 0 && !inlineThemeInput.isOpen && draggingType !== 'code') ? (
-                            <div className="flex-1 flex flex-col items-center justify-center relative z-10 p-8">
-                                <div className="text-center mb-8">
-                                    <div className="w-16 h-16 bg-white border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center mx-auto mb-6 text-slate-300">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    {/* Center Panel: Canvas */}
+                    <div className="flex-1 min-w-0 relative overflow-hidden" style={{height:'100%'}}>
+                        {/* Undo Merge toast — floats above canvas */}
+                        {lastMergedThemeId && (
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 w-auto">
+                                <div className="flex items-center justify-between gap-4 bg-emerald-50 border border-emerald-300 rounded-xl px-4 py-3 shadow-lg">
+                                    <div className="flex items-center gap-2.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                                        <p className="text-[12px] font-bold text-emerald-800 whitespace-nowrap">Themes merged successfully.</p>
                                     </div>
-                                    <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight mb-2">Ready to cluster {unassignedCodes.length} codes?</h2>
-                                    <p className="text-slate-500 max-w-sm mx-auto leading-relaxed mb-8">
-                                        Start by creating a theme container. You can then drag and drop codes from the left panel into it.
-                                    </p>
-                                    <button
-                                        onClick={() => setInlineThemeInput({ isOpen: true, name: '' })}
-                                        className="bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-slate-700 hover:-translate-y-0.5 transition-all inline-flex items-center gap-2"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                        Add New Theme
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div 
-                                className="flex-1 overflow-y-auto p-6 relative z-10 custom-scrollbar"
-                                onDragOver={e => e.preventDefault()}
-                                onDrop={handleDropToRoot}
-                            >
-                                <div className="max-w-6xl mx-auto mb-6 relative">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                                    <input
-                                        type="text"
-                                        placeholder={`Search across ${totalThemesCount} themes and codes...`}
-                                        value={themeSearchQuery}
-                                        onChange={e => setThemeSearchQuery(e.target.value)}
-                                        className="w-full bg-white border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-[13px] font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 shadow-sm transition-all"
-                                    />
-                                </div>
-                                
-
-
-                                            {lastMergedThemeId && (
-                                                <div className="max-w-6xl mx-auto mb-4">
-                                                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-300 rounded-xl px-4 py-3 shadow-sm">
-                                                        <div className="flex items-center gap-2.5">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                                                            <p className="text-[12px] font-bold text-emerald-800">Themes merged successfully.</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={handleUndoMerge}
-                                                                disabled={undoingMerge}
-                                                                className="flex items-center gap-1.5 bg-white border border-emerald-400 text-emerald-700 text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors shadow-sm disabled:opacity-50"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                                                                {undoingMerge ? 'Undoing...' : 'Undo Merge'}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setLastMergedThemeId(null)}
-                                                                className="text-emerald-400 hover:text-emerald-600 p-1 rounded-lg hover:bg-emerald-100 transition-colors"
-                                                                title="Dismiss"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="flex overflow-x-auto gap-6 pb-8 items-start custom-scrollbar h-[calc(100vh-200px)]">
-                                    {visibleThemes.map(theme => {
-                                        // ── REGULAR THEME CARD ──
-                                        const codesArr = theme.codeLinks || [];
-                                        const isExpanded = expandedThemes[theme.id];
-                                        const codesToShow = isExpanded ? codesArr : codesArr.slice(0, 3);
-                                        const hiddenCount = codesArr.length - 3;
-                                        const isRegularDragTarget = dragOverThemeId === theme.id;
-                                        
-                                        return (
-                                            <div 
-                                            key={theme.id}
-                                            onDragOver={e => handleDragOver(e, theme.id)}
-                                            onDragLeave={e => handleDragLeave(e, theme.id)}
-                                            onDrop={(e) => handleDropOnTheme(e, theme.id)}
-                                            className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border rounded-2xl p-5 shadow-sm transition-all relative group/card flex flex-col max-h-full overflow-hidden ${
-                                                isRegularDragTarget
-                                                    ? 'bg-indigo-50 border-indigo-400 shadow-md shadow-indigo-100'
-                                                    : 'bg-white border-slate-200/80 hover:shadow-md hover:border-slate-300'
-                                            }`}
-                                        >
-                                            {/* Left accent border strip — instantly distinguishes Theme from Mega-Theme */}
-                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-300 rounded-l-2xl" />
-                                            {/* Drag-over hint overlay */}
-                                            {isRegularDragTarget && (
-                                                <div className="absolute inset-0 rounded-2xl pointer-events-none z-10 flex items-end justify-center pb-3">
-                                                    <span className="bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                                                        Drop code here to group
-                                                    </span>
-                                                </div>
-                                            )}
-                                            <div className="flex items-start justify-between mb-2.5">
-                                                <div className="flex flex-col gap-1 flex-1 min-w-0 pr-3">
-                                                    <h3 className="text-sm font-extrabold text-slate-800 break-words leading-snug">{theme.name}</h3>
-                                                </div>
-                                                <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setNewThemeModal({ open: true, id: theme.id, name: theme.name, description: theme.description || '' }) }}
-                                                        title="Edit name & description"
-                                                        className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); deleteTheme(theme.id, theme.name) }}
-                                                        title="Delete theme"
-                                                        className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {theme.description && (
-                                                <p className="text-xs text-slate-500 mb-3 leading-relaxed break-words">{theme.description}</p>
-                                            )}
-                                            <div className="flex flex-col gap-1.5 mb-3 min-h-[30px] p-2 -mx-2 bg-slate-50/50 rounded-lg border border-dashed border-slate-200 overflow-y-auto flex-1 custom-scrollbar">
-                                                {codesArr.length === 0 && (
-                                                    <div className="text-[10px] text-slate-400 font-medium italic mx-auto w-full text-center py-1">Drop codes here</div>
-                                                )}
-                                                {codesArr.map(link => (
-                                                    <span 
-                                                        key={link.codebookEntry.id} 
-                                                        draggable
-                                                        onDragStart={(e) => {
-                                                            e.stopPropagation()
-                                                            handleDragStart(e, { codeId: link.codebookEntry.id, fromThemeId: theme.id })
-                                                        }}
-                                                        className="group flex items-center gap-1.5 bg-white border border-indigo-200 text-indigo-700 text-[10px] font-semibold pl-1.5 pr-1 py-1 rounded-md shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-400"
-                                                    >
-                                                        <div className="flex items-center gap-1">
-                                                            {link.codebookEntry.participants?.map(p => (
-                                                                <span key={p.id} className={`flex items-center gap-1 text-[8px] font-bold px-1 py-0.5 rounded border ${getParticipantColor(p.name)}`} title={`From transcript: ${p.name}`}>
-                                                                    <span className="w-1 h-1 rounded-full bg-current opacity-75"></span>
-                                                                    <span>{p.name.length > 10 ? p.name.substring(0, 10) + '...' : p.name}</span>
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                        <span className="ml-1">{link.codebookEntry.name}</span>
-                                                        <div className="flex gap-0.5 border-l border-indigo-100 pl-1 ml-1">
-                                                            <button 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation()
-                                                                    openTrace(link.codebookEntry.id, link.codebookEntry.name)
-                                                                }}
-                                                                title="View quotes"
-                                                                className="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 p-0.5 rounded transition-colors"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
-                                                            </button>
-                                                            <button 
-                                                                onClick={async (e) => {
-                                                                    e.stopPropagation()
-                                                                    await fetch(`/api/projects/${projectId}/themes`, {
-                                                                        method: 'PATCH',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ themeId: theme.id, action: 'REMOVE_CODE', codeId: link.codebookEntry.id })
-                                                                    })
-                                                                    fetchData()
-                                                                }}
-                                                                title="Remove code from theme"
-                                                                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-0.5 rounded transition-colors"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                                            </button>
-                                                        </div>
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <div className="flex items-center justify-between mt-1">
-                                                <div className="text-[11px] font-medium text-slate-400">
-                                                    {theme.codeLinks?.length || 0} codes assigned
-                                                </div>
-                                                <div className="flex items-center gap-1 bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded border border-slate-200 shadow-sm" title="Total unique participants in this theme">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                                    {theme.participantsCount || 0} participants
-                                                </div>
-                                            </div>
-                                        </div>
-                                        )
-                                    })}
-
-                                    {/* Inline Create Column */}
-                                    {inlineThemeInput.isOpen && (
-                                        <div className="min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border-2 border-indigo-500 rounded-2xl p-5 shadow-lg shadow-indigo-100 bg-indigo-50 flex flex-col gap-3 h-fit">
-                                            <h3 className="text-[12px] font-extrabold text-indigo-700 tracking-wide uppercase">
-                                                Create Theme
-                                            </h3>
-                                            <input 
-                                                autoFocus 
-                                                placeholder="Name your theme..." 
-                                                className="w-full bg-white border border-indigo-300 rounded-xl px-4 py-3 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-indigo-200 text-indigo-900"
-                                                value={inlineThemeInput.name}
-                                                onChange={(e) => setInlineThemeInput({...inlineThemeInput, name: e.target.value})}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') createInlineTheme();
-                                                    else if (e.key === 'Escape') setInlineThemeInput({isOpen: false, name: ''});
-                                                }}
-                                            />
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <button 
-                                                    onClick={createInlineTheme}
-                                                    className="flex-1 bg-indigo-600 text-white font-bold text-sm py-2.5 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors"
-                                                >
-                                                    Create
-                                                </button>
-                                                <button 
-                                                    onClick={() => setInlineThemeInput({isOpen: false, name: ''})}
-                                                    className="px-4 py-2.5 rounded-lg text-sm font-bold text-indigo-400 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Drop to Create Theme Area */}
-                                    <div 
-                                        className={`min-w-[350px] w-[350px] max-w-[350px] flex-shrink-0 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all h-[150px] ${
-                                            draggingType === 'code' ? 'border-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:border-indigo-500 cursor-copy' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 hover:border-slate-300 cursor-pointer'
-                                        }`}
-                                        onDragOver={(e) => e.preventDefault()}
-                                        onDrop={handleDropOnNewTheme}
-                                        onClick={() => setInlineThemeInput({ isOpen: true, name: '' })}
-                                    >
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${draggingType === 'code' ? 'bg-indigo-600 text-white animate-bounce' : 'bg-white border border-slate-200 text-slate-400'}`}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                        </div>
-                                        <span className={`text-[12px] font-bold ${draggingType === 'code' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                                            {draggingType === 'code' ? 'Drop to create Theme from this code' : 'Add New Theme'}
-                                        </span>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={handleUndoMerge} disabled={undoingMerge} className="flex items-center gap-1.5 bg-white border border-emerald-400 text-emerald-700 text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors shadow-sm disabled:opacity-50">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                                            {undoingMerge ? 'Undoing...' : 'Undo Merge'}
+                                        </button>
+                                        <button onClick={() => setLastMergedThemeId(null)} className="text-emerald-400 hover:text-emerald-600 p-1 rounded-lg hover:bg-emerald-100 transition-colors">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                        </button>
                                     </div>
-
                                 </div>
                             </div>
                         )}
+
+                        {/* Canvas hint when empty */}
+                        {themes.length === 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                <div className="text-center">
+                                    <div className="w-16 h-16 bg-white border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center mx-auto mb-6 text-slate-300">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                    </div>
+                                    <h2 className="text-xl font-extrabold text-slate-700 tracking-tight mb-2">Ready to cluster {unassignedCodes.length} codes?</h2>
+                                    <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">Click <strong>+ New Theme</strong> above or double-click anywhere on the canvas. Then drag codes from the left panel onto a theme card.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <ThemeCanvas
+                            themes={themes as any}
+                            projectId={projectId}
+                            draggingCodeId={draggingType === 'code' ? (draggingCodeId ?? null) : null}
+                            draggingFromThemeId={draggingFromThemeId ?? null}
+                            onDropCode={handleCanvasDropCode}
+                            onDropOnCanvas={handleCanvasDropOnEmpty}
+                            onEdit={(id, name, desc) => setNewThemeModal({ open: true, id, name, description: desc })}
+                            onDelete={deleteTheme}
+                            onRemoveCode={handleCanvasRemoveCode}
+                            onPositionSave={handleCanvasPositionSave}
+                            onDoubleClickCanvas={handleCanvasDoubleClick}
+                        />
                     </div>
                 </div>
-
 
                 {/* Codebook Tab */}
                 {activeTab === 'Codebook' && (
