@@ -189,7 +189,7 @@ function SuggestedThemeNode({ data, selected }: NodeProps) {
                             <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Suggested</span>
                             {d.confidenceScore && (
                                 <span className="text-[10px] font-bold text-indigo-400 bg-white/60 px-1.5 py-0.5 rounded-md ml-auto">
-                                    {Math.round(d.confidenceScore * 100)}% Match
+                                    {Math.round(d.confidenceScore)}% Match
                                 </span>
                             )}
                         </div>
@@ -340,13 +340,15 @@ function ThemeCanvasInner({
             data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, draggingCodeId, draggingFromThemeId },
         }))
 
+        const maxExistingY = ts.reduce((max, t, i) => Math.max(max, (t as any).positionY ?? (Math.floor(i / 4) * 380 + 40)), -400)
+        const startY = ts.length > 0 ? maxExistingY + 440 : 40;
+
         const suggNodes: Node[] = suggs.map((sugg, i) => ({
             id: `suggestion-${sugg.name}`,
             type: 'suggestedThemeCard',
             position: {
-                // Place suggestions below regular themes, or offset them
                 x: (i % 3) * 380 + 100,
-                y: Math.floor(i / 3) * 380 + Math.max(800, ts.length * 200),
+                y: Math.floor(i / 3) * 380 + startY,
             },
             data: {
                 ...sugg,
