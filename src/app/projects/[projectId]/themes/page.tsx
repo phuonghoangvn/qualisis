@@ -1222,7 +1222,7 @@ Rules:
                             </button>
 
                             <button
-                                onClick={() => setInlineThemeInput({ isOpen: true, name: '' })}
+                                onClick={() => setNewThemeModal({ open: true, id: undefined, name: '', description: '' })}
                                 className="flex items-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-700 hover:-translate-y-0.5 transition-all ml-2"
                                 title="Create a new manual theme"
                             >
@@ -1358,6 +1358,7 @@ Rules:
                                             key={code.id}
                                             draggable
                                             onDragStart={(e) => handleDragStart(e, { codeId: code.id })}
+                                            onDragEnd={handleDragEnd}
                                             className={`bg-white border rounded-xl p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group ${
                                                 code.type === 'OBSERVATION'
                                                     ? 'border-violet-200 hover:border-violet-400'

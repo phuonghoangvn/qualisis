@@ -58,12 +58,17 @@ function ThemeNode({ data, selected }: NodeProps) {
 
     return (
         <div
-            onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
-            onDragLeave={() => setIsDragOver(false)}
+            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true) }}
+            onDragLeave={e => { e.stopPropagation(); setIsDragOver(false) }}
             onDrop={e => {
                 e.preventDefault()
+                e.stopPropagation()
                 setIsDragOver(false)
-                if (d.draggingCodeId) d.onDropCode(d.id, d.draggingCodeId, d.draggingFromThemeId ?? undefined)
+                let payload: { codeId?: string; fromThemeId?: string } = {}
+                try { payload = JSON.parse(e.dataTransfer.getData('application/json')) } catch {}
+                if (payload.codeId) {
+                    d.onDropCode(d.id, payload.codeId, payload.fromThemeId)
+                }
             }}
             className={`w-[320px] rounded-2xl border transition-all shadow-sm bg-white flex flex-col relative
                 ${isDragOver ? 'border-indigo-500 shadow-lg shadow-indigo-100 bg-indigo-50/30' : ''}
@@ -239,10 +244,14 @@ function ThemeCanvasInner({
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault()
-        if (!draggingCodeId) return
+        // Read directly from dataTransfer — more reliable than React state during async drag
+        let payload: { codeId?: string; fromThemeId?: string } = {}
+        try { payload = JSON.parse(e.dataTransfer.getData('application/json')) } catch { return }
+        if (!payload.codeId) return
+
         const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-        onDropOnCanvas(draggingCodeId, flowPos.x, flowPos.y, draggingFromThemeId ?? undefined)
-    }, [draggingCodeId, draggingFromThemeId, screenToFlowPosition, onDropOnCanvas])
+        onDropOnCanvas(payload.codeId, flowPos.x, flowPos.y, payload.fromThemeId)
+    }, [screenToFlowPosition, onDropOnCanvas])
 
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
         const target = e.target as HTMLElement
