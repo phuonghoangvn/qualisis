@@ -79,6 +79,7 @@ export default function TranscriptWorkspace({
     }, [transcript.segments, initialStats])
     const [activePanel, setActivePanel] = useState<ActivePanel>(null)
     const [isAnalyzing, setIsAnalyzing] = useState(false)
+    const abortControllerRef = useRef<AbortController | null>(null)
     const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>({ gpt: true, claude: true, gemini: true })
     const [showModelPicker, setShowModelPicker] = useState(false)
     const [analyzingStep, setAnalyzingStep] = useState(0)
@@ -391,6 +392,11 @@ export default function TranscriptWorkspace({
         setIsAnalyzing(true)
         setShowModelPicker(false)
         setActivePanel(null)
+        setAnalyzingStep(0)
+        
+        const abortController = new AbortController()
+        abortControllerRef.current = abortController
+
         const models = Object.entries(selectedModels)
             .filter(([, v]) => v)
             .map(([k]) => k)
@@ -402,6 +408,7 @@ export default function TranscriptWorkspace({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ models, researchContext, styleMode }),
+                signal: abortController.signal
             })
             
             if (!res.ok) {
@@ -424,11 +431,16 @@ export default function TranscriptWorkspace({
                 setAnalysisRun(true)
             }, 0)
         } catch (e: any) {
+            if (e.name === 'AbortError') {
+                console.log('Analysis cancelled');
+                setIsAnalyzing(false);
+                return;
+            }
             console.error(e)
             alert('Analysis failed: ' + (e.message || String(e)))
             setIsAnalyzing(false)
         }
-    }, [transcript.id, selectedModels, researchContext, router])
+    }, [transcript.id, selectedModels, researchContext, router, styleMode])
 
     // Group suggestions by modelProvider for display
     const getModelSuggestions = (seg: Segment) => {
@@ -1004,7 +1016,13 @@ export default function TranscriptWorkspace({
             {/* Wait screen modal */}
             {mounted && isAnalyzing && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-500">
+                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-500 relative">
+                        <button 
+                            onClick={() => abortControllerRef.current?.abort()}
+                            className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
                         <div className="p-10 flex flex-col items-center text-center">
                             <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 relative shadow-inner">
                                 <svg className="w-10 h-10 text-indigo-500 animate-[spin_3s_linear_infinite]" fill="none" viewBox="0 0 24 24">
@@ -1052,8 +1070,14 @@ export default function TranscriptWorkspace({
                             </div>
 
                         </div>
-                        <div className="bg-slate-50/70 p-4 border-t border-slate-100 text-center">
+                        <div className="bg-slate-50/70 p-4 border-t border-slate-100 flex items-center justify-between px-6">
                             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Expected Wait Time: ~4-7 Minutes</span>
+                            <button 
+                                onClick={() => abortControllerRef.current?.abort()} 
+                                className="text-[10px] font-bold text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors uppercase tracking-widest px-3 py-1.5 rounded-md border border-rose-100 shadow-sm bg-white"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 </div>,

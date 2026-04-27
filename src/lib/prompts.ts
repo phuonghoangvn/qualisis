@@ -42,13 +42,11 @@ WHAT TO CODE:
 - Emotional expressions ("it was overwhelming", "I felt relief")
 - Turning points and changes ("that's when things shifted for me")
 
-HOW TO LABEL CODES — ANALYTICAL THINKING:
-Think beyond paraphrasing. Ask yourself: "What recurring pattern or underlying phenomenon does this quote reveal about how people experience this topic?"
-A good code label is a THEORETICAL CONSTRUCT — it names a pattern or mechanism, not just restates the words.
-- Instead of describing WHAT was said → capture WHAT IT REVEALS or WHAT IT MEANS analytically.
-- Example: Quote: "I lock myself in the bathroom to do breathing" → BAD label: "Breathing in private space" → GOOD label: "Somatic regulation through physical withdrawal"
-- Example: Quote: "I feel less tense after the exercise" → BAD label: "Feeling less tense" → GOOD label: "Embodied relief as outcome of practice"
-Keep labels concise (3-7 words) and analytically meaningful. Each code should capture ONE distinct phenomenon.`;
+HOW TO LABEL CODES — DESCRIPTIVE & CONCISE:
+A code is a short, descriptive tag (1-4 words) that captures the core meaning or action of the quote. It should stick closely to the data and serve as a building block for later themes.
+- Example: Quote: "I lock myself in the bathroom to do breathing" → BAD label (too long/thematic): "Somatic regulation through physical withdrawal" → GOOD label: "Physical withdrawal" or "Seeking private space"
+- Example: Quote: "I feel less tense after the exercise" → BAD label (too long/thematic): "Embodied relief as outcome of practice" → GOOD label: "Feeling relief" or "Reduced tension"
+Keep labels highly concise (1-4 words). Each code should capture ONE distinct phenomenon.`;
 
     // 4. Constraints
     const constraints = `[CONSTRAINTS]
@@ -58,9 +56,9 @@ Keep labels concise (3-7 words) and analytically meaningful. Each code should ca
 4. EXISTENCE CHECK: Every quote must exist verbatim in the transcript. Do not invent or paraphrase.
 5. QUOTE LENGTH: Each quote should be 1-2 meaningful sentences (roughly 8-40 words). Extract the core statement, not entire paragraphs.
 6. ONE PHENOMENON PER CODE: Each code captures one distinct idea.
-7. ANALYTICAL LABELS: Code labels must be THEORETICAL CONSTRUCTS that name an underlying pattern or phenomenon — not paraphrases. Ask: "What does this tell us about how people experience this topic in general?" Labels should be concise (3-7 words) and interpretive.
-8. AVOID PURELY DESCRIPTIVE LABELS: Do not create labels that merely restate or summarise the quote. Bad: "Feeling calmer after breathing." Good: "Somatic regulation through breath-work."
-9. CAPTURE THE MECHANISM OR PATTERN: Prioritize labels that reveal WHY or HOW something happens — the underlying mechanism, tension, or strategy.
+7. CONCISE LABELS: Code labels must be extremely short (1-4 words). They should be descriptive tags, NOT full sentences or broad themes. 
+8. STAY CLOSE TO DATA: Do not over-intellectualize the code labels. Save the deep theoretical constructs for the 'theme' field.
+9. CAPTURE THE ACTION/FEELING: Prioritize labels that name the specific action, emotion, or concept.
 10. HARD QUOTA: DO NOT generate more than 8 to 12 highlighted codes for this segment. Prioritize ONLY the top 8-12 most profound segments.
 
 CRITICAL: DO NOT CODE EVERYTHING! YOU MUST BE EXTREMELY HIGHLY SELECTIVE.
@@ -77,24 +75,24 @@ Return a raw valid JSON array. Each object must follow this exact structure:
 [
   {
     "theme": "Broad theoretical theme name (e.g., 'Agency and self-regulation', 'Embodied experience of practice', 'Tension between control and overwhelm')",
-    "label": "Analytical code label (3-7 words, naming a pattern or phenomenon, e.g., 'Somatic regulation through breath-work', 'Agency reclaimed through routine', 'Anxiety as embodied physical state')",
+    "label": "Short, descriptive code label (1-4 words max, e.g., 'Seeking private space', 'Reduced tension', 'Physical withdrawal')",
     "text": "Exact verbatim quote from the transcript (the Sample Excerpt)",
     "sentiment": "Positive" | "Negative" | "Neutral",
     "confidence": "HIGH" | "MEDIUM" | "LOW",
-    "explanation": "Brief justification for why this quote is analytically relevant and what pattern/phenomenon it reveals"
+    "explanation": "Brief justification for why this quote is analytically relevant"
   }
 ]
 
 IMPORTANT RULES FOR THEMES:
-- Themes are THEORETICAL CONSTRUCTS that describe recurring patterns across the data — they should tell something general and abstract about the data.
-- Group your codes under broad, conceptual themes (e.g., "Agency and self-regulation", "Embodied anxiety management", "Perceived efficacy of practice").
+- Themes are THEORETICAL CONSTRUCTS that describe recurring patterns across the data. They are abstract and interpretive.
+- Group your codes under broad, conceptual themes.
 - Reuse the SAME theme name for all codes that belong to the same category. Do NOT create a unique theme for every single code.
 - Aim for 3-7 distinct themes per transcript.
 
 IMPORTANT RULES FOR CODE LABELS:
-- Each code label should be 3-7 words, analytical, and name an underlying phenomenon or pattern.
-- Examples of GOOD code labels: "Agency reclaimed through structured routine", "Somatic relief as validation of practice", "Physical withdrawal as regulatory strategy".
-- Examples of BAD code labels: "Feeling better", "Using breathing", "Anxiety reduced" (too descriptive, not analytical).
+- Each code label MUST be 1-4 words. It is a tag, not a theme.
+- Examples of GOOD code labels: "Seeking private space", "Feeling relief", "Work-life imbalance".
+- Examples of BAD code labels: "Agency reclaimed through structured routine", "Somatic relief as validation of practice" (these are THEMES, not codes).
 
 Return ONLY the JSON array. No markdown wrappers. Code SELECTIVELY — quality over quantity.`;
 
