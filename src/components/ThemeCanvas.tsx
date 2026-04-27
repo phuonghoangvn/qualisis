@@ -311,12 +311,16 @@ interface ThemeCanvasInnerProps {
     aiSuggestions?: any[]
     onAcceptSuggestion?: (name: string) => void
     onRejectSuggestion?: (name: string) => void
+    suggestionsLoading?: boolean
+    suggestionsRemainingAfterBatch?: number
+    onLoadNextBatch?: () => void
 }
 
 function ThemeCanvasInner({
     themes, draggingCodeId, draggingFromThemeId,
     onDropCode, onDropOnCanvas, onEdit, onDelete, onRemoveCode, onPositionSave, onCreateTheme,
-    onDragStartCode, onDragEndCode, aiSuggestions = [], onAcceptSuggestion, onRejectSuggestion
+    onDragStartCode, onDragEndCode, aiSuggestions = [], onAcceptSuggestion, onRejectSuggestion,
+    suggestionsLoading = false, suggestionsRemainingAfterBatch = 0, onLoadNextBatch
 }: ThemeCanvasInnerProps) {
     const { screenToFlowPosition } = useReactFlow()
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -450,6 +454,48 @@ function ThemeCanvasInner({
                     </button>
                 </Panel>
 
+                {/* AI Suggestions Control Panel */}
+                {(suggestionsLoading || suggestionsRemainingAfterBatch > 0 || (aiSuggestions && aiSuggestions.length > 0)) && (
+                    <Panel position="bottom-center" className="mb-4">
+                        <div className="bg-white/95 backdrop-blur-md border border-indigo-200 shadow-xl rounded-2xl p-4 flex items-center gap-4 animate-in slide-in-from-bottom-4">
+                            {suggestionsLoading ? (
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-5 h-5 text-indigo-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                    <span className="text-sm font-bold text-indigo-700">Analyzing code patterns...</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-extrabold text-slate-800">{aiSuggestions?.length || 0} Suggestions Ready</span>
+                                            <span className="text-[11px] font-medium text-slate-500">Review on the canvas</span>
+                                        </div>
+                                    </div>
+                                    {suggestionsRemainingAfterBatch > 0 && (
+                                        <>
+                                            <div className="w-px h-8 bg-slate-200"></div>
+                                            <div className="flex flex-col">
+                                                <button
+                                                    onClick={onLoadNextBatch}
+                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
+                                                >
+                                                    Analyze next {Math.min(80, suggestionsRemainingAfterBatch)} codes
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </Panel>
+                )}
+
                 {/* Hint in bottom-left */}
                 <Panel position="bottom-left">
                     <p className="text-[11px] text-slate-400 font-medium bg-white/80 backdrop-blur-sm border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm select-none">
@@ -489,6 +535,9 @@ interface ThemeCanvasProps {
     aiSuggestions?: any[]
     onAcceptSuggestion?: (name: string) => void
     onRejectSuggestion?: (name: string) => void
+    suggestionsLoading?: boolean
+    suggestionsRemainingAfterBatch?: number
+    onLoadNextBatch?: () => void
 }
 
 export default function ThemeCanvas(props: ThemeCanvasProps) {

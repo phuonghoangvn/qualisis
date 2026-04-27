@@ -1200,12 +1200,22 @@ Rules:
                             <div className="w-px h-6 bg-slate-200 mx-1"></div>
                             
                             <button
-                                onClick={() => setIsRightPanelOpen(true)}
-                                className="flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-100 hover:border-indigo-300 transition-all"
+                                onClick={() => {
+                                    if (suggestionsLoading) return;
+                                    if (themeSuggestions.length === 0) {
+                                        generateSuggestions(true)
+                                    }
+                                }}
+                                disabled={suggestionsLoading}
+                                className={`flex items-center gap-1.5 border px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all ${
+                                    themeSuggestions.length > 0 
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default'
+                                        : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300'
+                                }`}
                                 title="Let AI analyze unassigned codes and suggest new themes"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                Suggest Themes (AI)
+                                {suggestionsLoading ? 'Analyzing...' : themeSuggestions.length > 0 ? 'Suggestions Ready' : 'Suggest Themes (AI)'}
                             </button>
 
                             <button
@@ -1512,6 +1522,9 @@ Rules:
                             aiSuggestions={themeSuggestions}
                             onAcceptSuggestion={acceptSuggestion}
                             onRejectSuggestion={rejectSuggestion}
+                            suggestionsLoading={suggestionsLoading}
+                            suggestionsRemainingAfterBatch={suggestionsRemainingAfterBatch}
+                            onLoadNextBatch={() => generateSuggestions(false, suggestionBatchOffset)}
                         />
                     </div>
                 </div>
@@ -1581,244 +1594,7 @@ Rules:
                 </div>
             </div>
 
-            {/* Right Panel: AI Suggestions — collapsed icon */}
-            {activeTab === 'Theme Map' && !isRightPanelOpen && (
-                <div className="w-12 bg-[#3E3A86] flex flex-col items-center py-4 flex-shrink-0 cursor-pointer hover:bg-[#4a479b] transition-colors" onClick={() => setIsRightPanelOpen(true)} title="Expand AI suggestions">
-                    <div className="flex flex-col items-center gap-2 mt-16">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-300"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                        <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-extrabold text-indigo-300 uppercase tracking-widest">AI Suggestions</div>
-                    </div>
-                </div>
-            )}
 
-            {/* Right Panel: AI Suggestions — expanded */}
-            {activeTab === 'Theme Map' && isRightPanelOpen && (
-            <div className="w-[360px] bg-slate-50 flex flex-col flex-shrink-0 border-l border-slate-200 z-10">
-                <div className="px-6 py-4 bg-[#3E3A86] text-white">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <h2 className="text-[17px] font-extrabold flex items-center gap-2 mb-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-300"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
-                                AI Theme Suggestions
-                            </h2>
-                            <p className="text-xs text-indigo-200/80 font-medium ml-7">Based on code co-occurrence</p>
-                        </div>
-                        <button onClick={() => setIsRightPanelOpen(false)} title="Collapse panel" className="text-indigo-200 hover:text-white p-1 rounded hover:bg-white/10 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Prompt Editor Toggle */}
-                <div className="border-b border-slate-200 bg-white">
-                    <button
-                        onClick={() => setShowPromptEditor(!showPromptEditor)}
-                        className="w-full px-5 py-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                    >
-                        <div className="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            <span className="text-[11px] font-bold text-slate-600">View/Edit Prompt</span>
-                            {themePrompt !== DEFAULT_THEME_PROMPT && <span className="text-[8px] font-extrabold bg-amber-50 text-amber-600 px-1 py-0.5 rounded">MODIFIED</span>}
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-slate-400 transition-transform ${showPromptEditor ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-                    {showPromptEditor && (
-                        <div className="px-4 pb-3">
-                            <div className="flex items-center justify-between mb-1.5">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">AI Instructions</p>
-                                {themePrompt !== DEFAULT_THEME_PROMPT && (
-                                    <button onClick={() => setThemePrompt(DEFAULT_THEME_PROMPT)} className="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-0.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-                                        Reset
-                                    </button>
-                                )}
-                            </div>
-                            <textarea
-                                value={themePrompt}
-                                onChange={e => setThemePrompt(e.target.value)}
-                                className="w-full h-36 text-[10px] p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-y font-mono leading-relaxed custom-scrollbar bg-slate-50"
-                            />
-                        </div>
-                    )}
-                </div>
-                
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 bg-slate-50">
-                    {suggestionsLoading ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-indigo-400">
-                            <svg className="w-8 h-8 animate-spin mb-4" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                            <span className="text-sm font-bold text-indigo-600">Analyzing code patterns...</span>
-                            <span className="text-xs text-indigo-400 mt-1">AI is grouping your codes into themes</span>
-                        </div>
-                    ) : themeSuggestions.length === 0 ? (
-                        <div className="text-center py-12">
-                            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                            </div>
-                            {suggestionsRemainingAfterBatch > 0 ? (
-                                <>
-                                    <p className="text-xs font-bold text-slate-600 mb-1">Batch completed</p>
-                                    <p className="text-[11px] text-slate-400 mb-4">
-                                        You've reviewed all suggestions in this batch.<br/>
-                                        Ready to analyze the next {Math.min(80, suggestionsRemainingAfterBatch)} codes.
-                                    </p>
-                                    <button
-                                        onClick={() => generateSuggestions(false, suggestionBatchOffset)}
-                                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 mx-auto"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                        Analyze next {Math.min(80, suggestionsRemainingAfterBatch)} codes
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="text-xs font-bold text-slate-600 mb-1">No suggestions yet</p>
-                                    <p className="text-[11px] text-slate-400 mb-4">
-                                        {unassignedCodes.length >= 2 
-                                            ? `Ready to analyze ${unassignedCodes.length} unassigned codes.` 
-                                            : 'Need at least 2 codes to generate theme suggestions.'}
-                                    </p>
-                                    {unassignedCodes.length >= 2 && (
-                                        <button
-                                            onClick={() => generateSuggestions(true)}
-                                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
-                                        >
-                                            Generate Suggestions
-                                        </button>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    ) : (
-                        themeSuggestions.map((suggestion, idx) => (
-                            <div key={idx} className="bg-indigo-50 border border-indigo-100/80 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                                <div className="relative z-10">
-                                    <div className="flex items-start justify-between mb-2 gap-2">
-                                        <h3 className="text-sm font-extrabold text-slate-800 leading-tight">{suggestion.name}</h3>
-                                        <div className="flex gap-1 flex-wrap justify-end items-center">
-                                            {suggestion.confidenceScore !== undefined && (
-                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-sm tracking-wide ${
-                                                    suggestion.confidenceScore >= 80 ? 'bg-emerald-100 text-emerald-700' :
-                                                    suggestion.confidenceScore >= 50 ? 'bg-amber-100 text-amber-700' :
-                                                    'bg-rose-100 text-rose-700'
-                                                }`}>
-                                                    {suggestion.confidenceScore}% conf
-                                                </span>
-                                            )}
-                                            {suggestion.tags?.map(tag => (
-                                                <span key={tag} className="bg-[#E5DFFF] text-[#554CB1] text-[10px] font-extrabold px-2 py-0.5 rounded-sm tracking-wide">
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <p className="text-[12px] text-[#474DBB] font-medium leading-relaxed mb-2 pr-1">
-                                        {suggestion.description}
-                                    </p>
-                                    {/* Reasoning */}
-                                    {suggestion.reason && (
-                                        <div className="bg-white/60 border border-indigo-100 rounded-lg p-2.5 mb-3">
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                                                Reasoning
-                                            </p>
-                                            <p className="text-[11px] text-slate-600 leading-relaxed">{suggestion.reason}</p>
-                                        </div>
-                                    )}
-                                    <div className="flex flex-wrap gap-1.5 mb-4">
-                                        {suggestion.codes?.map(code => (
-                                            <span key={code.id || code.name} className="bg-white border text-indigo-700/80 border-indigo-100 text-[11px] font-semibold px-2 py-1 rounded shadow-sm">
-                                                {code.name}
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => acceptSuggestion(suggestion.name)}
-                                            disabled={acceptingId === suggestion.name}
-                                            className="flex-1 py-2 bg-[#5B55D6] hover:bg-[#4C47B2] disabled:bg-indigo-300 text-white text-[13px] font-extrabold rounded-md shadow-sm transition-colors flex items-center justify-center gap-1.5 focus:ring-4 focus:ring-indigo-100 outline-none"
-                                        >
-                                            {acceptingId === suggestion.name ? (
-                                                <>
-                                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                    </svg>
-                                                    Creating...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                                    Accept
-                                                </>
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={() => rejectSuggestion(suggestion.name)}
-                                            disabled={acceptingId === suggestion.name}
-                                            className="px-3 py-2 bg-slate-100/50 hover:bg-slate-200 text-slate-500 text-[13px] font-extrabold rounded-md shadow-sm transition-colors flex items-center justify-center focus:ring-4 focus:ring-slate-100 outline-none border border-slate-200"
-                                            title="Reject suggestion"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    )}
-
-                    {/* Load next batch banner */}
-                    {!suggestionsLoading && suggestionsRemainingAfterBatch > 0 && themeSuggestions.length > 0 && (
-                        <div className="mx-1 mt-2 mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between gap-3">
-                            <div>
-                                <p className="text-[12px] font-bold text-indigo-700">
-                                    {suggestionsRemainingAfterBatch} more codes to analyze
-                                </p>
-                                <p className="text-[10px] text-indigo-400 mt-0.5">
-                                    AI processed the first batch. Load more to continue grouping.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => generateSuggestions(false, suggestionBatchOffset)}
-                                className="flex-shrink-0 bg-indigo-600 text-white text-[11px] font-bold px-3 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                Analyze next {Math.min(80, suggestionsRemainingAfterBatch)}
-                            </button>
-                        </div>
-                    )}
-                </div>
-                
-                {/* Progress Sidebar Bottom */}
-                <div className="p-6 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
-                    <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">Progress</h4>
-                    <div className="space-y-4">
-                        <div>
-                            <div className="flex justify-between text-[13px] font-bold text-slate-800 mb-2">
-                                <span>Codes assigned</span>
-                                <span>{assignedCount} / {totalCodes}</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                                    style={{ width: totalCodes > 0 ? `${(assignedCount / totalCodes) * 100}%` : '0%' }}
-                                ></div>
-                            </div>
-                        </div>
-                        <div className="flex justify-between text-[13px] font-bold text-slate-800">
-                            <span>Themes created</span>
-                            <span>{totalThemesCount}</span>
-                        </div>
-                        <div className="flex justify-between text-[13px] font-bold text-slate-800">
-                            <span>Codes dropped</span>
-                            <span className="text-rose-500">0</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            )}
 
             {/* Synthesize Themes Modal */}
             {synthModalOpen && (
