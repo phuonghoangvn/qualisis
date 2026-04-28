@@ -60,7 +60,7 @@ export default function Sidebar({ project }: { project: Project }) {
 
             {/* Navigation */}
             <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4">
-                {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mb-2">Workflow Steps</div>}
+                {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mb-2">Phase 1: Data & Coding</div>}
                 
                 {/* ① Transcripts */}
                 <div className="mb-1">
@@ -124,7 +124,9 @@ export default function Sidebar({ project }: { project: Project }) {
                     )}
                 </div>
 
-                {/* ② Theme Builder */}
+                {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mt-6 mb-2">Phase 2: Analysis & Synthesis</div>}
+
+                {/* ② Analysis Workspace */}
                 <Link
                     href={`/projects/${project.id}/themes`}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-1 ${
@@ -136,7 +138,7 @@ export default function Sidebar({ project }: { project: Project }) {
                     <span className={isThemesActive ? 'text-indigo-600' : 'text-slate-400'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
                     </span>
-                    {!collapsed && <span className="text-sm">② Theme Builder</span>}
+                    {!collapsed && <span className="text-sm">Analysis Workspace</span>}
                 </Link>
 
                 {/* ③ Codebook */}
@@ -151,22 +153,7 @@ export default function Sidebar({ project }: { project: Project }) {
                     <span className={isCodebookActive ? 'text-indigo-600' : 'text-slate-400'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </span>
-                    {!collapsed && <span className="text-sm">③ Codebook</span>}
-                </Link>
-
-                {/* ④ Report */}
-                <Link
-                    href={`/projects/${project.id}/report`}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-4 ${
-                        isReportActive
-                            ? 'bg-white border border-slate-200 shadow-sm text-indigo-700 font-semibold'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-medium border border-transparent'
-                    }`}
-                >
-                    <span className={isReportActive ? 'text-indigo-600' : 'text-slate-400'}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
-                    </span>
-                    {!collapsed && <span className="text-sm">④ Export Report</span>}
+                    {!collapsed && <span className="text-sm">Final Codebook</span>}
                 </Link>
 
                 {!collapsed && <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-3 mt-6 mb-2">Utilities</div>}
