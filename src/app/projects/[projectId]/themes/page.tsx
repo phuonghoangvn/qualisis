@@ -1461,7 +1461,7 @@ Rules:
                                                         })()}
                                                     </td>
                                                     <td className="px-4 py-4 align-top">
-                                                        <a href={`/projects/${projectId}/transcripts/${row.transcriptId}`} target="_blank" className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                                                        <a href={`/projects/${projectId}/transcripts/${row.transcriptId}?segment=${row.segmentId}`} target="_blank" className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1" title="Jump to this highlight in the transcript">
                                                             {row.transcriptTitle}
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 0 2-2h6"/></svg>
                                                         </a>
