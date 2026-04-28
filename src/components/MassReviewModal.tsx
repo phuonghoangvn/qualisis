@@ -364,10 +364,10 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                 <div className="px-8 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50 flex-shrink-0">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <h2 className="text-xl font-extrabold text-slate-800">Mass Review AI Suggestions</h2>
+                            <h2 className="text-xl font-extrabold text-slate-800">Code Comparison</h2>
                             <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{transcriptTitle}</span>
                         </div>
-                        <p className="text-sm text-slate-500 font-medium tracking-tight">Review, accept, or reject generated codes in bulk before adding them to the Codebook.</p>
+                        <p className="text-sm text-slate-500 font-medium tracking-tight">Compare your manual codes against AI suggestions to identify gaps or differences.</p>
                     </div>
                     <div className="flex items-center gap-3">
                         {filter === 'PENDING' && counts.pending > 0 && (
@@ -415,7 +415,7 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                     {counts.misses > 0 && (
                         <button onClick={() => setFilter('MISSES')} className={`text-sm font-bold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 border ${filter === 'MISSES' ? 'bg-rose-600 text-white border-rose-600' : 'text-rose-600 border-rose-200 bg-rose-50 hover:bg-rose-100'}`}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-                            Potential Misses <span className="bg-white/30 px-1.5 rounded-sm">{counts.misses}</span>
+                            AI Only <span className="bg-white/30 px-1.5 rounded-sm">{counts.misses}</span>
                         </button>
                     )}
                 </div>
@@ -502,7 +502,7 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="10"/></svg>
                                                             Not coded
                                                         </span>
-                                                        <span className="text-[9px] text-rose-400 font-medium">Potential miss</span>
+                                                        <span className="text-[9px] text-rose-400 font-medium">AI Only</span>
                                                     </div>
                                                 );
                                             }
