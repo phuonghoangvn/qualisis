@@ -91,6 +91,8 @@ export default function TranscriptWorkspace({
     const [showObsPanel, setShowObsPanel] = useState(false)
     const [obsForm, setObsForm] = useState({ label: '', note: '', context: '' })
     const [obsSaving, setObsSaving] = useState(false)
+    const [showHighlightGuide, setShowHighlightGuide] = useState(false)
+    const transcriptBodyRef = useRef<HTMLDivElement>(null)
 
     const triggerToast = useCallback((message: string) => {
         setToastMessage({ message, visible: true })
@@ -908,7 +910,19 @@ export default function TranscriptWorkspace({
                 </div>
 
                 {/* Transcript body (White Paper UI) */}
-                <div className="flex-1 overflow-y-auto w-full flex justify-center items-start py-10 px-8 bg-slate-50/50 custom-scrollbar">
+                <div
+                    ref={transcriptBodyRef}
+                    className={`flex-1 overflow-y-auto w-full flex justify-center items-start py-10 px-8 bg-slate-50/50 custom-scrollbar transition-all duration-300 ${showHighlightGuide ? 'ring-2 ring-indigo-400 ring-inset' : ''}`}
+                >
+                    {/* Floating guide tooltip */}
+                    {showHighlightGuide && (
+                        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+                            <div className="flex items-center gap-2 bg-slate-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-full shadow-xl">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m8 16 2.05-2.05a5.55 5.55 0 0 0-7.85-7.85L5 3"/><path d="m14 8 2.3 2.3c.9.9 2.5.9 3.4 0l.6-.6c.9-.9.9-2.5 0-3.4l-2.3-2.3"/><path d="m21 21-1-1"/><path d="m16 8 4 4"/><path d="M4 16h6v5H4v-5Z"/></svg>
+                                Click &amp; drag over any text to assign a code
+                            </div>
+                        </div>
+                    )}
                     <div className="w-full max-w-[850px] bg-white rounded-3xl p-16 shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-slate-100 h-fit min-h-full flex flex-col">
                         {isEditingText ? (
                             <textarea
@@ -941,7 +955,13 @@ export default function TranscriptWorkspace({
             {/* ── Right: Panel ── */}
             <div className="w-80 flex-shrink-0 flex flex-col bg-slate-50 border-l border-slate-200 overflow-hidden">
                 {activePanel === null && (
-                    <EmptyPanel analysisRun={analysisRun} onRunAnalysis={runAnalysis} isAnalyzing={isAnalyzing} stats={stats} onOpenMassReview={(t) => setShowMassReview(t)} />
+                    <EmptyPanel analysisRun={analysisRun} onRunAnalysis={runAnalysis} isAnalyzing={isAnalyzing} stats={stats} onOpenMassReview={(t) => setShowMassReview(t)} onHighlightGuide={() => {
+                        // Scroll transcript to top
+                        transcriptBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                        // Flash glow ring
+                        setShowHighlightGuide(true);
+                        setTimeout(() => setShowHighlightGuide(false), 3000);
+                    }} />
                 )}
                 {activePanel?.type === 'ai' && (
                     <AIComparePanel
@@ -1269,12 +1289,13 @@ function LegendDot({ color, label }: { color: string; label: string }) {
     )
 }
 
-function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats, onOpenMassReview }: {
+function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats, onOpenMassReview, onHighlightGuide }: {
     analysisRun: boolean
     onRunAnalysis: () => void
     isAnalyzing: boolean
     stats?: Stats
     onOpenMassReview: (tab: 'ALL' | 'PENDING' | 'ACCEPTED') => void
+    onHighlightGuide: () => void
 }) {
     if (analysisRun && stats) {
         return (
@@ -1409,13 +1430,13 @@ function EmptyPanel({ analysisRun, onRunAnalysis, isAnalyzing, stats, onOpenMass
                 </div>
 
                 {/* Highlight manually Box */}
-                <div className="w-full p-5 rounded-[20px] bg-white border border-slate-200 shadow-sm text-left hover:border-slate-300 hover:shadow-md transition-all cursor-pointer">
+                <div onClick={onHighlightGuide} className="w-full p-5 rounded-[20px] bg-white border border-slate-200 shadow-sm text-left hover:border-indigo-300 hover:shadow-md hover:bg-indigo-50/20 transition-all cursor-pointer group">
                     <div className="flex gap-4">
-                         <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center flex-shrink-0 shadow-inner">
+                         <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center flex-shrink-0 shadow-inner group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-highlighter"><path d="m8 16 2.05-2.05a5.55 5.55 0 0 0-7.85-7.85L5 3"/><path d="m14 8 2.3 2.3c.9.9 2.5.9 3.4 0l.6-.6c.9-.9.9-2.5 0-3.4l-2.3-2.3"/><path d="m21 21-1-1"/><path d="m16 8 4 4"/><path d="M4 16h6v5H4v-5Z"/></svg>
                         </div>
                         <div>
-                            <h4 className="text-sm font-bold text-slate-800 mb-1">Highlight manually</h4>
+                            <h4 className="text-sm font-bold text-slate-800 mb-1 group-hover:text-indigo-700 transition-colors">Highlight manually</h4>
                             <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
                                 Select any text in the transcript by dragging to create a highlight and assign your own code.
                             </p>
