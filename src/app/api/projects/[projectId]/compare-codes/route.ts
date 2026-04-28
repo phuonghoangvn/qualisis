@@ -74,17 +74,15 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
         })
 
         // Sort rows by action priority:
-        // 1. HUMAN
+        // 1. ACCEPTED (HUMAN, APPROVED, MODIFIED)
         // 2. PENDING (SUGGESTED, UNDER_REVIEW)
-        // 3. ACCEPTED (APPROVED, MODIFIED)
-        // 4. REJECTED
+        // 3. REJECTED
         rows.sort((a, b) => {
             const getRank = (status: string | undefined) => {
-                if (status === 'HUMAN') return 1;
+                if (status === 'HUMAN' || status === 'APPROVED' || status === 'MODIFIED') return 1;
                 if (status === 'SUGGESTED' || status === 'UNDER_REVIEW') return 2;
-                if (status === 'APPROVED' || status === 'MODIFIED') return 3;
-                if (status === 'REJECTED') return 4;
-                return 5;
+                if (status === 'REJECTED') return 3;
+                return 4;
             };
             
             const rankA = getRank(a.suggestion.status);
