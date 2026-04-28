@@ -36,7 +36,7 @@ type MassReviewModalProps = {
 }
 
 export default function MassReviewModal({ segments, initialTab, transcriptTitle, onClose, onDecision, onTrace }: MassReviewModalProps) {
-    const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED'>(initialTab);
+    const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'MISSES'>(initialTab);
     const [editingRow, setEditingRow] = useState<string | null>(null);
     const [editLabel, setEditLabel] = useState("");
     const [acceptAllLoading, setAcceptAllLoading] = useState(false);
@@ -231,6 +231,9 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
             filtered = flat.filter(r => r.suggestion.status === 'APPROVED' || r.suggestion.status === 'MODIFIED');
         } else if (filter === 'REJECTED') {
             filtered = flat.filter(r => r.suggestion.status === 'REJECTED');
+        } else if (filter === 'MISSES') {
+            // AI found a code but researcher hasn't manually coded this segment
+            filtered = flat.filter(r => !r.isHuman && r.segment.codeAssignments.filter((c: any) => !c.aiSuggestionId).length === 0);
         }
 
         // Sort by confidence desc
@@ -247,17 +250,22 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
     }, [segments, filter]);
 
     const counts = useMemo(() => {
-        let p = 0, a = 0, r = 0;
+        let p = 0, a = 0, r = 0, m = 0;
         for (const seg of segments) {
             const hasApproved = seg.suggestions.some(s => s.status === 'APPROVED' || s.status === 'MODIFIED');
             const allRejected = seg.suggestions.length > 0 && seg.suggestions.every(s => s.status === 'REJECTED');
             const hasHuman = seg.suggestions.length === 0 && seg.codeAssignments.length > 0;
-            
+            const humanCodes = seg.codeAssignments.filter((c: any) => !c.aiSuggestionId);
+            const hasAISuggestion = seg.suggestions.length > 0;
+
             if (hasApproved || hasHuman) a++;
             else if (allRejected) r++;
             else if (seg.suggestions.length > 0) p++;
+
+            // Potential miss: AI has a suggestion but researcher hasn't manually coded this segment
+            if (hasAISuggestion && humanCodes.length === 0) m++;
         }
-        return { pending: p, accepted: a, rejected: r, all: p + a + r };
+        return { pending: p, accepted: a, rejected: r, all: p + a + r, misses: m };
     }, [segments]);
 
     const handleAcceptAllClick = () => {
@@ -399,11 +407,17 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                 </div>
 
                 {/* Filters */}
-                <div className="flex items-center gap-4 px-8 py-3 border-b border-slate-100 bg-white">
+                <div className="flex items-center gap-2 px-8 py-3 border-b border-slate-100 bg-white flex-wrap">
                     <button onClick={() => setFilter('ALL')} className={`text-sm font-bold px-3 py-1.5 rounded-md transition-colors ${filter === 'ALL' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>All ({counts.all})</button>
                     <button onClick={() => setFilter('PENDING')} className={`text-sm font-bold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${filter === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-100'}`}>Pending <span className="bg-white/50 px-1.5 rounded-sm">{counts.pending}</span></button>
                     <button onClick={() => setFilter('ACCEPTED')} className={`text-sm font-bold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${filter === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-100'}`}>Accepted <span className="bg-white/50 px-1.5 rounded-sm">{counts.accepted}</span></button>
                     <button onClick={() => setFilter('REJECTED')} className={`text-sm font-bold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${filter === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'text-slate-500 hover:bg-slate-100'}`}>Rejected <span className="bg-white/50 px-1.5 rounded-sm">{counts.rejected}</span></button>
+                    {counts.misses > 0 && (
+                        <button onClick={() => setFilter('MISSES')} className={`text-sm font-bold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 border ${filter === 'MISSES' ? 'bg-rose-600 text-white border-rose-600' : 'text-rose-600 border-rose-200 bg-rose-50 hover:bg-rose-100'}`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                            Potential Misses <span className="bg-white/30 px-1.5 rounded-sm">{counts.misses}</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Table */}
@@ -411,16 +425,22 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-white sticky top-0 z-10 shadow-sm border-b border-slate-200">
                             <tr>
-                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[15%]">Code / Score</th>
-                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[40%]">Excerpt from Transcript</th>
-                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[25%]">Rationale & Memos</th>
+                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[14%]">AI Code / Score</th>
+                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[11%]">
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-purple-400 inline-block"/>
+                                        Your Code
+                                    </span>
+                                </th>
+                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[31%]">Excerpt from Transcript</th>
+                                <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[24%]">Rationale &amp; Memos</th>
                                 <th className="px-6 py-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest w-[20%] text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-16 text-center text-slate-400">
+                                    <td colSpan={5} className="px-6 py-16 text-center text-slate-400">
                                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                                         </div>
@@ -428,8 +448,9 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                     </td>
                                 </tr>
                             ) : rows.map(r => (
-                                <tr key={r.segment.id} className="hover:bg-indigo-50/30 transition-colors group bg-white">
+                                <tr key={r.segment.id} className={`hover:bg-indigo-50/30 transition-colors group bg-white ${filter === 'MISSES' ? 'border-l-2 border-rose-300' : ''}`}>
                                     <td className="px-6 py-5 align-top">
+                                        {/* AI Code column – unchanged */}
                                         <div className="flex flex-col gap-1.5 items-start">
                                             {editingRow === r.segment.id ? (
                                                 <div className="flex flex-col items-start gap-1">
@@ -463,6 +484,51 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                             )}
                                             {r.isHuman && <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider bg-purple-100 text-purple-700 mt-1">HUMAN</span>}
                                         </div>
+                                    </td>
+                                    {/* ── NEW: Your Code column ── */}
+                                    <td className="px-4 py-5 align-top">
+                                        {(() => {
+                                            const humanCodes = r.segment.codeAssignments.filter((c: any) => !c.aiSuggestionId);
+                                            if (r.isHuman) {
+                                                // This row IS the human code — no comparison needed
+                                                return (
+                                                    <span className="text-[10px] text-slate-400 italic">—</span>
+                                                );
+                                            }
+                                            if (humanCodes.length === 0) {
+                                                return (
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-1 rounded">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="10"/></svg>
+                                                            Not coded
+                                                        </span>
+                                                        <span className="text-[9px] text-rose-400 font-medium">Potential miss</span>
+                                                    </div>
+                                                );
+                                            }
+                                            const humanLabel = humanCodes[0].codebookEntry.name;
+                                            const aiLabel = r.suggestion.label.toLowerCase().trim();
+                                            const humanLower = humanLabel.toLowerCase().trim();
+                                            const isMatch = aiLabel === humanLower || aiLabel.includes(humanLower) || humanLower.includes(aiLabel);
+                                            return (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded text-[11px] font-bold max-w-[150px] whitespace-normal">
+                                                        {humanLabel}
+                                                    </span>
+                                                    {isMatch ? (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                            Match
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+                                                            Differs
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-5 align-top">
                                         <div className="mb-2.5">

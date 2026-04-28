@@ -755,48 +755,6 @@ export default function TranscriptWorkspace({
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Edit Button */}
-                        {isEditingText && (
-                            <button
-                                onClick={() => {
-                                    setIsEditingText(false);
-                                    setEditedContent(transcript.content);
-                                }}
-                                disabled={isSaving}
-                                className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                        )}
-                        <button 
-                            onClick={() => {
-                                if (isEditingText) {
-                                    saveEditedContent();
-                                } else {
-                                    if (segments.length > 0) {
-                                        setShowEditConfirm(true);
-                                    } else {
-                                        setEditedContent(transcript.content);
-                                        setIsEditingText(true);
-                                    }
-                                }
-                            }}
-                            disabled={isSaving || isAnalyzing}
-                            className={`px-4 py-2 border rounded-lg text-sm font-semibold transition-colors shadow-sm bg-white ${isEditingText ? 'border-emerald-300 text-emerald-600 hover:bg-emerald-50' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                        >
-                            {isSaving ? 'Saving...' : isEditingText ? 'Save Changes' : 'Edit Transcript'}
-                        </button>
-
-                        {/* Memo Button */}
-                        <button 
-                            onClick={() => setShowObsPanel(true)}
-                            className="flex items-center gap-2 px-4 py-2 border border-violet-200 bg-violet-50 rounded-lg text-sm font-bold text-violet-700 hover:bg-violet-100 transition-colors shadow-sm"
-                            title="Log a researcher insight or observation"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                            New Memo
-                        </button>
-
                         {/* Export Button */}
                         <button 
                             onClick={exportTranscriptCoded}
