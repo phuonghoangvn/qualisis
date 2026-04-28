@@ -1389,6 +1389,9 @@ Rules:
                                             const conf = parseInt(row.suggestion.confidence || '0') || 0
                                             const confBg = conf >= 80 ? 'bg-emerald-100 text-emerald-700' : conf >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
                                             const humanLabel = row.humanCodes[0]
+                                            const isAccepted = row.suggestion.status === 'APPROVED' || row.suggestion.status === 'MODIFIED'
+                                            // For accepted AI suggestions, show the accepted label as "Your Code"
+                                            const yourCodeLabel = humanLabel || (isAccepted ? row.suggestion.label : null)
                                             const isMatch = humanLabel && (row.suggestion.label.toLowerCase().includes(humanLabel.toLowerCase()) || humanLabel.toLowerCase().includes(row.suggestion.label.toLowerCase()))
                                             return (
                                                 <tr key={row.segmentId} className="hover:bg-indigo-50/20 transition-colors bg-white group">
@@ -1400,25 +1403,62 @@ Rules:
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-4 align-top">
-                                                        {!humanLabel ? (
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-1 rounded">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="10"/></svg>
-                                                                    Not coded
-                                                                </span>
-                                                                <span className="text-[9px] text-rose-400 font-medium">Potential miss</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-col gap-1.5">
-                                                                <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded text-[11px] font-bold max-w-[130px] whitespace-normal">{humanLabel}</span>
-                                                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold ${isMatch ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                                    {isMatch
-                                                                        ? <><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Match</>  
-                                                                        : <><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>Differs</>
-                                                                    }
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                        {(() => {
+                                                            // Case 1: Human-only segment (no AI suggestions at all)
+                                                            if (row.isHuman) {
+                                                                return (
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded text-[11px] font-bold max-w-[130px] whitespace-normal">{humanLabel}</span>
+                                                                        <span className="text-[9px] text-purple-400 font-semibold">Human coded only</span>
+                                                                    </div>
+                                                                )
+                                                            }
+                                                            // Case 2: Both Human + AI, codes align
+                                                            if (humanLabel && isMatch) {
+                                                                return (
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded text-[11px] font-bold max-w-[130px] whitespace-normal">{humanLabel}</span>
+                                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                                            Codes align
+                                                                        </span>
+                                                                    </div>
+                                                                )
+                                                            }
+                                                            // Case 3: Both Human + AI, codes differ
+                                                            if (humanLabel && !isMatch) {
+                                                                return (
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded text-[11px] font-bold max-w-[130px] whitespace-normal">{humanLabel}</span>
+                                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+                                                                            Codes differ
+                                                                        </span>
+                                                                    </div>
+                                                                )
+                                                            }
+                                                            // Case 4: Human accepted the AI suggestion
+                                                            if (!humanLabel && isAccepted) {
+                                                                return (
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        <span className="inline-flex text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded text-[11px] font-bold max-w-[130px] whitespace-normal">{row.suggestion.label}</span>
+                                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-500">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                                            Human accepted AI
+                                                                        </span>
+                                                                    </div>
+                                                                )
+                                                            }
+                                                            // Case 5: AI only, human hasn't coded this yet
+                                                            return (
+                                                                <div className="flex flex-col gap-1">
+                                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-2 py-1 rounded">
+                                                                        Not yet coded
+                                                                    </span>
+                                                                    <span className="text-[9px] text-slate-400 font-medium">AI only suggestion</span>
+                                                                </div>
+                                                            )
+                                                        })()}
                                                     </td>
                                                     <td className="px-4 py-4 align-top">
                                                         <a href={`/projects/${projectId}/transcripts/${row.transcriptId}`} target="_blank" className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1">
