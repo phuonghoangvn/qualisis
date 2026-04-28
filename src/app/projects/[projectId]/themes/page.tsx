@@ -488,6 +488,79 @@ export default function ThemesPage() {
     // Selected theme in Thematic Map for drill-down
     const [mapSelectedTheme, setMapSelectedTheme] = useState<ThemeData | null>(null)
 
+    // Pending Codes (project-wide)
+    type PendingRow = {
+        segmentId: string
+        text: string
+        transcriptId: string
+        transcriptTitle: string
+        suggestion: { id: string; label: string; confidence: string | null; explanation: string | null; uncertainty: string | null; modelProvider: string | null; status: string }
+        humanCodes: string[]
+        totalSuggestions: number
+    }
+    const [pendingCodes, setPendingCodes] = useState<PendingRow[]>([])
+    const [pendingCodesLoading, setPendingCodesLoading] = useState(false)
+    const [pendingAcceptingAll, setPendingAcceptingAll] = useState(false)
+
+    const fetchPendingCodes = useCallback(async () => {
+        setPendingCodesLoading(true)
+        try {
+            const res = await fetch(`/api/projects/${projectId}/pending-codes`)
+            const data = await res.json()
+            setPendingCodes(data.rows || [])
+        } catch (e) {
+            console.error('Failed to load pending codes', e)
+        } finally {
+            setPendingCodesLoading(false)
+        }
+    }, [projectId])
+
+    // Load pending codes when tab is first opened
+    const [pendingCodesLoaded, setPendingCodesLoaded] = useState(false)
+    useEffect(() => {
+        if (activeTab === 'Pending Codes' && !pendingCodesLoaded) {
+            setPendingCodesLoaded(true)
+            fetchPendingCodes()
+        }
+    }, [activeTab, pendingCodesLoaded, fetchPendingCodes])
+
+    const handleAcceptPending = async (row: PendingRow) => {
+        try {
+            await fetch(`/api/segments/${row.segmentId}/decision`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'ACCEPT', newLabel: row.suggestion.label, suggestionId: row.suggestion.id })
+            })
+            setPendingCodes(prev => prev.filter(r => r.segmentId !== row.segmentId))
+        } catch (e) { console.error(e) }
+    }
+
+    const handleRejectPending = async (row: PendingRow) => {
+        try {
+            await fetch(`/api/segments/${row.segmentId}/decision`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'REJECT', suggestionId: row.suggestion.id })
+            })
+            setPendingCodes(prev => prev.filter(r => r.segmentId !== row.segmentId))
+        } catch (e) { console.error(e) }
+    }
+
+    const handleAcceptAllPending = async () => {
+        setPendingAcceptingAll(true)
+        try {
+            for (const row of pendingCodes) {
+                await fetch(`/api/segments/${row.segmentId}/decision`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'ACCEPT', newLabel: row.suggestion.label, suggestionId: row.suggestion.id })
+                })
+            }
+            setPendingCodes([])
+        } catch (e) { console.error(e) }
+        finally { setPendingAcceptingAll(false) }
+    }
+
     // Panel collapse states
     const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true)
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
@@ -1221,7 +1294,7 @@ Rules:
                     
                     <div className="px-8 flex items-center justify-between">
                         <div className="flex items-center space-x-8">
-                            {['Theme Map', 'Network & Matrix'].map(tab => (
+                            {['Theme Map', 'Network & Matrix', 'Pending Codes'].map(tab => (
                                 <button 
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -1229,7 +1302,12 @@ Rules:
                                 >
                                     {tab === 'Theme Map' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Theme Map' ? "text-indigo-600" : "text-slate-400"}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>}
                                     {tab === 'Network & Matrix' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Network & Matrix' ? "text-indigo-600" : "text-slate-400"}><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>}
-
+                                    {tab === 'Pending Codes' && (
+                                        <span className="relative">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={activeTab === 'Pending Codes' ? "text-indigo-600" : "text-slate-400"}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                            {pendingCodes.length > 0 && <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-amber-400 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center">{pendingCodes.length > 9 ? '9+' : pendingCodes.length}</span>}
+                                        </span>
+                                    )}
                                     {tab}
                                 </button>
                             ))}
@@ -1239,6 +1317,130 @@ Rules:
 
                 {/* Tab-Content Area — relative so overlays only cover this area, not the header/tabs above */}
                 <div className="flex-1 overflow-hidden relative">
+                {/* Pending Codes Tab — project-wide AI suggestion review */}
+                {activeTab === 'Pending Codes' && (
+                    <div className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-slate-50">
+                        {/* Sub-header */}
+                        <div className="flex items-center justify-between px-8 py-4 bg-white border-b border-slate-200 flex-shrink-0">
+                            <div>
+                                <h2 className="text-[15px] font-extrabold text-slate-800">Pending AI Codes — All Transcripts</h2>
+                                <p className="text-[12px] text-slate-400 font-medium mt-0.5">
+                                    {pendingCodes.length} segment{pendingCodes.length !== 1 ? 's' : ''} awaiting review across your project
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={fetchPendingCodes}
+                                    disabled={pendingCodesLoading}
+                                    className="flex items-center gap-2 px-3 py-2 border border-slate-200 text-slate-600 text-[12px] font-bold rounded-lg hover:bg-slate-50 transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={pendingCodesLoading ? 'animate-spin' : ''}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                    Refresh
+                                </button>
+                                {pendingCodes.length > 0 && (
+                                    <button
+                                        onClick={handleAcceptAllPending}
+                                        disabled={pendingAcceptingAll}
+                                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-[12px] font-extrabold rounded-lg shadow-sm transition-colors"
+                                    >
+                                        {pendingAcceptingAll ? (
+                                            <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Accepting...</>
+                                        ) : (
+                                            <><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Accept All ({pendingCodes.length})</>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Table */}
+                        <div className="flex-1 overflow-auto">
+                            {pendingCodesLoading ? (
+                                <div className="flex items-center justify-center h-full gap-3 text-slate-400">
+                                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                    <span className="text-[13px] font-semibold">Loading pending codes...</span>
+                                </div>
+                            ) : pendingCodes.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+                                    <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><path d="M20 6 9 17l-5-5"/></svg>
+                                    </div>
+                                    <p className="font-bold text-slate-600">All caught up!</p>
+                                    <p className="text-[12px] text-slate-400">No pending AI codes across your project.</p>
+                                </div>
+                            ) : (
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-white sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-6 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[18%]">AI Code</th>
+                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[12%]">
+                                                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block"/>Your Code</span>
+                                            </th>
+                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[12%]">Transcript</th>
+                                            <th className="px-6 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[38%]">Excerpt</th>
+                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[20%] text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {pendingCodes.map(row => {
+                                            const conf = parseInt(row.suggestion.confidence || '0') || 0
+                                            const confBg = conf >= 80 ? 'bg-emerald-100 text-emerald-700' : conf >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                                            const humanLabel = row.humanCodes[0]
+                                            const isMatch = humanLabel && (row.suggestion.label.toLowerCase().includes(humanLabel.toLowerCase()) || humanLabel.toLowerCase().includes(row.suggestion.label.toLowerCase()))
+                                            return (
+                                                <tr key={row.segmentId} className="hover:bg-indigo-50/20 transition-colors bg-white group">
+                                                    <td className="px-6 py-4 align-top">
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <span className="inline-flex text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded text-[11px] font-bold max-w-[200px] whitespace-normal">{row.suggestion.label}</span>
+                                                            {conf > 0 && <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded w-fit ${confBg}`}>{conf}%</span>}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 align-top">
+                                                        {!humanLabel ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-1 rounded">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4"/><path d="M12 16h.01"/><circle cx="12" cy="12" r="10"/></svg>
+                                                                    Not coded
+                                                                </span>
+                                                                <span className="text-[9px] text-rose-400 font-medium">Potential miss</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded text-[11px] font-bold max-w-[130px] whitespace-normal">{humanLabel}</span>
+                                                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold ${isMatch ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                                    {isMatch
+                                                                        ? <><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Match</>  
+                                                                        : <><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>Differs</>
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-4 align-top">
+                                                        <a href={`/projects/${projectId}/transcripts/${row.transcriptId}`} target="_blank" className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                                                            {row.transcriptTitle}
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 0 2-2h6"/></svg>
+                                                        </a>
+                                                    </td>
+                                                    <td className="px-6 py-4 align-top">
+                                                        <p className="text-[12px] text-slate-600 leading-relaxed italic line-clamp-3 group-hover:line-clamp-none transition-all">"{row.text}"</p>
+                                                    </td>
+                                                    <td className="px-4 py-4 align-top">
+                                                        <div className="flex flex-col gap-2 max-w-[120px] mx-auto">
+                                                            <button onClick={() => handleAcceptPending(row)} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition-colors shadow-sm">Accept</button>
+                                                            <button onClick={() => handleRejectPending(row)} className="w-full py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-[11px] font-bold transition-colors shadow-sm">Reject</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Network & Matrix Tab */}
                 {activeTab === 'Network & Matrix' && (
                     <div className="absolute inset-0 z-10 flex overflow-hidden">
