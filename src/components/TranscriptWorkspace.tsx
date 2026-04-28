@@ -938,8 +938,11 @@ export default function TranscriptWorkspace({
                     transcriptId={transcript.id}
                     projectId={projectId}
                     transcriptContent={transcript.content}
-                    onCodeApplied={() => {
+                    onCodeApplied={(segment, codeName, text) => {
                         triggerToast('Code saved! Available in Theme Builder.')
+                        if (segment && codeName && text) {
+                            setActivePanel({ type: 'human', text, codeName, segmentId: segment.id })
+                        }
                         router.refresh()
                     }}
                 />

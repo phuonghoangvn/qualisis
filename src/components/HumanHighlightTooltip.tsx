@@ -11,7 +11,7 @@ export default function HumanHighlightTooltip({
     transcriptId: string
     projectId: string
     transcriptContent: string
-    onCodeApplied: () => void
+    onCodeApplied: (segment?: any, codeName?: string, text?: string) => void
 }) {
     const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null)
     const [selection, setSelection] = useState<{ text: string; range: Range; startIndex?: number; endIndex?: number } | null>(null)
@@ -122,9 +122,11 @@ export default function HumanHighlightTooltip({
         let rawContent = transcriptContent.slice(startIndex, endIndex);
         if (!rawContent.trim()) rawContent = selection.text;
 
+        let createdSegment = null;
+
         try {
             // Save segment and codebook entry concurrently to backend
-            await fetch(`/api/transcripts/${transcriptId}/human-code`, {
+            const res = await fetch(`/api/transcripts/${transcriptId}/human-code`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -136,6 +138,10 @@ export default function HumanHighlightTooltip({
                     endIndex
                 })
             })
+            if (res.ok) {
+                const data = await res.json()
+                createdSegment = data.segment
+            }
         } catch (error) {
             console.error('Failed to create human code:', error)
             alert('Failed to save human code. Please try again.')
@@ -143,7 +149,7 @@ export default function HumanHighlightTooltip({
             window.getSelection()?.removeAllRanges()
             setShowModal(false)
             setSelection(null)
-            onCodeApplied()
+            onCodeApplied(createdSegment, codeName.trim(), rawContent.trim())
         }
     }
 

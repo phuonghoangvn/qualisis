@@ -71,7 +71,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             }
         })
 
-        return NextResponse.json({ success: true, codeEntry })
+        return NextResponse.json({ success: true, codeEntry, segment })
     } catch (e) {
         console.error('Human code creation error', e)
         return NextResponse.json({ error: 'Failed to create human code' }, { status: 500 })
