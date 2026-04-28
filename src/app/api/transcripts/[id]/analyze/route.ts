@@ -100,6 +100,8 @@ export async function POST(
             styleCopySection
         ].filter(Boolean).join('\n') || 'Focus on identifying statements made by participants about their experiences, feelings, and perceptions.';
 
+        if (req.signal.aborted) throw new Error('AbortError');
+
         // Call selected AI models in parallel
         const [gptResult, claudeResult, geminiResult] = await Promise.allSettled([
             models.includes('gpt') ? analyzeWithGPT(transcript.content, finalResearchContext, metadataRaw, summary, defaultModel) : Promise.resolve(null),
@@ -112,6 +114,8 @@ export async function POST(
             claudeResult.status === 'fulfilled' ? claudeResult.value : null,
             geminiResult.status === 'fulfilled' ? geminiResult.value : null,
         ]
+
+        if (req.signal.aborted) throw new Error('AbortError');
 
         // Merge results and compute consensus
         const mergedSegments = mergeAndComputeConsensus(results)
@@ -167,6 +171,8 @@ export async function POST(
             protectedSegments.some(p => start < p.endIndex && end > p.startIndex)
 
         for (let i = 0; i < mergedSegments.length; i += BATCH_SIZE) {
+            if (req.signal.aborted) throw new Error('AbortError');
+
             const batch = mergedSegments.slice(i, i + BATCH_SIZE);
             
             await Promise.all(batch.map(async (seg, batchIdx) => {

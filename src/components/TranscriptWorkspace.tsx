@@ -86,7 +86,7 @@ export default function TranscriptWorkspace({
     const [mounted, setMounted] = useState(false)
     const [showMassReview, setShowMassReview] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | null>(null)
     const [showEditConfirm, setShowEditConfirm] = useState(false)
-    const [showOnboarding, setShowOnboarding] = useState(false)
+
     const [toastMessage, setToastMessage] = useState<{ message: string; visible: boolean } | null>(null)
     const [showObsPanel, setShowObsPanel] = useState(false)
     const [obsForm, setObsForm] = useState({ label: '', note: '', context: '' })
@@ -102,14 +102,7 @@ export default function TranscriptWorkspace({
         }, 4000)
     }, [])
 
-    useEffect(() => {
-        if (!mounted) return
-        const key = `qualisis_has_seen_onboarding_${projectId}`
-        const hasSeen = localStorage.getItem(key)
-        if (!hasSeen && segments.length === 0) {
-            setShowOnboarding(true)
-        }
-    }, [mounted, projectId, segments.length])
+
 
     const createObservationCode = async () => {
         if (!obsForm.label.trim()) return
@@ -1119,92 +1112,7 @@ export default function TranscriptWorkspace({
                 document.body
             )}
 
-            {/* Onboarding Modal */}
-            {mounted && showOnboarding && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-500 relative">
-                        <button onClick={() => setShowOnboarding(false)} className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        </button>
-                        <div className="p-6 sm:p-10 flex flex-col items-center text-center border-b border-slate-100 bg-slate-50/50">
-                            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-indigo-200">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-rocket"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 3.82-13 1.5 1.5 0 0 0 2.18 2.18A22 22 0 0 1 12 15Z"/><path d="m15 12 3 3"/><path d="m12 15 3 3"/></svg>
-                            </div>
-                            <h2 className="text-2xl font-extrabold text-slate-800 mb-3 tracking-tight">Welcome to the Coding Workspace!</h2>
-                            <p className="text-sm text-slate-500 font-medium max-w-lg leading-relaxed">
-                                This is where the magic happens. You can manually highlight text to create your own codes, or let the AI do the heavy lifting for you.
-                            </p>
-                        </div>
-                        
-                        <div className="p-4 sm:p-10 flex flex-col sm:flex-row gap-4 sm:gap-8">
-                            {/* Manual Highlight Box */}
-                            <div className="flex-1 flex flex-col p-6 rounded-2xl border border-slate-200 bg-white shadow-sm relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 text-slate-200 opacity-50 group-hover:opacity-100 transition-opacity">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 16 2.05-2.05a5.55 5.55 0 0 0-7.85-7.85L5 3"/><path d="m14 8 2.3 2.3c.9.9 2.5.9 3.4 0l.6-.6c.9-.9.9-2.5 0-3.4l-2.3-2.3"/><path d="m21 21-1-1"/><path d="m16 8 4 4"/><path d="M4 16h6v5H4v-5Z"/></svg>
-                                </div>
-                                
-                                {/* Animation Box */}
-                                <div className="h-32 bg-slate-50 rounded-xl mb-6 flex flex-col justify-center px-6 relative border border-slate-100">
-                                    <div className="w-full h-2.5 bg-slate-200 rounded-full mb-3"></div>
-                                    <div className="relative">
-                                        <div className="w-3/4 h-2.5 bg-slate-200 rounded-full"></div>
-                                        <div className="absolute inset-0 w-[50%] bg-purple-400/40 rounded-full animate-pulse"></div>
-                                        <div className="absolute left-[50%] top-1/2 -translate-y-1/2 ml-2 bg-slate-800 text-white text-[9px] font-bold px-2 py-1 rounded shadow-lg animate-bounce">
-                                            + Add Code
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <h3 className="text-base font-bold text-slate-800 mb-2 z-10">1. Highlight Manually</h3>
-                                <p className="text-xs text-slate-500 leading-relaxed font-medium z-10">
-                                    Simply click and drag over any text in the transcript. A popup will appear allowing you to assign a custom code instantly.
-                                </p>
-                            </div>
 
-                            {/* AI Box */}
-                            <div className="flex-1 flex flex-col p-6 rounded-2xl border border-indigo-100 bg-indigo-50/30 shadow-sm relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 text-indigo-500 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a4.42 4.42 0 0 1 0-8.962L8.5 1.936A2 2 0 0 0 9.937.5l1.582-6.135a4.42 4.42 0 0 1 8.962 0L22.063 8.5A2 2 0 0 0 23.5 9.937l6.135 1.582a4.42 4.42 0 0 1 0 8.962l-6.135 1.582a2 2 0 0 0-1.437 1.438l-1.582 6.135a4.42 4.42 0 0 1-8.962 0z"/></svg>
-                                </div>
-                                
-                                {/* Animation Box */}
-                                <div className="h-32 bg-white rounded-xl mb-6 flex flex-col justify-center px-6 relative border border-indigo-100 shadow-inner">
-                                    <div className="w-full flex gap-2 items-center mb-3">
-                                        <div className="w-4 h-4 bg-amber-400 rounded-full animate-bounce"></div>
-                                        <div className="flex-1 h-2.5 bg-indigo-50 rounded-full overflow-hidden">
-                                            <div className="w-full h-full bg-indigo-400 animate-pulse"></div>
-                                        </div>
-                                    </div>
-                                    <div className="w-3/4 flex gap-2 items-center">
-                                        <div className="w-4 h-4 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                                        <div className="flex-1 h-2.5 bg-indigo-50 rounded-full overflow-hidden">
-                                            <div className="w-full h-full bg-indigo-400 animate-pulse"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <h3 className="text-base font-bold text-slate-800 mb-2 z-10">2. Run AI Analysis</h3>
-                                <p className="text-xs text-slate-500 leading-relaxed font-medium mb-4 z-10">
-                                    Let multiple AI models (GPT-4o, Claude, Gemini) scan your entire transcript and suggest high-quality thematic codes.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-center">
-                            <button 
-                                onClick={() => {
-                                    localStorage.setItem(`qualisis_has_seen_onboarding_${projectId}`, 'true');
-                                    setShowOnboarding(false);
-                                }}
-                                className="px-8 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-sm font-bold shadow-sm transition-colors"
-                            >
-                                Got it, let me explore
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
 
             {/* Observation / Memo Modal */}
             {mounted && showObsPanel && typeof document !== 'undefined' && createPortal(
