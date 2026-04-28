@@ -525,39 +525,41 @@ export default function ThemesPage() {
         }
     }, [activeTab, pendingCodesLoaded, fetchPendingCodes])
 
-    const handleAcceptPending = async (row: PendingRow) => {
+    const handleCompareDecision = async (row: PendingRow, action: 'ACCEPT' | 'REJECT' | 'RESTORE') => {
         try {
-            await fetch(`/api/segments/${row.segmentId}/decision`, {
+            await fetch(`/api/segments/${row.segmentId}/review`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'ACCEPT', newLabel: row.suggestion.label, suggestionId: row.suggestion.id })
+                body: JSON.stringify({ action, newLabel: row.suggestion.label, suggestionId: row.suggestion.id })
             })
-            setPendingCodes(prev => prev.filter(r => r.segmentId !== row.segmentId))
-        } catch (e) { console.error(e) }
-    }
-
-    const handleRejectPending = async (row: PendingRow) => {
-        try {
-            await fetch(`/api/segments/${row.segmentId}/decision`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'REJECT', suggestionId: row.suggestion.id })
-            })
-            setPendingCodes(prev => prev.filter(r => r.segmentId !== row.segmentId))
+            // Update local state to reflect new status
+            setPendingCodes(prev => prev.map(r => {
+                if (r.segmentId === row.segmentId) {
+                    const newStatus = action === 'ACCEPT' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : 'SUGGESTED';
+                    return { ...r, suggestion: { ...r.suggestion, status: newStatus } };
+                }
+                return r;
+            }))
         } catch (e) { console.error(e) }
     }
 
     const handleAcceptAllPending = async () => {
         setPendingAcceptingAll(true)
         try {
-            for (const row of pendingCodes) {
-                await fetch(`/api/segments/${row.segmentId}/decision`, {
+            const pendingOnly = pendingCodes.filter(r => r.suggestion.status === 'SUGGESTED' || r.suggestion.status === 'UNDER_REVIEW')
+            for (const row of pendingOnly) {
+                await fetch(`/api/segments/${row.segmentId}/review`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'ACCEPT', newLabel: row.suggestion.label, suggestionId: row.suggestion.id })
                 })
             }
-            setPendingCodes([])
+            setPendingCodes(prev => prev.map(r => {
+                if (r.suggestion.status === 'SUGGESTED' || r.suggestion.status === 'UNDER_REVIEW') {
+                    return { ...r, suggestion: { ...r.suggestion, status: 'APPROVED' } }
+                }
+                return r;
+            }))
         } catch (e) { console.error(e) }
         finally { setPendingAcceptingAll(false) }
     }
@@ -1436,23 +1438,29 @@ Rules:
                                                                 </span>
                                                             </div>
                                                         ) : row.suggestion.status === 'APPROVED' || row.suggestion.status === 'MODIFIED' ? (
-                                                            <div className="flex justify-center">
+                                                            <div className="flex flex-col items-center gap-2">
                                                                 <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[9px] font-extrabold uppercase tracking-widest border border-emerald-200">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                                     ACCEPTED
                                                                 </span>
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <button onClick={() => handleCompareDecision(row, 'RESTORE')} className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition">Restore</button>
+                                                                    <span className="text-slate-200 text-[10px]">|</span>
+                                                                    <button onClick={() => handleCompareDecision(row, 'REJECT')} className="text-[10px] font-bold text-rose-400 hover:text-rose-600 transition">Revoke</button>
+                                                                </div>
                                                             </div>
                                                         ) : row.suggestion.status === 'REJECTED' ? (
-                                                            <div className="flex justify-center">
+                                                            <div className="flex flex-col items-center gap-2">
                                                                 <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-rose-50 text-rose-600 text-[9px] font-extrabold uppercase tracking-widest border border-rose-200">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                                                     REJECTED
                                                                 </span>
+                                                                <button onClick={() => handleCompareDecision(row, 'RESTORE')} className="text-[10px] font-bold text-indigo-500 hover:underline">Undo</button>
                                                             </div>
                                                         ) : (
                                                             <div className="flex flex-col gap-2 max-w-[120px] mx-auto">
-                                                                <button onClick={() => handleAcceptPending(row)} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition-colors shadow-sm">Accept</button>
-                                                                <button onClick={() => handleRejectPending(row)} className="w-full py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-[11px] font-bold transition-colors shadow-sm">Reject</button>
+                                                                <button onClick={() => handleCompareDecision(row, 'ACCEPT')} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition-colors shadow-sm">Accept</button>
+                                                                <button onClick={() => handleCompareDecision(row, 'REJECT')} className="w-full py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-[11px] font-bold transition-colors shadow-sm">Reject</button>
                                                             </div>
                                                         )}
                                                     </td>
