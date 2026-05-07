@@ -142,14 +142,14 @@ ${userInstructions ? `${Array.isArray(rejectedNames) && rejectedNames.length > 0
 
 Before outputting, verify: have you included ALL ${allUnassigned.length} codes? Is every theme name a full sentence?
 
-Return ONLY a JSON array (no markdown, no explanation):
+Return ONLY a JSON array (no markdown, no explanation). Crucially, to save space, output the CODE NUMBERS (the index from the list above) in "codeIndexes", NOT the names:
 [
   {
     "name": "Theme name",
     "description": "2-3 sentences: what exactly is this theme about and how it answers the Research Question?",
     "reason": "Why are these specific codes grouped together?",
     "confidenceScore": 85,
-    "codeNames": ["Exact code name from the numbered list", "Another exact code name"]
+    "codeIndexes": [1, 4, 15, 23]
   }
 ]`
 
@@ -177,36 +177,44 @@ Return ONLY a JSON array (no markdown, no explanation):
         try {
             const suggestions = JSON.parse(cleaned)
 
-            // Map code names back to IDs using the batch codes
-            const enriched = suggestions.map((s: any) => ({
-                ...s,
-                reason: s.reason || null,
-                confidenceScore: typeof s.confidenceScore === 'number' ? s.confidenceScore : null,
-                connections: s.connections || null,
-                codes: Array.from(new Map((s.codeNames || []).map((name: string) => {
-                    const cleanName = name.trim().toLowerCase()
-                    // Exact match
-                    let entry = batchCodes.find((c: any) => c.name.toLowerCase() === cleanName)
-                    // Substring match
-                    if (!entry) entry = batchCodes.find((c: any) =>
-                        c.name.toLowerCase().includes(cleanName) || cleanName.includes(c.name.toLowerCase())
-                    )
-                    // Word-level overlap fallback
-                    if (!entry) {
-                        const queryWords = cleanName.split(/\s+/).filter((w: string) => w.length > 3)
-                        entry = batchCodes.find((c: any) => {
-                            const cWords = c.name.toLowerCase().split(/\s+/)
-                            return queryWords.some((w: string) => cWords.includes(w))
-                        })
-                    }
-                    return entry
-                        ? { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type }
-                        : null
-                })
-                .filter(Boolean)
-                .map((code: any) => [code.id, code])
-                ).values())
-            }))
+            // Map code numbers back to IDs using the batch codes
+            const enriched = suggestions.map((s: any) => {
+                // Determine which indices to use
+                const indices = s.codeIndexes && Array.isArray(s.codeIndexes) ? s.codeIndexes : [];
+                
+                // For safety, if AI somehow still outputs codeNames, parse them using old method
+                let mappedCodes: any[] = [];
+                if (indices.length > 0) {
+                    mappedCodes = indices.map((idx: number) => {
+                        const entry = batchCodes[idx - 1]; // 1-indexed in prompt
+                        return entry ? { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type } : null;
+                    }).filter(Boolean);
+                } else if (s.codeNames && Array.isArray(s.codeNames)) {
+                    mappedCodes = Array.from(new Map(s.codeNames.map((name: string) => {
+                        const cleanName = name.trim().toLowerCase();
+                        let entry = batchCodes.find((c: any) => c.name.toLowerCase() === cleanName)
+                        if (!entry) entry = batchCodes.find((c: any) =>
+                            c.name.toLowerCase().includes(cleanName) || cleanName.includes(c.name.toLowerCase())
+                        )
+                        if (!entry) {
+                            const queryWords = cleanName.split(/\s+/).filter((w: string) => w.length > 3)
+                            entry = batchCodes.find((c: any) => {
+                                const cWords = c.name.toLowerCase().split(/\s+/)
+                                return queryWords.some((w: string) => cWords.includes(w))
+                            })
+                        }
+                        return entry ? [entry.id, { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type }] : null
+                    }).filter(Boolean)).values());
+                }
+
+                return {
+                    ...s,
+                    reason: s.reason || null,
+                    confidenceScore: typeof s.confidenceScore === 'number' ? s.confidenceScore : null,
+                    connections: s.connections || null,
+                    codes: mappedCodes
+                };
+            });
 
             let finalSuggestions: any[] = enriched.filter((s: any) => s.codes?.length >= 2)
 
