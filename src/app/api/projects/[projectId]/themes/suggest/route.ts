@@ -182,24 +182,56 @@ Return ONLY a JSON array (no markdown, no explanation):
                 connections: s.connections || null,
                 codes: Array.from(new Map((s.codeNames || []).map((name: string) => {
                     const cleanName = name.trim().toLowerCase()
+                    // Exact match
                     let entry = batchCodes.find((c: any) => c.name.toLowerCase() === cleanName)
+                    // Substring match
+                    if (!entry) entry = batchCodes.find((c: any) =>
+                        c.name.toLowerCase().includes(cleanName) || cleanName.includes(c.name.toLowerCase())
+                    )
+                    // Word-level overlap fallback
                     if (!entry) {
-                        entry = batchCodes.find((c: any) =>
-                            c.name.toLowerCase().includes(cleanName) ||
-                            cleanName.includes(c.name.toLowerCase())
-                        )
+                        const queryWords = cleanName.split(/\s+/).filter((w: string) => w.length > 3)
+                        entry = batchCodes.find((c: any) => {
+                            const cWords = c.name.toLowerCase().split(/\s+/)
+                            return queryWords.some((w: string) => cWords.includes(w))
+                        })
                     }
                     return entry
                         ? { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type }
                         : null
-                })
+                }))
                 .filter(Boolean)
                 .map((code: any) => [code.id, code])).values())
             }))
 
             let finalSuggestions: any[] = enriched.filter((s: any) => s.codes?.length >= 2)
 
-            // If AI is too strict/lazy and returns nothing for the remaining codes, fallback to heuristic
+            // Safety net: find any codes the AI missed and add a catch-all theme
+            const assignedIds = new Set<string>(
+                finalSuggestions.flatMap((s: any) => s.codes.map((c: any) => c.id))
+            )
+            const missedCodes = batchCodes
+                .filter((c: any) => !assignedIds.has(c.id))
+                .map((c: any) => ({ id: c.id, name: c.name, instances: c._count.codeAssignments, type: c.type }))
+
+            if (missedCodes.length === 1 && finalSuggestions.length > 0) {
+                // Only 1 missed — add to the smallest existing theme
+                const smallestIdx = finalSuggestions.reduce((minIdx: number, s: any, idx: number, arr: any[]) =>
+                    s.codes.length < arr[minIdx].codes.length ? idx : minIdx, 0)
+                finalSuggestions[smallestIdx].codes.push(missedCodes[0])
+            } else if (missedCodes.length >= 2) {
+                finalSuggestions.push({
+                    name: 'Other emerging patterns',
+                    description: 'These codes did not fit clearly into the main themes but still reflect important emerging patterns worth reviewing.',
+                    reason: 'Automatically grouped as a safety-net catch-all for codes not matched to other themes.',
+                    confidenceScore: 50,
+                    codes: missedCodes
+                })
+            }
+
+            console.log(`[Suggest] ${finalSuggestions.length} themes | ${batchCodes.length - missedCodes.length} codes covered | ${missedCodes.length} in catch-all`)
+
+            // If AI is too strict/lazy and returns nothing at all, fallback to heuristic
             if (finalSuggestions.length === 0) {
                 console.log('AI returned 0 suggestions, using heuristic fallback')
                 finalSuggestions = generateFallbackSuggestions(batchCodes)
@@ -207,7 +239,7 @@ Return ONLY a JSON array (no markdown, no explanation):
 
             return NextResponse.json({
                 suggestions: finalSuggestions,
-                source: finalSuggestions === enriched ? 'ai' : 'heuristic',
+                source: 'ai',
                 totalUnassigned: allUnassigned.length,
                 batchOffset: batchStart,
                 batchSize: batchCodes.length,

@@ -1319,26 +1319,33 @@ Rules:
                                 Export CSV
                             </button>
                             
-                            <div className="w-px h-6 bg-slate-200 mx-1"></div>
-                            
-                            <button
-                                onClick={() => {
-                                    if (suggestionsLoading) return;
-                                    if (themeSuggestions.length === 0) {
+                            {/* Focus input + Suggest button group */}
+                            <div className="flex items-center gap-0 border border-indigo-200 bg-indigo-50 rounded-lg shadow-sm overflow-hidden">
+                                <input
+                                    type="text"
+                                    value={themePrompt === DEFAULT_THEME_PROMPT ? '' : themePrompt}
+                                    onChange={e => setThemePrompt(e.target.value || DEFAULT_THEME_PROMPT)}
+                                    placeholder="Focus on… (e.g. barriers to adoption)"
+                                    className="bg-transparent text-[12px] font-medium text-indigo-800 placeholder:text-indigo-300 px-3 py-2.5 w-44 focus:outline-none focus:w-64 transition-all duration-300"
+                                    title="Tell AI what to focus on when grouping codes into themes"
+                                />
+                                <button
+                                    onClick={() => {
+                                        if (suggestionsLoading) return;
                                         generateSuggestions(true)
-                                    }
-                                }}
-                                disabled={suggestionsLoading}
-                                className={`flex items-center gap-1.5 border px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all ${
-                                    themeSuggestions.length > 0 
-                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default'
-                                        : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300'
-                                }`}
-                                title="Let AI analyze unassigned codes and suggest new themes"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                                {suggestionsLoading ? 'Analyzing...' : themeSuggestions.length > 0 ? 'Suggestions Ready' : 'Suggest Themes (AI)'}
-                            </button>
+                                    }}
+                                    disabled={suggestionsLoading}
+                                    className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-all border-l border-indigo-200 ${
+                                        themeSuggestions.length > 0
+                                            ? 'bg-emerald-50 text-emerald-700 cursor-default'
+                                            : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                                    }`}
+                                    title="Let AI analyze all unassigned codes and suggest themes"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                    {suggestionsLoading ? 'Analyzing...' : themeSuggestions.length > 0 ? 'Suggestions Ready' : 'Suggest Themes'}
+                                </button>
+                            </div>
 
                             <button
                                 onClick={() => setNewThemeModal({ open: true, name: '', description: '', id: undefined })}
@@ -1350,6 +1357,7 @@ Rules:
                             </button>
                         </div>
                     </div>
+
                     
                     <div className="px-8 flex items-center justify-between">
                         <div className="flex items-center space-x-8">
