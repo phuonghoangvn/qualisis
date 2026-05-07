@@ -199,9 +199,10 @@ Return ONLY a JSON array (no markdown, no explanation):
                     return entry
                         ? { id: entry.id, name: entry.name, instances: entry._count.codeAssignments, type: entry.type }
                         : null
-                }))
+                })
                 .filter(Boolean)
-                .map((code: any) => [code.id, code])).values())
+                .map((code: any) => [code.id, code])
+                ).values())
             }))
 
             let finalSuggestions: any[] = enriched.filter((s: any) => s.codes?.length >= 2)
