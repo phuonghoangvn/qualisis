@@ -124,21 +124,22 @@ Below is the COMPLETE list of ${allUnassigned.length} unassigned codes you MUST 
 ${codesSummary}
 
 YOUR TASK:
-Group the codes above into a set of overarching themes (aim for 4–12) that directly address the Research Question. You MUST attempt to assign EVERY code to a theme — if a code is an outlier, create a broad "catch-all" theme for it rather than omitting it.
+Group the codes above into a set of overarching themes (aim for 4–12) that directly address the Research Question and any Extra Instructions. You MUST attempt to assign EVERY code to a theme.
 
 RULES (follow strictly):
-1. EXHAUSTIVE COVERAGE: EVERY code in the numbered list above must appear in your output. Do not skip any code. If a code does not fit neatly, create a broad residual theme (e.g. "Other emerging patterns") to capture it.
-2. HOLISTIC GROUPING: Think about the big picture first. Prefer fewer, broader themes over many narrow micro-themes. Merge similar codes into the same theme.
-3. MUTUALLY EXCLUSIVE: Each theme must address a distinctly different phenomenon. No conceptual overlap between themes.
-4. Theme name = a plain-English phrase stating the core finding (e.g. "Users feel unsafe sharing personal data"). Avoid generic words like "Dynamics", "Issues", "Challenges", "Patterns".
-5. Each code may appear in AT MOST ONE theme.
-6. Minimum 2 codes per theme. No upper limit.
-7. If a code clearly belongs to an existing theme, use that EXACT existing theme name.
-8. "Researcher Observation" and "Human Created" codes are EQUALLY VALID — treat them the same as AI-Assisted codes.
-${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? `9. REJECTED — DO NOT use or recreate: ${(rejectedNames as string[]).map((n: string) => `"${n}"`).join(', ')}` : ''}
-${userInstructions ? `${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? '10' : '9'}. EXTRA INSTRUCTIONS: ${userInstructions}` : ''}
+1. LENS OF THE RESEARCH QUESTION: You MUST interpret the latent meaning of the codes through the lens of the Research Question and the "EXTRA INSTRUCTIONS". Do NOT just group words that sound similar (Topic clustering). Group codes by how they jointly answer the core research problem.
+2. DECLARATIVE SENTENCE NAMES: A theme is NOT a bucket. The theme name MUST be a complete, declarative sentence that expresses a core finding or insight (e.g., "Users distrust AI because its decision-making process is opaque"). NEVER use generic topics or jargon like "Technical Issues", "User Feedback", "Dynamics of...", or "Patterns in...".
+3. EXHAUSTIVE COVERAGE: EVERY code in the numbered list above must appear in your output. Do not skip any code. If a code does not fit neatly, create a broad residual theme (e.g., "Other emerging patterns") to capture it.
+4. HOLISTIC GROUPING: Think about the big picture first. Prefer fewer, broader themes over many narrow micro-themes. Merge similar codes into the same theme.
+5. MUTUALLY EXCLUSIVE: Each theme must address a distinctly different phenomenon. No conceptual overlap between themes.
+6. Each code may appear in AT MOST ONE theme.
+7. Minimum 2 codes per theme. No upper limit.
+8. If a code clearly belongs to an existing theme, use that EXACT existing theme name.
+9. "Researcher Observation" and "Human Created" codes are EQUALLY VALID — treat them the same as AI-Assisted codes.
+${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? `10. REJECTED — DO NOT use or recreate: ${(rejectedNames as string[]).map((n: string) => `"${n}"`).join(', ')}` : ''}
+${userInstructions ? `${Array.isArray(rejectedNames) && rejectedNames.length > 0 ? '11' : '10'}. EXTRA INSTRUCTIONS (Highest Priority): ${userInstructions}` : ''}
 
-Before outputting, verify: have you included ALL ${allUnassigned.length} codes? If not, add the missing ones to an existing or new theme.
+Before outputting, verify: have you included ALL ${allUnassigned.length} codes? Is every theme name a full sentence?
 
 Return ONLY a JSON array (no markdown, no explanation):
 [
