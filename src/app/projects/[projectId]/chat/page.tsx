@@ -139,222 +139,93 @@ export default function ChatPage({ params }: { params: { projectId: string } }) 
             prompts: [
                 {
                     title: "Complete Analysis: Familiarize → Report",
-                    prompt: `Role:
-You are a world-class qualitative research methodologist specializing in Braun & Clarke's Reflexive Thematic Analysis (RTA). You are rigorous, systematic, and data-driven. You will now perform a complete thematic analysis of the transcript provided, walking through all 6 official phases in order.
-
-Context:
-The project context (codebook, datasets) has already been provided to you. The transcript excerpt to analyze is pasted below in the Data section. Do NOT skip any phase.
-
-Task:
-Perform a full Reflexive Thematic Analysis of the data below, structured across exactly 6 phases.
-
----
-
-## Phase 1: Familiarize with Data
-Provide a brief narrative (3-4 sentences) summarizing your first impressions of the participant's tone, emotional state, and key recurring topics. Do not code yet.
-
-## Phase 2: Generate Initial Codes
-Produce a Markdown table with 3 columns: [Suggested Code] | [Brief Definition] | [Verbatim Quote Evidence].
-Rules: Use "in vivo" codes (participant's own words) where possible. Every code MUST have a verbatim quote.
-
-## Phase 3: Search for Themes
-Group your Phase 2 codes into 3–4 overarching candidate themes. For each theme, list its associated codes and write 2 sentences explaining the central organizing concept.
-
-## Phase 4: Review Themes
-Critically evaluate each candidate theme. For each, note: (a) Does it hold up against the data? (b) Are there any negative cases or contradictions? Suggest refinements.
-
-## Phase 5: Define & Name Themes
-Assign a final, evocative, academically rigorous name to each reviewed theme. Write a concise 2-sentence formal academic definition per theme.
-
-## Phase 6: Produce the Report
-Write a 300-400 word academic narrative findings section. Weave in at least 3 verbatim quotes as embedded evidence (not as a list). Maintain an objective, empathetic, and scholarly tone.
-
----
-
-Constraints (CRITICAL):
-- You MUST complete all 6 phases. Do not stop early.
-- Never paraphrase participant quotes. Always use exact verbatim text.
-- Do not import external theory — reason only from the data provided.
-
-Data:
-"
-[paste your transcript excerpt here]
-"`
+                    prompt: `Role:\nYou are a world-class qualitative research methodologist specializing in Braun & Clarke's Reflexive Thematic Analysis (RTA). You are rigorous, systematic, and data-driven. You will now perform a complete thematic analysis of the transcript provided, walking through all 6 official phases in order.\n\nContext:\nThe project context (codebook, datasets) has already been provided to you. The transcript excerpt to analyze is pasted below in the Data section. Do NOT skip any phase.\n\nTask:\nPerform a full Reflexive Thematic Analysis of the data below, structured across exactly 6 phases.\n\n---\n\n## Phase 1: Familiarize with Data\nProvide a brief narrative (3-4 sentences) summarizing your first impressions of the participant's tone, emotional state, and key recurring topics. Do not code yet.\n\n## Phase 2: Generate Initial Codes\nProduce a Markdown table with 3 columns: [Suggested Code] | [Brief Definition] | [Verbatim Quote Evidence].\nRules: Use "in vivo" codes (participant's own words) where possible. Every code MUST have a verbatim quote.\n\n## Phase 3: Search for Themes\nGroup your Phase 2 codes into 3–4 overarching candidate themes. For each theme, list its associated codes and write 2 sentences explaining the central organizing concept.\n\n## Phase 4: Review Themes\nCritically evaluate each candidate theme. For each, note: (a) Does it hold up against the data? (b) Are there any negative cases or contradictions? Suggest refinements.\n\n## Phase 5: Define & Name Themes\nAssign a final, evocative, academically rigorous name to each reviewed theme. Write a concise 2-sentence formal academic definition per theme.\n\n## Phase 6: Produce the Report\nWrite a 300-400 word academic narrative findings section. Weave in at least 3 verbatim quotes as embedded evidence (not as a list). Maintain an objective, empathetic, and scholarly tone.\n\n---\n\nConstraints (CRITICAL):\n- You MUST complete all 6 phases. Do not stop early.\n- Never paraphrase participant quotes. Always use exact verbatim text.\n- Do not import external theory — reason only from the data provided.\n\nData:\n"\n[paste your transcript excerpt here]\n"`
                 }
             ]
         },
         {
-            phase: "Phase 1: Familiarize with Data",
+            phase: "🔍 Phase 1: Familiarization & Summarization",
             prompts: [
                 { 
-                    title: "Extracting Initial Impressions", 
-                    prompt: `Role: 
-You are a sharp and observant qualitative research assistant immersing yourself in new data. You are sensitive to emotional nuances, repeated phrases, and overarching contextual challenges, but you avoid jumping to conclusions.
-
-Context: 
-I am in Phase 1 (Familiarization) of thematic analysis. I need to get a high-level sense of the data before doing line-by-line coding.
-
-Task: 
-Read the provided raw transcript excerpt. Summarize your first impressions regarding the participant's tone, core struggles, and any repeated concepts or striking metaphors.
-
-Constraints (CRITICAL):
-- Maintain neutrality. Do not construct themes or formal codes yet.
-- Focus purely on "what is happening" rather than imposing theoretical meaning.
-- Stick to the provided text.
-
-Data:
-"
-[paste your transcript excerpt here]
-"
-
-Output Format: 
-Provide a brief narrative summary paragraph, followed by a bulleted list of 3-4 key impressions. Include exactly one short verbatim quote for each impression as evidence.` 
+                    title: "Extract Initial Impressions", 
+                    prompt: `Role: \nYou are a sharp and observant qualitative research assistant immersing yourself in new data. You are sensitive to emotional nuances, repeated phrases, and overarching contextual challenges.\n\nContext: \nI am in Phase 1 (Familiarization). I need to get a high-level sense of the data before doing line-by-line coding.\n\nTask: \nRead the provided raw transcript. Summarize your first impressions regarding the participant's tone, core struggles, and any striking metaphors.\n\nConstraints:\n- Maintain neutrality. Do not construct themes yet.\n- Focus purely on "what is happening" rather than imposing theoretical meaning.\n\nOutput: \nA brief narrative summary paragraph, followed by a bulleted list of 3 key impressions with exactly one short verbatim quote for each.` 
+                },
+                { 
+                    title: "Participant Persona Generation", 
+                    prompt: `Role: \nYou are an empathetic ethnographic researcher.\n\nContext: \nI need a quick summary profile of the participant based purely on how they speak and what they emphasize in the interview.\n\nTask: \nBuild a "Participant Persona" from the data. Detail their apparent motivations, pain points, and worldview.\n\nConstraints:\n- Anchor all claims in the text.\n- Note explicitly if the participant's attitude shifts during the interview.\n\nOutput: \nA structured markdown profile: [Background/Context] | [Core Motivations] | [Pain Points] | [Defining Quote].` 
+                },
+                { 
+                    title: "Identify Tensions and Contradictions", 
+                    prompt: `Role: \nYou are a critical discourse analyst.\n\nContext: \nOften the most interesting qualitative insights come from where a participant contradicts themselves or expresses cognitive dissonance.\n\nTask: \nRead the transcript and identify any internal contradictions, hesitations, or conflicting feelings the participant expresses.\n\nConstraints:\n- Do not judge the participant. Frame contradictions as complex human experiences.\n- You must provide the exact conflicting quotes side-by-side.\n\nOutput: \nA list of identified tensions. Format: Tension Name -> Quote A vs Quote B -> Analytical Note.` 
                 }
             ]
         },
         {
-            phase: "Phase 2: Generate Initial Codes",
+            phase: "🏷️ Phase 2: Generating Initial Codes",
             prompts: [
                 { 
-                    title: "Inductive Open Coding", 
-                    prompt: `Role: 
-You are a meticulous qualitative research assistant performing inductive "open coding." You stick strictly to the empirical data, respect the participant's exact phrasing, and never impose external theories or assumptions.
-
-Context: 
-I have completed Phase 1 (Familiarization) and am now in Phase 2 (Generating Initial Codes). Do not generate overarching themes yet.
-
-Task: 
-Carefully read the transcript excerpt below. Identify meaningful segments of text and generate initial codes. A code is a short, precise label (1-4 words) that captures the core meaning, action, or concept.
-
-Constraints (CRITICAL):
-- Data-Driven Only: The codes must emerge organically.
-- Embrace "In Vivo" Codes: Use the participant's exact, striking words as the code itself (enclose in quotation marks) whenever possible.
-- Verbatim Evidence: For every code, provide the exact verbatim quote from the text that supports it. Do not paraphrase.
-- Granularity: Code for specific actions, beliefs, challenges, or descriptions, not broad topics.
-
-Data:
-"
-[paste the excerpt you are coding here]
-"
-
-Output Format: 
-Markdown table with 3 columns: [Suggested Code] | [Brief Definition] | [Verbatim Quote Evidence]` 
+                    title: "Inductive Open Coding (Line-by-Line)", 
+                    prompt: `Role: \nYou are a meticulous qualitative research assistant performing inductive "open coding."\n\nContext: \nI am generating initial codes from raw data. Do not generate overarching themes yet.\n\nTask: \nCarefully read the text. Identify meaningful segments and generate codes. A code is a short, precise label (1-4 words) that captures the core meaning.\n\nConstraints:\n- Data-Driven Only: The codes must emerge organically.\n- Embrace "In Vivo" Codes: Use the participant's exact words whenever possible.\n- Verbatim Evidence: For every code, provide the exact verbatim quote.\n\nOutput: \nMarkdown table with 3 columns: [Suggested Code] | [Brief Definition] | [Verbatim Quote Evidence]` 
+                },
+                { 
+                    title: "Action / Process Coding", 
+                    prompt: `Role: \nYou are a researcher employing Grounded Theory techniques, specifically "Process Coding" (using gerunds/verbs ending in -ing).\n\nContext: \nI want to focus on actions, processes, and changes over time in the participant's narrative rather than static states.\n\nTask: \nCode the transcript using strictly "-ing" words (e.g., "Struggling with management", "Navigating the system").\n\nConstraints:\n- Every code must begin with a gerund (-ing verb).\n- Keep the codes grounded in the participant's actual actions.\n\nOutput: \nBulleted list of Process Codes, each followed by a representative verbatim quote.` 
+                },
+                { 
+                    title: "Emotion / Affect Coding", 
+                    prompt: `Role: \nYou are an empathetic psychological researcher.\n\nContext: \nI want to isolate the emotional landscape of the participant's experience.\n\nTask: \nScan the data specifically for expressions of emotion, affect, mood, or somatic feelings.\n\nConstraints:\n- Look for implicit emotions (sighs, hesitations, metaphors) as well as explicit feeling words.\n- Code the emotion and what triggered it.\n\nOutput: \nTable: [Emotion Code] | [Trigger/Context] | [Verbatim Quote]` 
                 }
             ]
         },
         {
-            phase: "Phase 3: Search for Themes",
+            phase: "🧩 Phase 3 & 4: Theme Generation & Review",
             prompts: [
                 { 
-                    title: "Grouping Codes into Candidate Themes", 
-                    prompt: `Role: 
-You are a senior qualitative methodologist skilled in finding macro-patterns. You understand that themes are not just topics, but "shared meanings" underpinned by a central organizing concept.
-
-Context: 
-I am in Phase 3 (Searching for Themes) and have generated my initial codes. Please consider my project's existing codebook.
-
-Task: 
-Review my provided list of codes. Cluster these codes into 3 to 4 overarching candidate themes. A good theme captures a meaningful pattern in the data that answers the research question.
-
-Constraints (CRITICAL):
-- Ensure themes are conceptually distinct but related.
-- Explain *why* these codes belong together logically.
-- Do not force completely unrelated codes into a theme. Let outliers remain outliers.
-
-Data:
-"
-[paste a list of your specific codes here, or type 'use project codebook']
-"
-
-Output Format: 
-For each candidate theme, provide: 1. Theme Name (Bold), 2. Central Concept (1-2 sentences), 3. List of Associated Codes.` 
-                }
-            ]
-        },
-        {
-            phase: "Phase 4: Review Themes",
-            prompts: [
+                    title: "Cluster Codes into Themes", 
+                    prompt: `Role: \nYou are a senior qualitative methodologist skilled in finding macro-patterns.\n\nContext: \nI have a list of initial codes. I need to cluster them into candidate themes based on shared meaning.\n\nTask: \nReview the provided list of codes. Group them into 3 to 4 overarching candidate themes. \n\nConstraints:\n- Ensure themes are conceptually distinct.\n- Explain *why* these codes belong together logically (the Central Organizing Concept).\n- Do not force outliers into themes.\n\nOutput: \nFor each theme: 1. Theme Name (Bold), 2. Central Concept (1-2 sentences), 3. List of Associated Codes.` 
+                },
                 { 
                     title: "Thematic Peer Review (Devil's Advocate)", 
-                    prompt: `Role: 
-You are a rigorous ethnographic peer reviewer. Your job is to rigorously challenge the credibility, coherence, and boundaries of suggested qualitative themes against the dataset.
-
-Context: 
-I am in Phase 4 (Reviewing Themes). I have a set of candidate themes and I need to ensure they hold up against the empirical data.
-
-Task: 
-Critically review my overarching themes. Your goal is to identify weaknesses, conceptual overlaps, anomalies, or areas lacking depth.
-
-Constraints (CRITICAL):
-- Be constructively critical. Do not just agree with me.
-- Point out if a theme seems too broad (a "topic"), too narrow, or unsupported.
-- Look for "negative cases"—data or codes that might contradict the theme.
-
-Data:
-"
-[paste your candidate themes and their descriptions here]
-"
-
-Output Format: 
-A Markdown table with columns: [Theme] | [Strengths] | [Critiques/Weaknesses] | [Suggested Refinement]` 
+                    prompt: `Role: \nYou are a rigorous ethnographic peer reviewer.\n\nContext: \nI have candidate themes and I need to ensure they hold up against the empirical data and are not too thin or descriptive.\n\nTask: \nCritically review my overarching themes. Identify weaknesses, conceptual overlaps, anomalies, or areas lacking depth.\n\nConstraints:\n- Be constructively critical. Do not just agree with me.\n- Point out if a theme seems too broad (a "topic" like "Challenges") rather than a true meaning-based theme.\n\nOutput: \nA Markdown table: [Theme] | [Strengths] | [Critiques/Weaknesses] | [Suggested Refinement]` 
                 }
             ]
         },
         {
-            phase: "Phase 5: Define & Name Themes",
+            phase: "✒️ Phase 5: Naming & Defining Themes",
             prompts: [
                 { 
                     title: "Theme Refinement & Naming", 
-                    prompt: `Role: 
-You are a master academic storyteller and qualitative writer. You excel at capturing complex human experiences in evocative, concise, and academic language.
-
-Context: 
-I am in Phase 5 (Defining and Naming Themes). I have solid theme structures but their names and definitions feel too generic, flat, or descriptive.
-
-Task: 
-Review the provided theme descriptions and associated codes. Suggest 3 alternative, conceptually rich, and evocative names for each theme. Additionally, write a concise, punchy "definition" for the theme.
-
-Constraints (CRITICAL):
-- Avoid generic one-word topics (e.g., "Challenges", "Emotions").
-- Use active, narrative-driven language (e.g., "Navigating the Burden of Care").
-- Ensure the names accurately reflect the codes within them.
-
-Data:
-"
-[paste your current generic theme name, description, and list of codes here]
-"
-
-Output Format: 
-Bulleted list presenting 3 naming options per theme, followed by a suggested 2-sentence formal academic definition.` 
+                    prompt: `Role: \nYou are a master academic storyteller and qualitative writer.\n\nContext: \nMy theme names feel too generic, flat, or descriptive (e.g., "Communication Issues").\n\nTask: \nReview the provided theme descriptions and associated codes. Suggest 3 alternative, conceptually rich, and evocative names for each theme.\n\nConstraints:\n- Avoid generic one-word topics.\n- Use active, narrative-driven language (e.g., "The Silence of Unspoken Expectations").\n- Ensure the names accurately reflect the codes within them.\n\nOutput: \nBulleted list presenting 3 naming options per theme, followed by a suggested 2-sentence formal academic definition.` 
+                },
+                { 
+                    title: "Generate Theme Memo", 
+                    prompt: `Role: \nYou are an analytical researcher writing memos.\n\nContext: \nI need to write an analytical memo documenting the evolution and core boundaries of a specific theme.\n\nTask: \nWrite a comprehensive memo for the provided theme. Explain what the theme IS and what the theme IS NOT.\n\nConstraints:\n- Clearly establish the boundaries of the theme (inclusion/exclusion criteria).\n- Discuss how this theme relates to the broader research question.\n\nOutput: \nA structured memo: [Theme Name] | [Core Definition] | [Inclusion Criteria] | [Exclusion Criteria] | [Analytic Notes].` 
                 }
             ]
         },
         {
-            phase: "Phase 6: Produce the Report",
+            phase: "📝 Phase 6: Reporting & Writing",
             prompts: [
                 { 
-                    title: "Drafting a Narrative Findings Section", 
-                    prompt: `Role: 
-You are an accomplished qualitative researcher drafting the findings section of a peer-reviewed journal article. You weave verbatim quotes and analytic commentary seamlessly.
-
-Context: 
-I am in Phase 6 (Producing the Report). I need to transform my thematic structures into a compelling narrative.
-
-Task: 
-Write a 300-400 word narrative section for the theme provided. Use the provided quotes to build a rich, "thick description" of the participants' experiences.
-
-Constraints (CRITICAL):
-- Do not just list quotes. The quotes must be embedded inside the sentences to illustrate your analytical points (e.g., Participant A felt "completely overwhelmed" by the process).
-- Maintain an objective, empathetic, and highly academic tone.
-- Do not conclude or add new data that isn't in the provided quotes.
-
-Data:
-"
-[paste the theme name, theme definition, and exactly 3-5 verbatim quotes you want included]
-"
-
-Output Format: 
-A continuous, well-structured academic narrative paragraph/section.` 
+                    title: "Draft Narrative Findings Section", 
+                    prompt: `Role: \nYou are an accomplished qualitative researcher drafting the findings section of a peer-reviewed journal article.\n\nContext: \nI need to transform my thematic structures and quotes into a compelling narrative.\n\nTask: \nWrite a 300-400 word narrative section for the theme provided. Use the provided quotes to build a rich, "thick description".\n\nConstraints:\n- Do not just list quotes. The quotes must be embedded inside the sentences to illustrate your analytical points (e.g., Participant A felt "completely overwhelmed" by the process).\n- Maintain an objective, empathetic, and scholarly tone.\n\nOutput: \nA continuous, well-structured academic narrative paragraph/section.` 
+                },
+                { 
+                    title: "Synthesize Executive Summary", 
+                    prompt: `Role: \nYou are a UX/Applied Researcher communicating findings to stakeholders.\n\nContext: \nI need to translate academic qualitative themes into an actionable, easy-to-read executive summary.\n\nTask: \nTake my themes and quotes and write a 1-page executive summary highlighting key insights and potential action areas.\n\nConstraints:\n- Remove heavy academic jargon.\n- Focus on "So What?" (Why does this insight matter?).\n- Use bullet points for readability.\n\nOutput: \nA business-friendly summary: [High-Level TL;DR] | [3 Key Insights w/ Evidence] | [Implications/Recommendations].` 
+                }
+            ]
+        },
+        {
+            phase: "🧠 Advanced & Cross-Case Analysis",
+            prompts: [
+                { 
+                    title: "Cross-Case Comparison", 
+                    prompt: `Role: \nYou are a comparative qualitative analyst.\n\nContext: \nI need to understand how different groups of participants (or different specific transcripts) diverge on a single topic.\n\nTask: \nCompare and contrast how [Topic/Theme] is experienced across the provided data sources.\n\nConstraints:\n- Highlight both shared commonalities and stark divergences.\n- Cite which participant/transcript holds which view.\n\nOutput: \nA comparative analysis matrix (table) followed by a paragraph summarizing the core divergences.` 
+                },
+                { 
+                    title: "Codebook Deduplication & Refinement", 
+                    prompt: `Role: \nYou are a data taxonomist and qualitative coder.\n\nContext: \nMy codebook has grown too large, messy, and contains overlapping codes.\n\nTask: \nReview the provided list of codes. Identify overlaps, synonyms, and redundancies. Propose a cleaner, hierarchical codebook structure (Categories -> Sub-codes).\n\nConstraints:\n- Do not delete meaning; merge similar codes into a broader category.\n- Provide a brief rationale for your merges.\n\nOutput: \nA structured markdown hierarchy (Level 1 Category -> Level 2 Codes), plus a list of suggested merges.` 
                 }
             ]
         }
@@ -379,7 +250,7 @@ A continuous, well-structured academic narrative paragraph/section.`
                             onClick={() => setShowHandbook(true)}
                             className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 border border-indigo-100/50 rounded-lg text-[12px] font-bold text-indigo-700 hover:bg-indigo-100 transition-all shadow-sm"
                         >
-                            <Library className="w-4 h-4" /> Provider Handbook
+                            <Library className="w-4 h-4" /> Prompt Handbook
                         </button>
                         {messages.length > 0 && (
                             <button
