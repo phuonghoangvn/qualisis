@@ -173,8 +173,9 @@ Whenever the user asks a question about the data, you MUST use these tools to se
             if (responseMessage.tool_calls) {
                 toolUsed = true;
                 for (const toolCall of responseMessage.tool_calls) {
-                    if (toolCall.function.name === 'search_project_data') {
-                        const args = JSON.parse(toolCall.function.arguments);
+                    const toolCallAny = toolCall as any;
+                    if (toolCallAny.function.name === 'search_project_data') {
+                        const args = JSON.parse(toolCallAny.function.arguments);
                         let resultsText = '';
 
                         try {
@@ -250,8 +251,8 @@ Whenever the user asks a question about the data, you MUST use these tools to se
                                 content: `Error executing search: ${err.message}`
                             });
                         }
-                    } else if (toolCall.function.name === 'read_transcript') {
-                        const args = JSON.parse(toolCall.function.arguments);
+                    } else if (toolCallAny.function.name === 'read_transcript') {
+                        const args = JSON.parse(toolCallAny.function.arguments);
                         try {
                             const transcript = await prisma.transcript.findUnique({
                                 where: { id: args.transcriptId },
