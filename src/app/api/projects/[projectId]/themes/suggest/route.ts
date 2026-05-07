@@ -5,7 +5,7 @@ import { openai } from '@/lib/ai'
 
 // Batch size: how many codes to send per AI call to avoid context-window limits.
 // We increase this to 2000 to allow the AI to see ALL unassigned codes at once for a holistic analysis.
-const MAX_CODES_PER_BATCH = 150
+const MAX_CODES_PER_BATCH = 400
 
 // POST /api/projects/[projectId]/themes/suggest — AI suggests theme groupings
 export async function POST(
@@ -167,7 +167,7 @@ Return ONLY a JSON array (no markdown, no explanation):
         const response = await openai.chat.completions.create({
             model: 'gpt-4o',
             temperature: 0.2,
-            max_tokens: 4000,
+            max_tokens: 8000,
             messages: [{ role: 'user', content: prompt }],
         })
 
