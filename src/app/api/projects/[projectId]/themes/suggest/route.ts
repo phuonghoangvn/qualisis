@@ -5,7 +5,7 @@ import { openai } from '@/lib/ai'
 
 // Batch size: how many codes to send per AI call to avoid context-window limits.
 // We increase this to 2000 to allow the AI to see ALL unassigned codes at once for a holistic analysis.
-const MAX_CODES_PER_BATCH = 2000
+const MAX_CODES_PER_BATCH = 150
 
 // POST /api/projects/[projectId]/themes/suggest — AI suggests theme groupings
 export async function POST(
@@ -85,12 +85,13 @@ export async function POST(
         }
 
         const codesSummary = batchCodes.map((code, idx) => {
-            const examples = code.codeAssignments
-                .slice(0, 2)
-                .map((a: any) => `"${a.segment.text.slice(0, 120)}"`)
-                .join('; ')
-            return `${idx + 1}. "${code.name}" (${code._count.codeAssignments}× used, ${humanReadableType(code)})${
-                code.definition ? ` — ${(code.definition as string).slice(0, 120)}` : ''
+            const includeExamples = batchCodes.length <= 40
+            const examples = includeExamples ? code.codeAssignments
+                .slice(0, 1)
+                .map((a: any) => `"${a.segment.text.slice(0, 100)}"`)
+                .join('; ') : ''
+            return `${idx + 1}. "${code.name}" (${code._count.codeAssignments}× used)${
+                code.definition ? ` — ${(code.definition as string).slice(0, 100)}` : ''
             }${examples ? `\n   e.g. ${examples}` : ''}`
         }).join('\n')
 
@@ -166,6 +167,7 @@ Return ONLY a JSON array (no markdown, no explanation):
         const response = await openai.chat.completions.create({
             model: 'gpt-4o',
             temperature: 0.2,
+            max_tokens: 4000,
             messages: [{ role: 'user', content: prompt }],
         })
 
