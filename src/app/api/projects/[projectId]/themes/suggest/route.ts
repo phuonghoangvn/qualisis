@@ -170,7 +170,7 @@ Return ONLY a JSON array (no markdown, no explanation). Crucially, to save space
         if (anthropic) {
             console.log('Using Claude 3.5 Sonnet for Theme Suggestion')
             const response = await anthropic.messages.create({
-                model: 'claude-3-5-sonnet-latest',
+                model: 'claude-3-5-sonnet-20241022',
                 max_tokens: 8000,
                 temperature: 0.2,
                 messages: [{ role: 'user', content: prompt }],
