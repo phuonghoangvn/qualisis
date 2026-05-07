@@ -86,15 +86,15 @@ export async function POST(
         }
 
         const codesSummary = batchCodes.map((code, idx) => {
-            const includeExamples = batchCodes.length <= 40
-            const examples = includeExamples ? code.codeAssignments
-                .slice(0, 1)
-                .map((a: any) => `"${a.segment.text.slice(0, 100)}"`)
-                .join('; ') : ''
-            return `${idx + 1}. "${code.name}" (${code._count.codeAssignments}× used)${
-                code.definition ? ` — ${(code.definition as string).slice(0, 100)}` : ''
-            }${examples ? `\n   e.g. ${examples}` : ''}`
-        }).join('\n')
+            const examples = code.codeAssignments
+                .slice(0, 2)
+                .map((a: any) => `"${a.segment.text.length > 250 ? a.segment.text.slice(0, 250) + '...' : a.segment.text}"`)
+                .join('\n     - ')
+                
+            return `${idx + 1}. [${humanReadableType(code)}] "${code.name}" (${code._count.codeAssignments}× used)${
+                code.definition ? `\n   Definition/Note: ${code.definition}` : ''
+            }${examples ? `\n   Quotes in data:\n     - ${examples}` : ''}`
+        }).join('\n\n')
 
         // 4. Get project context and existing themes
         const [project, existingThemes] = await Promise.all([
