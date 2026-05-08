@@ -75,13 +75,25 @@ Return a raw valid JSON array. Each object must follow this exact structure:
 [
   {
     "theme": "Broad theoretical theme name (e.g., 'Agency and self-regulation', 'Embodied experience of practice', 'Tension between control and overwhelm')",
-    "label": "Short, descriptive code label (1-4 words max, e.g., 'Seeking private space', 'Reduced tension', 'Physical withdrawal')",
+    "label": "Your PRIMARY code choice — the best descriptive label (2-5 words)",
+    "alternatives": [
+      "[IN-VIVO] A code that stays extremely close to the participant's own words/phrasing",
+      "[ANALYTICAL] A code that captures the underlying mechanism or theoretical concept",
+      "[RQ-LENS] A code that directly connects this moment to the Research Question"
+    ],
     "text": "Exact verbatim quote from the transcript (the Sample Excerpt)",
     "sentiment": "Positive" | "Negative" | "Neutral",
     "confidence": "HIGH" | "MEDIUM" | "LOW",
     "explanation": "Brief justification for why this quote is analytically relevant"
   }
 ]
+
+IMPORTANT RULES FOR ALTERNATIVES:
+- Each alternative MUST offer a genuinely DIFFERENT analytical perspective, NOT just a synonym.
+- [IN-VIVO]: Echo back the participant's own language — stay very close to the surface meaning, use their actual phrasing.
+- [ANALYTICAL]: Step back and name the underlying psychological/social mechanism at play.
+- [RQ-LENS]: Frame this moment specifically in terms of how it answers or relates to the Research Question.
+- All alternatives must be 2-6 words, concise, and directly applicable to this specific quote.
 
 IMPORTANT RULES FOR THEMES:
 - Themes are THEORETICAL CONSTRUCTS that describe recurring patterns across the data. They are abstract and interpretive.
@@ -90,7 +102,7 @@ IMPORTANT RULES FOR THEMES:
 - Aim for 3-7 distinct themes per transcript.
 
 IMPORTANT RULES FOR CODE LABELS:
-- Each code label MUST be 1-4 words. It is a tag, not a theme.
+- Each code label MUST be 2-5 words. It is a descriptive tag, not a full theme.
 - Examples of GOOD code labels: "Seeking private space", "Feeling relief", "Work-life imbalance".
 - Examples of BAD code labels: "Agency reclaimed through structured routine", "Somatic relief as validation of practice" (these are THEMES, not codes).
 

@@ -1557,7 +1557,8 @@ Rules:
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <div className="flex flex-col gap-1.5 items-start group/label relative">
+                                                            <div className="flex flex-col gap-2 items-start group/label relative">
+                                                                {/* Primary label */}
                                                                 <div className="flex items-start gap-1">
                                                                     <span className="inline-flex text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded text-[11px] font-bold max-w-[200px] whitespace-normal">
                                                                         {row.suggestion.label}
@@ -1572,10 +1573,41 @@ Rules:
                                                                         </button>
                                                                     )}
                                                                 </div>
-                                                                <div className="flex gap-1 items-center">
+                                                                <div className="flex gap-1 items-center flex-wrap">
                                                                     {!row.isHuman && conf > 0 && <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded w-fit ${confBg}`}>{conf}%</span>}
                                                                     {row.isHuman && <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider bg-purple-100 text-purple-700 w-fit">HUMAN</span>}
                                                                 </div>
+                                                                {/* Alternative chips */}
+                                                                {!isAccepted && !row.isHuman && row.suggestion.status !== 'REJECTED' && Array.isArray((row.suggestion as any).alternatives) && (row.suggestion as any).alternatives.length > 0 && (
+                                                                    <div className="flex flex-col gap-1 w-full">
+                                                                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Try instead:</span>
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {((row.suggestion as any).alternatives as string[]).map((alt: string, altIdx: number) => {
+                                                                                // Parse prefix tag like [IN-VIVO], [ANALYTICAL], [RQ-LENS]
+                                                                                const tagMatch = alt.match(/^\[([^\]]+)\]\s*/);
+                                                                                const tag = tagMatch ? tagMatch[1] : null;
+                                                                                const cleanAlt = tagMatch ? alt.slice(tagMatch[0].length) : alt;
+                                                                                const tagColors: Record<string, string> = {
+                                                                                    'IN-VIVO': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                                                                    'ANALYTICAL': 'bg-violet-50 text-violet-700 border-violet-200',
+                                                                                    'RQ-LENS': 'bg-amber-50 text-amber-700 border-amber-200',
+                                                                                };
+                                                                                const chipColor = tag ? (tagColors[tag] || 'bg-slate-50 text-slate-600 border-slate-200') : 'bg-slate-50 text-slate-600 border-slate-200';
+                                                                                return (
+                                                                                    <button
+                                                                                        key={altIdx}
+                                                                                        onClick={() => handleCompareDecision(row, 'OVERRIDE', cleanAlt)}
+                                                                                        title={`Accept with: "${cleanAlt}"`}
+                                                                                        className={`inline-flex flex-col items-start gap-0.5 px-2 py-1 rounded border text-left hover:opacity-80 transition-all cursor-pointer ${chipColor}`}
+                                                                                    >
+                                                                                        {tag && <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-60">{tag}</span>}
+                                                                                        <span className="text-[10px] font-bold leading-tight">{cleanAlt}</span>
+                                                                                    </button>
+                                                                                )
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </td>

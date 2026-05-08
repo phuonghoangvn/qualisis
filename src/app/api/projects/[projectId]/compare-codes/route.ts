@@ -66,6 +66,7 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
                     uncertainty: topSuggestion?.uncertainty,
                     modelProvider: topSuggestion?.modelProvider,
                     status: topSuggestion?.status,
+                    alternatives: (topSuggestion as any)?.alternatives || [],
                 },
                 isHuman,
                 humanCodes: humanAssignments.map(c => c.codebookEntry.name),
