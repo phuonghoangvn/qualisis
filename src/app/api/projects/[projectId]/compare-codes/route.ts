@@ -3,8 +3,25 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+/** Simple word-overlap similarity between two strings. Returns 0–1. */
+function wordSimilarity(a: string, b: string): number {
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(Boolean);
+    const wa = new Set(normalize(a));
+    const wb = new Set(normalize(b));
+    if (wa.size === 0 || wb.size === 0) return 0;
+    let intersection = 0;
+    wa.forEach(w => { if (wb.has(w)) intersection++; });
+    return intersection / Math.min(wa.size, wb.size);
+}
+
 export async function GET(_req: Request, { params }: { params: { projectId: string } }) {
     try {
+        // Fetch all existing themes for this project (for theme hint matching)
+        const existingThemes = await prisma.theme.findMany({
+            where: { projectId: params.projectId, parentId: null }, // top-level themes only
+            select: { id: true, name: true }
+        })
+
         // Fetch all segments with any AI suggestions or human codes across all transcripts in this project
         const segments = await prisma.segment.findMany({
             where: {
@@ -53,6 +70,30 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
                 if (approved) topSuggestion = approved;
             }
 
+            // Extract AI-suggested theme from the uncertainty JSON field
+            let suggestedTheme: string | null = null;
+            if (topSuggestion?.uncertainty) {
+                try {
+                    const parsed = JSON.parse(topSuggestion.uncertainty as string);
+                    suggestedTheme = parsed?.theme || null;
+                } catch { /* ignore parse errors */ }
+            }
+
+            // Find best matching existing theme using word overlap
+            let matchingExistingTheme: string | null = null;
+            let matchingExistingThemeId: string | null = null;
+            if (suggestedTheme && existingThemes.length > 0) {
+                let bestScore = 0;
+                for (const t of existingThemes) {
+                    const score = wordSimilarity(suggestedTheme, t.name);
+                    if (score > 0.4 && score > bestScore) { // threshold: 40% word overlap
+                        bestScore = score;
+                        matchingExistingTheme = t.name;
+                        matchingExistingThemeId = t.id;
+                    }
+                }
+            }
+
             return {
                 segmentId: seg.id,
                 text: seg.text,
@@ -67,6 +108,9 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
                     modelProvider: topSuggestion?.modelProvider,
                     status: topSuggestion?.status,
                     alternatives: (topSuggestion as any)?.alternatives || [],
+                    suggestedTheme,
+                    matchingExistingTheme,
+                    matchingExistingThemeId,
                 },
                 isHuman,
                 humanCodes: humanAssignments.map(c => c.codebookEntry.name),

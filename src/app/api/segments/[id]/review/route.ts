@@ -4,14 +4,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 // POST /api/segments/[id]/review
-// body: { action: "ACCEPT" | "OVERRIDE" | "REJECT", note?: string, customLabel?: string, suggestionId: string }
+// body: { action, note?, customLabel?, suggestionId, themeId?, newThemeName? }
 export async function POST(
     req: Request,
     { params }: { params: { id: string } }
 ) {
     try {
         const body = await req.json()
-        const { action, note, customLabel, suggestionId } = body
+        const { action, note, customLabel, suggestionId, themeId, newThemeName } = body
 
         const session = await getServerSession(authOptions)
         const userId = session?.user ? (session.user as any).id : null
@@ -46,7 +46,7 @@ export async function POST(
                     aiSuggestionId: suggestionId,
                     action,
                     note: note ?? null,
-                    reviewerId: userId || 'researcher-1', // Fallback if no auth
+                    reviewerId: userId || 'researcher-1',
                 }
             })
         }
@@ -66,17 +66,9 @@ export async function POST(
             }
         })
 
-        // If ACCEPT or OVERRIDE: create/update CodeAssignment
+        // If ACCEPT or OVERRIDE: create/update CodeAssignment + optional ThemeCodeLink
         if (action === 'ACCEPT' || action === 'OVERRIDE') {
             const finalLabel = customLabel ? customLabel : suggestion.label
-
-            // Find or create codebook entry
-            let codebookEntry = await prisma.codebookEntry.findFirst({
-                where: {
-                    name: { equals: finalLabel, mode: 'insensitive' },
-                    projectId: { not: undefined }
-                }
-            })
 
             // Get projectId via segment → transcript → dataset → project chain
             const transcriptData = await prisma.transcript.findUnique({
@@ -84,6 +76,14 @@ export async function POST(
                 include: { dataset: true }
             })
             const projectId = transcriptData?.dataset.projectId
+
+            // Find or create codebook entry
+            let codebookEntry = await prisma.codebookEntry.findFirst({
+                where: {
+                    name: { equals: finalLabel, mode: 'insensitive' },
+                    projectId: projectId || undefined
+                }
+            })
 
             const finalDefinition = note 
                 ? `${suggestion.explanation}\n\n[Researcher Note]: ${note}` 
@@ -101,7 +101,6 @@ export async function POST(
                     }
                 })
             } else if (codebookEntry && note) {
-                // If it already exists, append the new note to its definition
                 if (!codebookEntry.definition?.includes(note)) {
                     await prisma.codebookEntry.update({
                         where: { id: codebookEntry.id },
@@ -126,6 +125,39 @@ export async function POST(
                         confidence: suggestion.confidence,
                     }
                 })
+
+                // === Theme assignment ===
+                let resolvedThemeId = themeId || null;
+
+                // If a new theme name was provided (and no existing themeId), create the theme first
+                if (!resolvedThemeId && newThemeName && projectId) {
+                    const newTheme = await prisma.theme.create({
+                        data: {
+                            projectId,
+                            name: newThemeName,
+                            description: `Created from Mass Review: "${finalLabel}"`,
+                            status: 'DRAFT',
+                        }
+                    })
+                    resolvedThemeId = newTheme.id;
+                }
+
+                // Create ThemeCodeLink (upsert to avoid duplicates)
+                if (resolvedThemeId) {
+                    await prisma.themeCodeLink.upsert({
+                        where: {
+                            themeId_codebookEntryId: {
+                                themeId: resolvedThemeId,
+                                codebookEntryId: codebookEntry.id,
+                            }
+                        },
+                        update: {},
+                        create: {
+                            themeId: resolvedThemeId,
+                            codebookEntryId: codebookEntry.id,
+                        }
+                    })
+                }
             }
         }
 

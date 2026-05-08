@@ -508,6 +508,9 @@ export default function ThemesPage() {
     // Inline editing for Mass Review table
     const [editingRowId, setEditingRowId] = useState<string | null>(null)
     const [editingLabel, setEditingLabel] = useState('')
+    // Per-row theme selection: { [segmentId]: { themeId?: string, newThemeName?: string } }
+    const [rowThemeSelections, setRowThemeSelections] = useState<Record<string, { themeId?: string; newThemeName?: string; label?: string }>>({}) 
+    const [rowThemePickerOpen, setRowThemePickerOpen] = useState<Record<string, boolean>>({})
 
     const fetchPendingCodes = useCallback(async () => {
         setPendingCodesLoading(true)
@@ -533,10 +536,17 @@ export default function ThemesPage() {
 
     const handleCompareDecision = async (row: PendingRow, action: 'ACCEPT' | 'REJECT' | 'RESTORE' | 'OVERRIDE', customLabel?: string) => {
         try {
+            const themeSelection = rowThemeSelections[row.segmentId]
             await fetch(`/api/segments/${row.segmentId}/review`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, customLabel, suggestionId: row.suggestion.id })
+                body: JSON.stringify({ 
+                    action, 
+                    customLabel, 
+                    suggestionId: row.suggestion.id,
+                    themeId: themeSelection?.themeId || null,
+                    newThemeName: themeSelection?.newThemeName || null,
+                })
             })
             // Update local state to reflect new status
             setPendingCodes(prev => prev.map(r => {
@@ -557,6 +567,11 @@ export default function ThemesPage() {
             // If it was an edit, close the edit mode
             if (action === 'OVERRIDE') {
                 setEditingRowId(null)
+            }
+            // Clear theme selection after accepting
+            if (action === 'ACCEPT' || action === 'OVERRIDE') {
+                setRowThemeSelections(prev => { const n = {...prev}; delete n[row.segmentId]; return n; })
+                setRowThemePickerOpen(prev => { const n = {...prev}; delete n[row.segmentId]; return n; })
             }
         } catch (error) {
             console.error('Failed to save review decision:', error)
@@ -1608,6 +1623,92 @@ Rules:
                                                                         </div>
                                                                     </div>
                                                                 )}
+                                                                {/* Theme selector */}
+                                                                {!isAccepted && !row.isHuman && row.suggestion.status !== 'REJECTED' && (() => {
+                                                                    const suggestedTheme = (row.suggestion as any).suggestedTheme as string | null;
+                                                                    const matchingExistingTheme = (row.suggestion as any).matchingExistingTheme as string | null;
+                                                                    const matchingExistingThemeId = (row.suggestion as any).matchingExistingThemeId as string | null;
+                                                                    const rowSel = rowThemeSelections[row.segmentId];
+                                                                    const pickerOpen = rowThemePickerOpen[row.segmentId];
+                                                                    // Default selection to matching theme if not yet set
+                                                                    const displayLabel = rowSel?.label || matchingExistingTheme || suggestedTheme;
+                                                                    const isExisting = rowSel ? !!rowSel.themeId : !!matchingExistingTheme;
+                                                                    if (!suggestedTheme && !matchingExistingTheme) return null;
+                                                                    return (
+                                                                        <div className="flex flex-col gap-1 w-full pt-1 border-t border-slate-100">
+                                                                            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Theme:</span>
+                                                                            {!pickerOpen ? (
+                                                                                <button
+                                                                                    onClick={() => setRowThemePickerOpen(prev => ({ ...prev, [row.segmentId]: true }))}
+                                                                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-bold text-left hover:opacity-70 transition-opacity ${isExisting ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}
+                                                                                    title="Click to change theme"
+                                                                                >
+                                                                                    {isExisting ? (
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                                                    ) : (
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                                                                    )}
+                                                                                    <span className="max-w-[150px] truncate">{displayLabel}</span>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-auto opacity-50"><path d="m6 9 6 6 6-6"/></svg>
+                                                                                </button>
+                                                                            ) : (
+                                                                                <div className="flex flex-col gap-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 z-20">
+                                                                                    <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Existing themes:</span>
+                                                                                    <div className="flex flex-col gap-0.5 max-h-[120px] overflow-y-auto">
+                                                                                        {themes.map(t => (
+                                                                                            <button
+                                                                                                key={t.id}
+                                                                                                onClick={() => {
+                                                                                                    setRowThemeSelections(prev => ({ ...prev, [row.segmentId]: { themeId: t.id, label: t.name } }))
+                                                                                                    setRowThemePickerOpen(prev => ({ ...prev, [row.segmentId]: false }))
+                                                                                                }}
+                                                                                                className={`text-left px-2 py-1 rounded text-[10px] font-semibold hover:bg-teal-50 hover:text-teal-700 transition-colors ${rowSel?.themeId === t.id ? 'bg-teal-100 text-teal-700 font-bold' : 'text-slate-700'}`}
+                                                                                            >
+                                                                                                {t.name}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    <div className="border-t border-slate-100 pt-1 mt-0.5">
+                                                                                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider px-1">Or create new:</span>
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder={suggestedTheme || 'New theme name...'}
+                                                                                            defaultValue={rowSel?.newThemeName || (!rowSel?.themeId ? (suggestedTheme || '') : '')}
+                                                                                            onKeyDown={e => {
+                                                                                                if (e.key === 'Enter') {
+                                                                                                    const val = (e.target as HTMLInputElement).value.trim();
+                                                                                                    if (val) {
+                                                                                                        setRowThemeSelections(prev => ({ ...prev, [row.segmentId]: { newThemeName: val, label: val } }))
+                                                                                                        setRowThemePickerOpen(prev => ({ ...prev, [row.segmentId]: false }))
+                                                                                                    }
+                                                                                                }
+                                                                                            }}
+                                                                                            onBlur={e => {
+                                                                                                const val = e.target.value.trim();
+                                                                                                if (val) {
+                                                                                                    setRowThemeSelections(prev => ({ ...prev, [row.segmentId]: { newThemeName: val, label: val } }))
+                                                                                                }
+                                                                                                setRowThemePickerOpen(prev => ({ ...prev, [row.segmentId]: false }))
+                                                                                            }}
+                                                                                            className="w-full mt-1 px-2 py-1 text-[10px] border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                                                                            autoFocus={false}
+                                                                                        />
+                                                                                    </div>
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            // Clear selection → no theme
+                                                                                            setRowThemeSelections(prev => { const n = {...prev}; delete n[row.segmentId]; return n; })
+                                                                                            setRowThemePickerOpen(prev => ({ ...prev, [row.segmentId]: false }))
+                                                                                        }}
+                                                                                        className="text-[9px] text-slate-400 hover:text-rose-500 transition-colors text-left px-1"
+                                                                                    >
+                                                                                        ✕ Accept without theme
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )
+                                                                })()}
                                                             </div>
                                                         )}
                                                     </td>
