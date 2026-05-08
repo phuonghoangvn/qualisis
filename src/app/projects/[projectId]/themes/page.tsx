@@ -511,6 +511,8 @@ export default function ThemesPage() {
     // Per-row theme selection: { [segmentId]: { themeId?: string, newThemeName?: string } }
     const [rowThemeSelections, setRowThemeSelections] = useState<Record<string, { themeId?: string; newThemeName?: string; label?: string }>>({}) 
     const [rowThemePickerOpen, setRowThemePickerOpen] = useState<Record<string, boolean>>({})
+    // Expandable AI Reliance Report rows in Rationale & Memos column
+    const [expandedRationaleRows, setExpandedRationaleRows] = useState<Record<string, boolean>>({})
 
     const fetchPendingCodes = useCallback(async () => {
         setPendingCodesLoading(true)
@@ -1508,13 +1510,14 @@ Rules:
                                 <table className="w-full text-left border-collapse">
                                     <thead className="bg-white sticky top-0 z-10 shadow-sm border-b border-slate-200">
                                         <tr>
-                                            <th className="px-6 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[12%]">Transcript</th>
-                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[38%]">Excerpt</th>
+                                            <th className="px-6 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[10%]">Transcript</th>
+                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[28%]">Excerpt</th>
                                             <th className="px-6 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[18%]">AI Code</th>
-                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[12%]">
+                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[10%]">
                                                 <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block"/>Your Code</span>
                                             </th>
-                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[20%] text-center">Actions</th>
+                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[18%]">Rationale &amp; Memos</th>
+                                            <th className="px-4 py-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-[16%] text-center">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -1773,7 +1776,67 @@ Rules:
                                                         })()}
                                                     </td>
 
-                                                    {/* 5. Actions */}
+                                                    {/* 5. Rationale & Memos */}
+                                                    <td className="px-4 py-4 align-top">
+                                                        <div className="flex flex-col gap-2">
+                                                            {/* AI Explanation */}
+                                                            {(row.suggestion as any).explanation && (
+                                                                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                                                                    {(row.suggestion as any).explanation}
+                                                                </p>
+                                                            )}
+                                                            {/* AI Reliance Report (expandable) */}
+                                                            {(row.suggestion as any).uncertainty && (row.suggestion as any).uncertainty !== 'None' && (() => {
+                                                                const isExpanded = (expandedRationaleRows as any)[row.segmentId];
+                                                                let reportContent = null;
+                                                                try {
+                                                                    const data = JSON.parse((row.suggestion as any).uncertainty);
+                                                                    if (data.finalScore !== undefined) {
+                                                                        const semSimPct = Math.round((parseFloat(data.semanticSimilarity || '0.85')) * 100);
+                                                                        const selfAssRaw = data.selfAssessmentGrade || '4.0';
+                                                                        const totalRuns = parseInt(data.totalRuns || '3', 10);
+                                                                        const consistencyMatch = (data.runConsistency || '').match(/(\d+)\/(\d+)/);
+                                                                        const agrees = consistencyMatch ? parseInt(consistencyMatch[1], 10) : totalRuns;
+                                                                        reportContent = (
+                                                                            <div className="flex flex-col gap-1 mt-1 text-[10px] text-slate-500">
+                                                                                <div className="flex justify-between"><span>Contextual Resonance</span><span className="font-bold">{semSimPct}%</span></div>
+                                                                                <div className="flex justify-between"><span>Reasoning Stability</span><span className="font-bold">{agrees}/{totalRuns}</span></div>
+                                                                                <div className="flex justify-between"><span>Critic Grade</span><span className="font-bold">{selfAssRaw}/5.0</span></div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                } catch { /* skip */ }
+                                                                if (!reportContent) return null;
+                                                                return (
+                                                                    <div className="mt-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-[10px] shadow-sm">
+                                                                        <button
+                                                                            onClick={() => setExpandedRationaleRows((p: any) => ({ ...p, [row.segmentId]: !p[row.segmentId] }))}
+                                                                            className="flex items-center justify-between w-full uppercase tracking-widest text-[9px] font-extrabold text-slate-400 hover:text-slate-700 transition-colors"
+                                                                        >
+                                                                            <span className="flex items-center gap-1">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                                                AI Reliance Report
+                                                                            </span>
+                                                                            <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7"/></svg>
+                                                                        </button>
+                                                                        {isExpanded && <div className="pt-1.5 mt-1.5 border-t border-slate-200">{reportContent}</div>}
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                            {/* Researcher memo */}
+                                                            {(row.suggestion as any).reviewDecision?.note && (
+                                                                <div className="bg-purple-50 border border-purple-100 rounded-lg p-2 mt-1">
+                                                                    <strong className="flex items-center gap-1 uppercase tracking-widest text-[8px] mb-1 font-extrabold text-purple-600">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                                        Researcher Memo
+                                                                    </strong>
+                                                                    <p className="text-[10px] text-purple-900 leading-relaxed italic">"{(row.suggestion as any).reviewDecision.note}"</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+
+                                                    {/* 6. Actions */}
                                                     <td className="px-4 py-4 align-top">
                                                         {row.isHuman ? (
                                                             <div className="flex justify-center">
