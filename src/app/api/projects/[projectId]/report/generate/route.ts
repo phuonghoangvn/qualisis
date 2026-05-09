@@ -39,7 +39,7 @@ export async function POST(
                                 definition: true,
                                 _count: { select: { codeAssignments: true } },
                                 codeAssignments: {
-                                    take: 3,
+                                    take: 6,
                                     select: {
                                         segment: {
                                             select: {
@@ -179,13 +179,14 @@ This sentence is the spine. Every finding, every discussion paragraph, every des
 PART 1 — FINDINGS
 
 Rules for Findings:
+- TARGET LENGTH: Each finding should be 400–500 words. Do not be brief. A thesis finding is a sustained argument, not a bullet point.
 - START FROM THE DETECTIVE PASS ABOVE. The tensions, surprises, implicit practices, and sharp quotes identified there are your analytical raw material. Build findings around those discoveries — not around theme names.
 - Consolidate all themes/codes into EXACTLY 4–5 high-level findings. Do not list themes or codes separately.
 - Each finding must name a PATTERN + its MEANING. A finding that just says "participants used AI" is worthless. A finding that says "participants systematically introduced AI only after establishing their own reading of the data, suggesting AI was used as a comparative lens rather than a primary analytic engine" is valuable.
 - Write each finding using this three-layer structure:
-  A. CLAIM: One sentence naming the finding as a sharp, specific pattern — not a theme label.
-  B. EVIDENCE: 2–3 participant quotes embedded in prose (not block-quoted). Strip timestamps and "Speaker X" labels.
-  C. INTERPRETATION: 2–3 sentences on what this pattern means for the research question. Name what it reveals that wasn't obvious.
+  A. CLAIM: One sharp sentence naming the finding as a pattern — not a theme label.
+  B. EVIDENCE: A FULL PARAGRAPH (150–200 words) weaving together 3–5 participant quotes. Do not just list quotes. Narrate: explain what participants said, in what context, showing the pattern across multiple voices. Embed quotes inline. Strip timestamps and "Speaker X" labels.
+  C. INTERPRETATION: A FULL PARAGRAPH (150–200 words) explaining: What does this pattern mean? Why is it surprising or significant? What does it reveal about how researchers think or behave that was not obvious before? How does it connect to the research question?
 - Prefer findings that capture tensions, contradictions, or counter-intuitive practices over findings that just confirm expectations.
 - Use consistent language: hybrid workflow / conditional reliance / traceability / interpretive alignment / analytic ownership
 
@@ -195,11 +196,11 @@ Rules for Findings:
 
 ## Finding 1: [Short title — a descriptive claim]
 
-**Claim:** [One sentence stating the finding as a pattern.]
+**Claim:** [One sharp sentence stating the finding as a specific, named pattern — not a theme label.]
 
-**Evidence:** [2–3 sentences weaving in participant quotes as evidence. Embed quotes inline: as one participant noted, "..." ([Name]).
+**Evidence:** [A full paragraph of 150–200 words. Narrate across 3–5 participant voices. Explain what each participant said and in what context. Use inline quotes. Show how the pattern recurs and varies across participants. Do not just list quotes — weave them into analysis.]
 
-**Interpretation:** [2–3 sentences: what does this pattern mean for the research question?]
+**Interpretation:** [A full paragraph of 150–200 words. Explain: What is analytically interesting about this pattern? What does it reveal that was not visible before? How does it complicate or extend what the literature expects? How does it contribute to answering the research question?]
 
 ## Finding 2: [Short title]
 
@@ -221,13 +222,15 @@ Rules for Findings:
 PART 2 — DISCUSSION
 
 Rules for Discussion:
+- TARGET LENGTH: Each Conceptual Move should be 500–700 words. The Central Argument and Literature Framing sections should each be 200–300 words. Total Discussion should be 2500–3500 words.
 - Do NOT repeat what Findings already said. Findings describe patterns. Discussion explains what those patterns mean conceptually.
-- For each major finding, follow this formula:
-  Finding says: Researchers do X.
-  This means: This changes how we understand Y.
-  Compared with literature: Existing work says A, but this data shows B, which suggests C.
-- Use the central argument spine to connect findings into one coherent intellectual story.
-- Use the language system consistently. Do not switch between "control", "agency", "ownership" if they mean the same thing. Use the defined terms:
+- For each Conceptual Move, follow this formula:
+  Opening: Name the tension between literature and finding.
+  Development: Unpack WHY this tension exists — what is the literature unable to see, and what does the data reveal?
+  Conceptual advance: Name the concept or reframing this move contributes.
+  Evidence: 2–3 embedded participant quotes that crystallise the analytical point.
+  Landing: Connect back to the Central Argument explicitly.
+- Use the language system consistently:
   - trust = researcher believes output is meaningful and defensible
   - reliance = researcher uses AI for practical reasons, regardless of trust level
   - control = researcher can steer, edit, or reject AI outputs
@@ -246,16 +249,16 @@ Rules for Discussion:
 [4–6 sentences in ONE paragraph. Weave together 2–3 literature positions, name what each cannot see, and show how they collectively produce the blind spot this data addresses. Do not list them. Write as flowing prose.]
 
 ## Conceptual Move 1: [verb-noun reframing — e.g. "From AI Adoption to Negotiated Integration"]
-[5–7 sentences. Open with the tension between literature and finding. Develop the finding analytically. Connect back to the central argument. 1–2 embedded participant quotes.]
+[500–700 words. Opening: tension between literature and this finding. Development: unpack WHY the literature cannot see this. Conceptual advance: name the reframing. Evidence: 3+ embedded participant quotes. Landing: connect back to Central Argument.]
 
 ## Conceptual Move 2: [verb-noun reframing]
-[5–7 sentences. Same structure.]
+[500–700 words. Same structure.]
 
 ## Conceptual Move 3: [verb-noun reframing]
-[5–7 sentences. Same structure.]
+[500–700 words. Same structure.]
 
 ## Conceptual Move 4: [Only if supported by a fourth distinct data cluster]
-[5–7 sentences. Same structure.]
+[500–700 words. Same structure.]
 
 ## Conceptual Contribution: Towards [Name of the new concept or framework]
 [4–5 sentences. Name the contribution explicitly. A reframing of how the field should think. Connect back to the central argument. This is the thesis's original insight.]
@@ -321,13 +324,15 @@ ABSOLUTE RULES:
 4. Do NOT write "Gap 1", "Gap 2", "Theme 1". Use the defined structure above.
 5. Every Design Guideline must trace back to a specific Finding.
 6. Use the language system consistently: hybrid workflow / conditional reliance / traceability / interpretive alignment / analytic ownership / contextual refinement.
-7. The overall flow must tell a causal story: researchers try to stay close to data → AI becomes useful under pressure → they integrate it conditionally → trust requires traceability → ownership requires editability → therefore tools need to be hybrid, traceable, editable, and flexible.`
+7. The overall flow must tell a causal story: researchers try to stay close to data → AI becomes useful under pressure → they integrate it conditionally → trust requires traceability → ownership requires editability → therefore tools need to be hybrid, traceable, editable, and flexible.
+8. DO NOT TRUNCATE. Write every section to its full target length. Do not summarise or cut short. If you are running long, do not start skipping sections — complete every Finding and every Conceptual Move fully.
+9. Write at the depth of a strong qualitative thesis — analytical, specific, grounded in evidence, and intellectually ambitious. Vague generalisations ("researchers found AI useful") are unacceptable. Every sentence must carry analytical weight.`
 
         const gapCompletion = await openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [{ role: 'user', content: gapAnalysisPrompt }],
             temperature: 0.3,
-            max_tokens: 5000,
+            max_tokens: 8000,
         })
         const gapAnalysis = gapCompletion.choices[0]?.message?.content || ''
 
