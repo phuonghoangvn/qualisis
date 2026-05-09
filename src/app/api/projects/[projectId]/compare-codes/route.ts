@@ -117,7 +117,7 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
             }
 
             // Collect assigned themes from accepted code assignments
-            const assignedThemes: { id: string; name: string }[] = []
+            const assignedThemes: { id: string; name: string; megaTheme?: { id: string; name: string } }[] = []
             for (const ca of seg.codeAssignments) {
                 const links = (ca.codebookEntry as any).themeLinks || []
                 for (const link of links) {
