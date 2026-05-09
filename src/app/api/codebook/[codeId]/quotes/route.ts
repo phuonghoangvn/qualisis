@@ -6,9 +6,14 @@ export async function GET(
     { params }: { params: { codeId: string } }
 ) {
     try {
-        const assignments = await prisma.codeAssignment.findMany({
-            where: { codebookEntryId: params.codeId },
-            include: {
+        const [codebookEntry, assignments] = await Promise.all([
+            prisma.codebookEntry.findUnique({
+                where: { id: params.codeId },
+                select: { name: true, definition: true, memo: true }
+            }),
+            prisma.codeAssignment.findMany({
+                where: { codebookEntryId: params.codeId },
+                include: {
                 segment: {
                     select: {
                         id: true,
@@ -27,6 +32,7 @@ export async function GET(
             },
             orderBy: { createdAt: 'desc' }
         })
+        ])
         
         // Group by transcript for clean UI
         const quotesByTranscript = assignments.reduce((acc: any, assignment: any) => {
@@ -42,7 +48,10 @@ export async function GET(
             return acc
         }, {})
 
-        return NextResponse.json(Object.values(quotesByTranscript))
+        return NextResponse.json({
+            codeDetails: codebookEntry,
+            quotes: Object.values(quotesByTranscript)
+        })
     } catch (e) {
         console.error('Fetch quotes fail', e)
         return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 })

@@ -43,6 +43,7 @@ export type ThemeNodeData = {
     onDropCode: (themeId: string, codeId: string, fromThemeId?: string) => void
     onDragStartCode: (codeId: string, themeId: string) => void
     onDragEndCode: () => void
+    onTrace: (codeId: string, codeName: string) => void
     draggingCodeId: string | null
     draggingFromThemeId: string | null
 }
@@ -125,7 +126,11 @@ function ThemeNode({ data, selected }: NodeProps) {
                                 e.stopPropagation()
                                 d.onDragEndCode()
                             }}
-                            className={`nodrag flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold group/chip cursor-grab active:cursor-grabbing ${link.codebookEntry.type === 'OBSERVATION' ? 'bg-violet-50 text-violet-700 border border-violet-100' : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300'}`}
+                            onClick={e => {
+                                e.stopPropagation()
+                                d.onTrace(link.codebookEntry.id, link.codebookEntry.name)
+                            }}
+                            className={`nodrag flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold group/chip cursor-pointer ${link.codebookEntry.type === 'OBSERVATION' ? 'bg-violet-50 text-violet-700 border border-violet-100 hover:border-violet-300' : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300'}`}
                         >
                             <span className="truncate">{link.codebookEntry.name}</span>
                             <button className="opacity-0 group-hover/chip:opacity-100 text-slate-300 hover:text-rose-500 transition-all flex-shrink-0" title="Remove code" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); d.onRemoveCode(d.id, link.codebookEntry.id) }}>
@@ -308,6 +313,7 @@ interface ThemeCanvasInnerProps {
     onCreateTheme: (name: string, x: number, y: number) => void
     onDragStartCode: (codeId: string, themeId: string) => void
     onDragEndCode: () => void
+    onTrace: (codeId: string, codeName: string) => void
     aiSuggestions?: any[]
     onAcceptSuggestion?: (name: string) => void
     onRejectSuggestion?: (name: string) => void
@@ -322,7 +328,7 @@ interface ThemeCanvasInnerProps {
 function ThemeCanvasInner({
     themes, draggingCodeId, draggingFromThemeId,
     onDropCode, onDropOnCanvas, onEdit, onDelete, onRemoveCode, onPositionSave, onCreateTheme,
-    onDragStartCode, onDragEndCode, aiSuggestions = [], onAcceptSuggestion, onRejectSuggestion, onAcceptAllSuggestions, acceptingAllSuggestions,
+    onDragStartCode, onDragEndCode, onTrace, aiSuggestions = [], onAcceptSuggestion, onRejectSuggestion, onAcceptAllSuggestions, acceptingAllSuggestions,
     onDismissAllSuggestions, suggestionsLoading = false, suggestionsRemainingAfterBatch = 0, onLoadNextBatch
 }: ThemeCanvasInnerProps) {
     const { screenToFlowPosition } = useReactFlow()
@@ -340,7 +346,7 @@ function ThemeCanvasInner({
                 x: (theme as any).positionX ?? (i % 4) * 380 + 40,
                 y: (theme as any).positionY ?? Math.floor(i / 4) * 380 + 40,
             },
-            data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, draggingCodeId, draggingFromThemeId },
+            data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, onTrace, draggingCodeId, draggingFromThemeId },
         }))
 
         const maxExistingY = ts.reduce((max, t, i) => Math.max(max, (t as any).positionY ?? (Math.floor(i / 4) * 380 + 40)), -400)
@@ -538,6 +544,7 @@ interface ThemeCanvasProps {
     onCreateTheme: (name: string, x: number, y: number) => void
     onDragStartCode: (codeId: string, themeId: string) => void
     onDragEndCode: () => void
+    onTrace: (codeId: string, codeName: string) => void
     aiSuggestions?: any[]
     onAcceptSuggestion?: (name: string) => void
     onRejectSuggestion?: (name: string) => void
