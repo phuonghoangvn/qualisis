@@ -20,6 +20,7 @@ export default function HumanHighlightTooltip({
     const [codeDescription, setCodeDescription] = useState('')
     const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
     const [existingMatches, setExistingMatches] = useState<{ id: string; name: string; definition: string | null; score: number }[]>([])
+    const [suggestedThemes, setSuggestedThemes] = useState<{ id: string; name: string }[]>([])
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
@@ -42,6 +43,7 @@ export default function HumanHighlightTooltip({
             .then(data => {
                 if (data.suggestions) setAiSuggestions(data.suggestions)
                 if (data.existingMatches) setExistingMatches(data.existingMatches)
+                if (data.suggestedThemes) setSuggestedThemes(data.suggestedThemes)
             })
             .catch(console.error)
             .finally(() => setIsLoadingSuggestions(false))
@@ -222,6 +224,32 @@ export default function HumanHighlightTooltip({
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                                         {c.name}
                                                     </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* AI suggested conceptual Themes */}
+                                    {suggestedThemes.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-1.5 mb-1.5 group relative">
+                                                <span className="text-[10px] uppercase font-bold text-amber-600 tracking-wider flex items-center gap-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg>
+                                                    Related Theme
+                                                </span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-300 cursor-help hover:text-amber-500 transition-colors"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                                <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block w-56 p-2.5 bg-slate-800 text-slate-50 text-[10px] rounded-lg shadow-lg z-50 leading-relaxed font-medium border border-slate-700">
+                                                    AI thinks this snippet conceptually belongs to these existing themes, even if you create a new code for it.
+                                                    <div className="absolute -bottom-1 left-3 w-2 h-2 bg-slate-800 border-b border-r border-slate-700 transform rotate-45"></div>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {suggestedThemes.map(t => (
+                                                    <span
+                                                        key={t.id}
+                                                        className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-md flex items-center gap-1"
+                                                    >
+                                                        {t.name}
+                                                    </span>
                                                 ))}
                                             </div>
                                         </div>

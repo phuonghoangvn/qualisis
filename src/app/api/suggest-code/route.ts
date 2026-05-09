@@ -35,39 +35,52 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // --- Fetch existing codes from the project codebook ---
-        const existingCodesRaw = await prisma.codebookEntry.findMany({
+        // --- Fetch existing codes & themes from the project codebook ---
+        const allThemes = await prisma.theme.findMany({
             where: { projectId },
-            select: { id: true, name: true, definition: true },
-            orderBy: { name: 'asc' }
+            include: {
+                children: true,
+                codeLinks: {
+                    include: { codebookEntry: true }
+                }
+            }
         });
 
-        // Score each existing code against the selected text
-        const SIMILARITY_THRESHOLD = 0.35; // ~35% word overlap
-        const matchingCodes = existingCodesRaw
-            .map(c => ({ id: c.id, name: c.name, definition: c.definition, score: semanticSimilarity(text, c.name) }))
-            .filter(c => c.score >= SIMILARITY_THRESHOLD)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 4);
+        // Reconstruct hierarchy
+        const topLevelThemes = allThemes.filter(t => !t.parentId);
+        let codebookStructure = "PROJECT CODEBOOK (Themes & Codes):\n";
+        
+        topLevelThemes.forEach(theme => {
+            const isMega = theme.isMeta || (theme.children && theme.children.length > 0);
+            if (isMega) {
+                codebookStructure += `[Mega Theme] ${theme.name}\n`;
+                if (theme.children) {
+                    theme.children.forEach(sub => {
+                        const fullSub = allThemes.find(t => t.id === sub.id);
+                        if (fullSub) {
+                            codebookStructure += `  - [Theme] ${fullSub.name}\n`;
+                            fullSub.codeLinks?.forEach(link => {
+                                codebookStructure += `      * [Code] ${link.codebookEntry.name}\n`;
+                            });
+                        }
+                    });
+                }
+            } else {
+                codebookStructure += `[Theme] ${theme.name}\n`;
+                theme.codeLinks?.forEach(link => {
+                    codebookStructure += `  * [Code] ${link.codebookEntry.name}\n`;
+                });
+            }
+        });
+
+        if (allThemes.length === 0) {
+            codebookStructure += "(No themes or codes exist yet)\n";
+        }
 
         // Fetch project to get ontology
         const project = await prisma.project.findUnique({
             where: { id: projectId }
         });
-
-        // Get the latest few human code assignments from this project to build few-shot examples
-        const recentAssignments = await prisma.codeAssignment.findMany({
-            where: {
-                segment: { transcript: { dataset: { projectId } } }
-            },
-            take: 5,
-            orderBy: { createdAt: 'desc' },
-            include: { segment: true, codebookEntry: true }
-        });
-
-        const historyContextText = recentAssignments.length > 0
-            ? "Recent codes applied by this researcher:\n" + recentAssignments.map(a => `- Text: "${a.segment.text}" => Code: "${a.codebookEntry.name}"`).join('\n')
-            : "No previous codes in this project yet.";
 
         let projectContext = "";
         if (project?.coreOntology) projectContext += `Core Ontology: ${project.coreOntology}\n`;
@@ -76,16 +89,16 @@ export async function POST(req: Request) {
         if (!openai) {
             return NextResponse.json({ 
                 suggestions: ["Contextual Code 1", "Contextual Code 2", "Contextual Code 3"],
-                existingMatches: matchingCodes
+                existingMatches: []
             });
         }
 
         const prompt = `You are a specialized Qualitative Researcher.
-Your task is to suggest EXACTLY 3 highly descriptive, sentence-like thematic code labels (4-8 words) for the isolated text snippet below.
-CRUCIAL: You are provided with the full transcript context. Read the surrounding context to deeply understand what the isolated snippet actually means in context before suggesting codes. Do NOT reduce the label to basic 1-2 word tags.
+Your task is to analyze the isolated text snippet below in the context of the full transcript and the project's research question.
 
 ${projectContext}
-${historyContextText}
+
+${codebookStructure}
 
 FULL TRANSCRIPT CONTEXT:
 """
@@ -95,7 +108,17 @@ ${transcriptContent ? transcriptContent.substring(0, 15000) : "Context unavailab
 ISOLATED TEXT TO CODE:
 "${text}"
 
-Output your suggestions as a JSON array of 3 strings: { "suggestions": ["Descriptive Label 1", "Descriptive Label 2", "Descriptive Label 3"] }`;
+Based on the conceptual meaning of the text, provide the following in JSON format:
+1. "new_codes": An array of EXACTLY 3 highly descriptive, sentence-like new thematic code labels (4-8 words).
+2. "existing_codes": An array of up to 3 names of EXISTING [Code] from the PROJECT CODEBOOK above that conceptually match this text. (Leave empty if none match well). Output ONLY the exact code name.
+3. "suggested_themes": An array of up to 2 names of EXISTING [Theme] or [Mega Theme] from the PROJECT CODEBOOK above that this text broadly relates to. (Leave empty if none fit).
+
+JSON FORMAT:
+{
+  "new_codes": ["...", "...", "..."],
+  "existing_codes": ["...", "..."],
+  "suggested_themes": ["..."]
+}`;
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
@@ -107,12 +130,19 @@ Output your suggestions as a JSON array of 3 strings: { "suggestions": ["Descrip
             temperature: 0.4
         });
 
-        const res = JSON.parse(completion.choices[0].message?.content || '{"suggestions": []}');
-        const suggestions = res.suggestions && Array.isArray(res.suggestions) ? res.suggestions : [];
+        const res = JSON.parse(completion.choices[0].message?.content || '{}');
+        const suggestions = res.new_codes && Array.isArray(res.new_codes) ? res.new_codes.slice(0,3) : [];
+        const existingCodes = res.existing_codes && Array.isArray(res.existing_codes) ? res.existing_codes : [];
+        const suggestedThemes = res.suggested_themes && Array.isArray(res.suggested_themes) ? res.suggested_themes : [];
+
+        // Format existing matches for the frontend (they just need an id and name, we mock id for now or fetch it if needed, but frontend just uses name for setting the input)
+        const formattedExisting = existingCodes.map((name: string) => ({ id: name, name, definition: null }));
+        const formattedThemes = suggestedThemes.map((name: string) => ({ id: name, name, definition: null }));
 
         return NextResponse.json({ 
-            suggestions: suggestions.slice(0, 3),
-            existingMatches: matchingCodes
+            suggestions: suggestions,
+            existingMatches: formattedExisting,
+            suggestedThemes: formattedThemes
         });
 
     } catch (e) {
