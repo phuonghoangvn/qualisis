@@ -1936,30 +1936,57 @@ Rules:
                                                                     </div>
                                                                 );
                                                             })()}
-                                                            {/* Researcher memo */}
-                                                            {!row.isHuman && (
-                                                                <div className="bg-purple-50/50 border border-purple-100 rounded-lg p-2 mt-2">
-                                                                    <strong className="flex items-center gap-1 uppercase tracking-widest text-[8px] mb-1 font-extrabold text-purple-600">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                                                        Researcher Memo
-                                                                    </strong>
-                                                                    <InlineEditField
-                                                                        value={(row.suggestion as any).reviewDecision?.note || ''}
-                                                                        placeholder="Add memo/rationale for this code..."
-                                                                        isEditing={editingMemoId === row.segmentId}
-                                                                        onStartEdit={() => {
-                                                                            setMemoDraft((row.suggestion as any).reviewDecision?.note || '')
-                                                                            setEditingMemoId(row.segmentId)
-                                                                        }}
-                                                                        draft={memoDraft}
-                                                                        setDraft={setMemoDraft}
-                                                                        onSave={() => handleSaveMemo(row.segmentId, row.suggestion.id)}
-                                                                        onCancel={() => setEditingMemoId(null)}
-                                                                        saving={memoSaving && editingMemoId === row.segmentId}
-                                                                        emptyClass="opacity-0 group-hover:opacity-100"
-                                                                    />
-                                                                </div>
-                                                            )}
+                                                            {/* Researcher memo — inline, no box */}
+                                                            {!row.isHuman && (() => {
+                                                                const memoVal = (row.suggestion as any).reviewDecision?.note || ''
+                                                                const isEdit = editingMemoId === row.segmentId
+                                                                return (
+                                                                    <div className="mt-2 pt-2 border-t border-slate-100">
+                                                                        {isEdit ? (
+                                                                            <div className="flex flex-col gap-1">
+                                                                                <textarea
+                                                                                    autoFocus
+                                                                                    value={memoDraft}
+                                                                                    onChange={e => setMemoDraft(e.target.value)}
+                                                                                    rows={2}
+                                                                                    placeholder="Write your memo / rationale here…"
+                                                                                    className="w-full text-[11px] text-slate-700 bg-white border border-violet-300 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-violet-200 leading-relaxed"
+                                                                                />
+                                                                                <div className="flex gap-1.5">
+                                                                                    <button
+                                                                                        onClick={() => handleSaveMemo(row.segmentId, row.suggestion.id)}
+                                                                                        disabled={memoSaving && editingMemoId === row.segmentId}
+                                                                                        className="text-[10px] font-bold px-2 py-0.5 bg-violet-600 text-white rounded hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                                                                                    >
+                                                                                        {memoSaving && editingMemoId === row.segmentId ? 'Saving…' : 'Save'}
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => setEditingMemoId(null)}
+                                                                                        className="text-[10px] font-bold px-2 py-0.5 border border-slate-200 text-slate-500 rounded hover:bg-slate-50 transition-colors"
+                                                                                    >
+                                                                                        Cancel
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : memoVal ? (
+                                                                            <p
+                                                                                onClick={() => { setMemoDraft(memoVal); setEditingMemoId(row.segmentId) }}
+                                                                                className="text-[11px] text-violet-700 italic leading-relaxed cursor-pointer hover:text-violet-900 transition-colors"
+                                                                                title="Click to edit your memo"
+                                                                            >
+                                                                                {memoVal}
+                                                                            </p>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => { setMemoDraft(''); setEditingMemoId(row.segmentId) }}
+                                                                                className="text-[10px] text-slate-300 hover:text-violet-500 italic transition-colors opacity-0 group-hover:opacity-100"
+                                                                            >
+                                                                                + Add memo…
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                )
+                                                            })()}
                                                         </div>
                                                     </td>
 
@@ -2569,6 +2596,11 @@ Rules:
                                                 {tq.quotes.map((q: any) => (
                                                     <div key={q.segmentId} className="p-4 hover:bg-slate-50/80 transition-colors group">
                                                         <p className="text-[13px] leading-relaxed text-slate-700 italic border-l-2 border-indigo-200 pl-3">"{q.text}"</p>
+                                                        {q.researcherNote && (
+                                                            <p className="mt-2 text-[11px] text-violet-600 italic leading-relaxed border-l-2 border-violet-200 pl-3 bg-violet-50/50 py-1 rounded-r-md">
+                                                                📝 {q.researcherNote}
+                                                            </p>
+                                                        )}
                                                         <div className="mt-3 flex items-center justify-between">
                                                             <div>
                                                                 {q.confidence && (

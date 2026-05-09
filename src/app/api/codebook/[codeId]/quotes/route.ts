@@ -18,6 +18,15 @@ export async function GET(
                     select: {
                         id: true,
                         text: true,
+                        suggestions: {
+                            select: {
+                                reviewDecision: {
+                                    select: { note: true, action: true }
+                                }
+                            },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1
+                        },
                         transcript: {
                             select: { 
                                 id: true, 
@@ -43,7 +52,8 @@ export async function GET(
             acc[tr.id].quotes.push({
                 segmentId: assignment.segment.id,
                 text: assignment.segment.text,
-                confidence: assignment.confidence
+                confidence: assignment.confidence,
+                researcherNote: assignment.segment.suggestions?.[0]?.reviewDecision?.note || null,
             })
             return acc
         }, {})
