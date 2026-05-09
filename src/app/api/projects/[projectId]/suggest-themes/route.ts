@@ -20,7 +20,7 @@ function wordSimilarity(a: string, b: string): number {
 // Returns 3 theme suggestions — with full semantic context per existing theme
 export async function POST(req: Request, { params }: { params: { projectId: string } }) {
     try {
-        const { codeLabel, excerpt, segmentId } = await req.json()
+        const { codeLabel, excerpt, segmentId, isMegaThemeRequest } = await req.json()
         if (!codeLabel || !excerpt) {
             return NextResponse.json({ error: 'codeLabel and excerpt required' }, { status: 400 })
         }
@@ -80,7 +80,33 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
             }).join('\n\n')
             : '(No themes created yet — all suggestions will be new)'
 
-        const prompt = `You are an expert qualitative researcher doing thematic analysis.
+        let prompt = '';
+        if (isMegaThemeRequest) {
+            prompt = `You are an expert qualitative researcher doing thematic analysis.
+
+${rqContext}
+
+A researcher has assigned the Theme: "${codeLabel}"
+Excerpt supporting this theme: "${excerpt.substring(0, 300)}"
+${researcherMemo ? `Researcher Memo: "${researcherMemo}"` : ''}
+
+Current themes already in this project (some may already be Mega Themes):
+${existingList}
+
+Task: Suggest exactly 3 MEGA THEMES (higher-level abstraction/parent themes) for this Theme. Prioritize semantic fit with the overarching Research Question:
+
+1. FIRST check existing themes — if one acts as a good Mega Theme/umbrella for "${codeLabel}", REUSE it. Copy its exact name.
+2. If no existing theme fits well as a broad umbrella, propose a NEW Mega Theme. It must be a broad, high-level structural theme (e.g., matching a section of a final report).
+3. Vary abstraction levels across the 3 suggestions.
+
+Return ONLY a raw JSON array, no markdown fences:
+[
+  { "label": "Exact existing theme name OR new name", "isExisting": true, "reasoning": "One sentence explaining the semantic fit" },
+  { "label": "Another option", "isExisting": false, "reasoning": "One sentence why" },
+  { "label": "Third option", "isExisting": false, "reasoning": "One sentence why" }
+]`
+        } else {
+            prompt = `You are an expert qualitative researcher doing thematic analysis.
 
 ${rqContext}
 
@@ -103,6 +129,7 @@ Return ONLY a raw JSON array, no markdown fences:
   { "label": "Another option", "isExisting": false, "reasoning": "One sentence why" },
   { "label": "Third option", "isExisting": false, "reasoning": "One sentence why" }
 ]`
+        }
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 

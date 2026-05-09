@@ -11,7 +11,7 @@ export async function POST(
 ) {
     try {
         const body = await req.json()
-        const { action, note, customLabel, suggestionId, themeId, newThemeName } = body
+        const { action, note, customLabel, suggestionId, themeId, newThemeName, megaThemeId, newMegaThemeName } = body
 
         const session = await getServerSession(authOptions)
         const userId = session?.user ? (session.user as any).id : null
@@ -177,6 +177,37 @@ export async function POST(
                         }
                     })
                 }
+                    // === Mega Theme assignment ===
+                    let resolvedMegaThemeId = megaThemeId || null;
+
+                    // If a new mega theme name was provided, create it
+                    if (!resolvedMegaThemeId && newMegaThemeName && projectId) {
+                        const newMegaTheme = await prisma.theme.create({
+                            data: {
+                                projectId,
+                                name: newMegaThemeName,
+                                description: `Meta-theme created from Mass Review`,
+                                memo: 'META:Synthesized container theme',
+                                status: 'DRAFT',
+                            }
+                        });
+                        resolvedMegaThemeId = newMegaTheme.id;
+                    }
+
+                    if (resolvedMegaThemeId && resolvedThemeId) {
+                        // Link Theme -> MegaTheme
+                        // Remove any existing parent relation for this theme just in case (a theme usually has 1 mega theme)
+                        await prisma.themeRelation.deleteMany({
+                            where: { sourceId: resolvedThemeId, relationType: 'SUBTHEME_OF' }
+                        });
+                        await prisma.themeRelation.create({
+                            data: {
+                                sourceId: resolvedThemeId,
+                                targetId: resolvedMegaThemeId,
+                                relationType: 'SUBTHEME_OF'
+                            }
+                        });
+                    }
             }
         }
 

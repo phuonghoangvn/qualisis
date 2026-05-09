@@ -517,6 +517,11 @@ export default function ThemesPage() {
     // On-demand theme suggestions per row
     const [rowThemeSuggestions, setRowThemeSuggestions] = useState<Record<string, { label: string; isExisting: boolean; themeId: string | null; reasoning?: string }[]>>({})
     const [rowThemeSuggestingLoading, setRowThemeSuggestingLoading] = useState<Record<string, boolean>>({})
+
+    // On-demand mega theme suggestions per row
+    const [rowMegaThemeSelections, setRowMegaThemeSelections] = useState<Record<string, { themeId?: string; newThemeName?: string; label?: string }>>({})
+    const [rowMegaThemeSuggestions, setRowMegaThemeSuggestions] = useState<Record<string, { label: string; isExisting: boolean; themeId: string | null; reasoning?: string }[]>>({})
+    const [rowMegaThemeSuggestingLoading, setRowMegaThemeSuggestingLoading] = useState<Record<string, boolean>>({})
     
     // On-demand alternative code suggestions per row
     const [rowCodeSuggestions, setRowCodeSuggestions] = useState<Record<string, string[]>>({})
@@ -616,6 +621,9 @@ export default function ThemesPage() {
             const finalAction = finalLabel && action === 'ACCEPT' ? 'OVERRIDE' : action
 
             const newThemeName = themeSelection?.newThemeName || null
+            
+            const megaThemeSelection = rowMegaThemeSelections[row.segmentId]
+            const newMegaThemeName = megaThemeSelection?.newThemeName || null
 
             await fetch(`/api/segments/${row.segmentId}/review`, {
                 method: 'POST',
@@ -626,6 +634,8 @@ export default function ThemesPage() {
                     suggestionId: row.suggestion.id,
                     themeId: themeSelection?.themeId || null,
                     newThemeName,
+                    megaThemeId: megaThemeSelection?.themeId || null,
+                    newMegaThemeName
                 })
             })
 
@@ -714,6 +724,32 @@ export default function ThemesPage() {
             console.error('suggest-themes error:', e)
         } finally {
             setRowThemeSuggestingLoading(prev => ({ ...prev, [row.segmentId]: false }))
+        }
+    }
+
+    const handleSuggestMegaThemes = async (row: PendingRow) => {
+        setRowMegaThemeSuggestingLoading(prev => ({ ...prev, [row.segmentId]: true }))
+        try {
+            // Re-using the same suggest-themes endpoint but giving it the selected theme name instead of code label
+            const themeSel = rowThemeSelections[row.segmentId];
+            const assignedThemes = (row.suggestion as any).assignedThemes as { id: string; name: string }[] | undefined;
+            const themeLabel = themeSel?.label || (assignedThemes && assignedThemes.length > 0 ? assignedThemes[0].name : '');
+            
+            if (!themeLabel) return;
+
+            const res = await fetch(`/api/projects/${projectId}/suggest-themes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codeLabel: themeLabel, excerpt: row.text, segmentId: row.segmentId, isMegaThemeRequest: true })
+            })
+            const data = await res.json()
+            if (data.suggestions?.length > 0) {
+                setRowMegaThemeSuggestions(prev => ({ ...prev, [row.segmentId]: data.suggestions }))
+            }
+        } catch (e) {
+            console.error('suggest-mega-themes error:', e)
+        } finally {
+            setRowMegaThemeSuggestingLoading(prev => ({ ...prev, [row.segmentId]: false }))
         }
     }
 
@@ -1429,6 +1465,91 @@ Rules:
         }
     }
 
+    const handleApplyRowUpdates = async (row: PendingRow) => {
+        if (!row.codebookEntryId) return;
+
+        try {
+            // Process Code rename
+            const draftLabel = pendingLabelEdits[row.segmentId];
+            if (draftLabel && draftLabel !== row.suggestion.label) {
+                await fetch(`/api/codebook/${row.codebookEntryId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: draftLabel })
+                });
+            }
+
+            let activeThemeId: string | null = null;
+            
+            // 1. Process Theme updates
+            const themeSel = rowThemeSelections[row.segmentId];
+            if (themeSel) {
+                let resolvedThemeId = themeSel.themeId;
+                if (!resolvedThemeId && themeSel.newThemeName) {
+                    // Create new theme
+                    const res = await fetch(`/api/projects/${projectId}/themes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: themeSel.newThemeName, description: 'Created from Mass Review' })
+                    });
+                    const newTheme = await res.json();
+                    resolvedThemeId = newTheme.id;
+                }
+                
+                if (resolvedThemeId) {
+                    // Link code to theme
+                    await fetch(`/api/projects/${projectId}/themes`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ themeId: resolvedThemeId, action: 'ADD_CODE', codeId: row.codebookEntryId })
+                    });
+                    activeThemeId = resolvedThemeId;
+                }
+            } else {
+                // Use existing theme if any
+                const assigned = (row.suggestion as any).assignedThemes;
+                if (assigned && assigned.length > 0) {
+                    activeThemeId = assigned[0].id;
+                }
+            }
+
+            // 2. Process Mega Theme updates
+            const megaSel = rowMegaThemeSelections[row.segmentId];
+            if (megaSel && activeThemeId) {
+                let resolvedMegaId = megaSel.themeId;
+                if (!resolvedMegaId && megaSel.newThemeName) {
+                    // Create new mega theme
+                    const res = await fetch(`/api/projects/${projectId}/themes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: megaSel.newThemeName, description: 'Meta-theme created from Mass Review', isMegaTheme: true })
+                    });
+                    const newMega = await res.json();
+                    resolvedMegaId = newMega.id;
+                }
+
+                if (resolvedMegaId) {
+                    // Link theme to mega theme
+                    await fetch(`/api/projects/${projectId}/themes`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ themeId: resolvedMegaId, action: 'ADD_THEME', subThemeId: activeThemeId })
+                    });
+                }
+            }
+
+            // Clear selections and refresh
+            setRowThemeSelections(prev => { const n = {...prev}; delete n[row.segmentId]; return n; });
+            setRowMegaThemeSelections(prev => { const n = {...prev}; delete n[row.segmentId]; return n; });
+            setPendingLabelEdits(prev => { const n = {...prev}; delete n[row.segmentId]; return n; });
+            await fetchPendingCodes();
+            fetchData(); // refresh canvas data
+        } catch (e) {
+            console.error('Failed to apply updates:', e);
+            alert('Failed to apply updates');
+        }
+    }
+
     const handleSynthesize = async () => {
         setSynthModalOpen(true)
         setSynthLoading(true)
@@ -1729,7 +1850,7 @@ Rules:
                                                             return (
                                                             <div className="flex flex-col gap-2 items-start group/label relative">
                                                                 {/* Editable label — always accessible, no separate save button */}
-                                                                {(!isAccepted && !row.isHuman && row.suggestion.status !== 'REJECTED') ? (
+                                                                {row.suggestion.status !== 'REJECTED' ? (
                                                                     <div className="flex flex-col gap-1 w-full">
                                                                         <input
                                                                             type="text"
@@ -1739,11 +1860,11 @@ Rules:
                                                                                 if (e.key === 'Escape') setPendingLabelEdits(prev => { const n = {...prev}; delete n[row.segmentId]; return n; })
                                                                             }}
                                                                             className={`text-[11px] font-bold px-2 py-1 border rounded w-full focus:outline-none focus:ring-1 focus:ring-indigo-400 ${isEdited ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-indigo-100 bg-indigo-50 text-indigo-700'}`}
-                                                                            title="Edit code label — change takes effect on Accept"
+                                                                            title="Edit code label"
                                                                         />
                                                                         {isEdited && (
                                                                             <div className="flex items-center gap-1">
-                                                                                <span className="text-[8px] font-bold text-amber-600 uppercase tracking-wider">Edited — will override on Accept</span>
+                                                                                <span className="text-[8px] font-bold text-amber-600 uppercase tracking-wider">Edited — remember to Apply Updates</span>
                                                                                 <button onClick={() => setPendingLabelEdits(prev => { const n = {...prev}; delete n[row.segmentId]; return n; })} className="text-[8px] text-slate-400 hover:text-rose-500">↩ revert</button>
                                                                             </div>
                                                                         )}
@@ -1787,7 +1908,7 @@ Rules:
                                                                     </div>
                                                                 ) : null}
                                                                 {/* Alternatives — on-demand generation */}
-                                                                {!isAccepted && !row.isHuman && row.suggestion.status !== 'REJECTED' && (() => {
+                                                                {row.suggestion.status !== 'REJECTED' && (() => {
                                                                     const suggestions = rowCodeSuggestions[row.segmentId];
                                                                     const isLoading = rowCodeSuggestingLoading[row.segmentId];
                                                                     
@@ -1831,7 +1952,7 @@ Rules:
                                                                     )
                                                                 })()}
                                                                 {/* Theme — on-demand AI button */}
-                                                                {!isAccepted && !row.isHuman && row.suggestion.status !== 'REJECTED' && (() => {
+                                                                {row.suggestion.status !== 'REJECTED' && (() => {
                                                                     const rowSel = rowThemeSelections[row.segmentId];
                                                                     const suggestions = rowThemeSuggestions[row.segmentId];
                                                                     const isLoading = rowThemeSuggestingLoading[row.segmentId];
@@ -1894,6 +2015,83 @@ Rules:
                                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M22 2 12 12"/><path d="m17 2 5 5-5 5"/></svg>
                                                                                     )}
                                                                                     {isLoading ? 'Thinking...' : '✦ Suggest Theme'}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    )
+                                                                })()}
+                                                                {/* Mega Theme — on-demand AI button */}
+                                                                {row.suggestion.status !== 'REJECTED' && (() => {
+                                                                    const rowSel = rowMegaThemeSelections[row.segmentId];
+                                                                    const suggestions = rowMegaThemeSuggestions[row.segmentId];
+                                                                    const isLoading = rowMegaThemeSuggestingLoading[row.segmentId];
+                                                                    
+                                                                    // Only show if a theme is selected or assigned
+                                                                    const themeSel = rowThemeSelections[row.segmentId];
+                                                                    const assignedThemes = (row.suggestion as any).assignedThemes as { id: string; name: string }[] | undefined;
+                                                                    const hasTheme = themeSel?.label || (assignedThemes && assignedThemes.length > 0);
+                                                                    
+                                                                    if (!hasTheme) return null;
+
+                                                                    return (
+                                                                        <div className="flex flex-col gap-1 w-full pt-1.5 border-t border-slate-100 mt-0.5">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Mega Theme</span>
+                                                                                {rowSel?.label && (
+                                                                                    <button
+                                                                                        onClick={() => { setRowMegaThemeSelections(prev => { const n = {...prev}; delete n[row.segmentId]; return n; }); setRowMegaThemeSuggestions(prev => { const n = {...prev}; delete n[row.segmentId]; return n; }); }}
+                                                                                        className="text-[8px] text-slate-300 hover:text-rose-400 transition-colors"
+                                                                                    >✕ clear</button>
+                                                                                )}
+                                                                            </div>
+                                                                            {/* Selected mega theme chip */}
+                                                                            {rowSel?.label && (
+                                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${rowSel.themeId ? 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                                                                    {rowSel.themeId ? '✓' : '+'} {rowSel.label}
+                                                                                </span>
+                                                                            )}
+                                                                            {/* Suggestions list */}
+                                                                            {suggestions && suggestions.length > 0 && (
+                                                                                <div className="flex flex-col gap-0.5">
+                                                                                    {suggestions.map((s, si) => (
+                                                                                        <button
+                                                                                            key={si}
+                                                                                            onClick={() => setRowMegaThemeSelections(prev => ({ ...prev, [row.segmentId]: { themeId: s.themeId || undefined, newThemeName: s.themeId ? undefined : s.label, label: s.label } }))}
+                                                                                            title={s.reasoning}
+                                                                                            className={`text-left px-2 py-1 rounded border text-[10px] font-semibold transition-colors ${rowSel?.label === s.label ? 'ring-1 ring-fuchsia-400' : ''} ${s.isExisting ? 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100 hover:bg-fuchsia-100' : 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-slate-100'}`}
+                                                                                        >
+                                                                                            <span className="text-[8px] font-extrabold uppercase opacity-50 mr-1">{s.isExisting ? 'existing' : 'new'}</span>
+                                                                                            {s.label}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                    {/* Custom input */}
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        placeholder="Or type custom mega theme..."
+                                                                                        onKeyDown={e => {
+                                                                                            if (e.key === 'Enter') {
+                                                                                                const val = (e.target as HTMLInputElement).value.trim();
+                                                                                                if (val) setRowMegaThemeSelections(prev => ({ ...prev, [row.segmentId]: { newThemeName: val, label: val } }));
+                                                                                                (e.target as HTMLInputElement).value = '';
+                                                                                            }
+                                                                                        }}
+                                                                                        className="mt-0.5 px-2 py-0.5 text-[10px] border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-fuchsia-300 text-slate-600"
+                                                                                    />
+                                                                                </div>
+                                                                            )}
+                                                                            {/* Trigger button */}
+                                                                            {!suggestions && (
+                                                                                <button
+                                                                                    onClick={() => handleSuggestMegaThemes(row)}
+                                                                                    disabled={isLoading}
+                                                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-600 text-[10px] font-bold hover:bg-fuchsia-100 transition-colors disabled:opacity-50"
+                                                                                >
+                                                                                    {isLoading ? (
+                                                                                        <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                                                                    ) : (
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M22 2 12 12"/><path d="m17 2 5 5-5 5"/></svg>
+                                                                                    )}
+                                                                                    {isLoading ? 'Thinking...' : '✦ Suggest Mega Theme'}
                                                                                 </button>
                                                                             )}
                                                                         </div>
@@ -2105,39 +2303,58 @@ Rules:
 
                                                     {/* 6. Actions */}
                                                     <td className="px-4 py-4 align-top">
-                                                        {row.isHuman ? (
-                                                            <div className="flex justify-center">
-                                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[9px] font-extrabold uppercase tracking-widest border border-emerald-200">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                                                    ACCEPTED
-                                                                </span>
-                                                            </div>
-                                                        ) : row.suggestion.status === 'APPROVED' || row.suggestion.status === 'MODIFIED' ? (
-                                                            <div className="flex flex-col items-center gap-2">
-                                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[9px] font-extrabold uppercase tracking-widest border border-emerald-200">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                                                    ACCEPTED
-                                                                </span>
-                                                                <div className="flex items-center justify-center gap-2">
-                                                                    <button onClick={() => handleCompareDecision(row, 'RESTORE')} className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition">Restore</button>
-                                                                    <span className="text-slate-200 text-[10px]">|</span>
-                                                                    <button onClick={() => handleCompareDecision(row, 'REJECT')} className="text-[10px] font-bold text-rose-400 hover:text-rose-600 transition">Revoke</button>
-                                                                </div>
-                                                            </div>
-                                                        ) : row.suggestion.status === 'REJECTED' ? (
-                                                            <div className="flex flex-col items-center gap-2">
-                                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-rose-50 text-rose-600 text-[9px] font-extrabold uppercase tracking-widest border border-rose-200">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                                    REJECTED
-                                                                </span>
-                                                                <button onClick={() => handleCompareDecision(row, 'RESTORE')} className="text-[10px] font-bold text-indigo-500 hover:underline">Undo</button>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-col gap-2 max-w-[120px] mx-auto">
-                                                                <button onClick={() => handleCompareDecision(row, 'ACCEPT')} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition-colors shadow-sm">Accept</button>
-                                                                <button onClick={() => handleCompareDecision(row, 'REJECT')} className="w-full py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-[11px] font-bold transition-colors shadow-sm">Reject</button>
-                                                            </div>
-                                                        )}
+                                                        {(() => {
+                                                            const hasPendingUpdates = !!rowThemeSelections[row.segmentId] || !!rowMegaThemeSelections[row.segmentId] || !!pendingLabelEdits[row.segmentId];
+                                                            
+                                                            if (row.isHuman) {
+                                                                return (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[9px] font-extrabold uppercase tracking-widest border border-emerald-200">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                                            ACCEPTED
+                                                                        </span>
+                                                                        {hasPendingUpdates && (
+                                                                            <button onClick={() => handleApplyRowUpdates(row)} className="w-full max-w-[120px] py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-bold transition-colors shadow-sm">Apply Updates</button>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            } else if (row.suggestion.status === 'APPROVED' || row.suggestion.status === 'MODIFIED') {
+                                                                return (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[9px] font-extrabold uppercase tracking-widest border border-emerald-200">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                                            ACCEPTED
+                                                                        </span>
+                                                                        {hasPendingUpdates ? (
+                                                                            <button onClick={() => handleApplyRowUpdates(row)} className="w-full max-w-[120px] py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-bold transition-colors shadow-sm">Apply Updates</button>
+                                                                        ) : (
+                                                                            <div className="flex items-center justify-center gap-2">
+                                                                                <button onClick={() => handleCompareDecision(row, 'RESTORE')} className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition">Restore</button>
+                                                                                <span className="text-slate-200 text-[10px]">|</span>
+                                                                                <button onClick={() => handleCompareDecision(row, 'REJECT')} className="text-[10px] font-bold text-rose-400 hover:text-rose-600 transition">Revoke</button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            } else if (row.suggestion.status === 'REJECTED') {
+                                                                return (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-rose-50 text-rose-600 text-[9px] font-extrabold uppercase tracking-widest border border-rose-200">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                                            REJECTED
+                                                                        </span>
+                                                                        <button onClick={() => handleCompareDecision(row, 'RESTORE')} className="text-[10px] font-bold text-indigo-500 hover:underline">Undo</button>
+                                                                    </div>
+                                                                );
+                                                            } else {
+                                                                return (
+                                                                    <div className="flex flex-col gap-2 max-w-[120px] mx-auto">
+                                                                        <button onClick={() => handleCompareDecision(row, 'ACCEPT')} className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition-colors shadow-sm">Accept</button>
+                                                                        <button onClick={() => handleCompareDecision(row, 'REJECT')} className="w-full py-1.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded text-[11px] font-bold transition-colors shadow-sm">Reject</button>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        })()}
                                                     </td>
                                                 </tr>
                                             )

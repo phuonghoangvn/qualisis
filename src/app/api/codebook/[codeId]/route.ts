@@ -71,17 +71,18 @@ export async function PATCH(
 ) {
     try {
         const body = await req.json()
-        const { definition, examplesIn, examplesOut, memo } = body
+        const { name, definition, examplesIn, examplesOut, memo } = body
 
         const updated = await prisma.codebookEntry.update({
             where: { id: params.codeId },
             data: {
+                ...(name !== undefined ? { name } : {}),
                 ...(definition !== undefined ? { definition } : {}),
                 ...(examplesIn !== undefined ? { examplesIn } : {}),
                 ...(examplesOut !== undefined ? { examplesOut } : {}),
                 ...(memo !== undefined ? { memo } : {}),
             },
-            select: { id: true, definition: true, examplesIn: true, examplesOut: true, memo: true }
+            select: { id: true, name: true, definition: true, examplesIn: true, examplesOut: true, memo: true }
         })
 
         return NextResponse.json(updated)
