@@ -44,7 +44,7 @@ export default function DuplicateProjectButton({
             <button
                 onClick={handleDuplicateClick}
                 disabled={isDuplicating}
-                className={`absolute top-4 right-14 p-2 bg-white rounded-lg shadow-sm border text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all z-10 
+                className={`absolute top-4 right-12 p-2 bg-white rounded-lg shadow-sm border text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all z-10 
                 ${isDuplicating ? 'opacity-50 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 border-slate-200'}`}
                 title="Duplicate project"
             >
