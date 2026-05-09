@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
             select: { researchQuestion: true, description: true }
         })
 
-        // Fetch ALL current themes WITH their existing code links for richer AI context
+        // Fetch ALL current themes WITH their existing code links and relations for richer AI context
         const existingThemes = await prisma.theme.findMany({
             where: { projectId: params.projectId },
             select: {
@@ -61,6 +61,14 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
                         codebookEntry: { select: { name: true } }
                     },
                     take: 8  // show up to 8 sample codes per theme
+                },
+                relationsIn: {
+                    where: { relationType: 'SUBTHEME_OF' },
+                    select: { source: { select: { name: true } } }
+                },
+                relationsOut: {
+                    where: { relationType: 'SUBTHEME_OF' },
+                    select: { targetId: true }
                 }
             },
             orderBy: { createdAt: 'asc' }
@@ -70,13 +78,22 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
             ? `Research Question: ${project.researchQuestion}`
             : ''
 
-        // Build rich theme descriptions including existing codes
+        // Build rich theme descriptions including sub-themes and codes
         const existingList = existingThemes.length > 0
             ? existingThemes.map(t => {
+                const isMega = t.relationsIn.length > 0;
+                const typeLabel = isMega ? 'MEGA THEME' : 'THEME';
+                const subThemes = isMega ? t.relationsIn.map(r => `"${r.source.name}"`).join(', ') : '';
                 const codeNames = t.codeLinks.map(l => `"${l.codebookEntry.name}"`).join(', ')
-                const codeContext = codeNames ? `\n     Contains codes: ${codeNames}` : ''
+                
+                const contextArr = [];
+                if (subThemes) contextArr.push(`Contains Sub-themes: ${subThemes}`);
+                if (codeNames) contextArr.push(`Contains Codes: ${codeNames}`);
+                
+                const contextStr = contextArr.length > 0 ? `\n     ${contextArr.join(' | ')}` : '';
                 const descContext = t.description ? `\n     Description: ${t.description.substring(0, 80)}` : ''
-                return `• THEME: "${t.name}"${descContext}${codeContext}`
+                
+                return `• ${typeLabel}: "${t.name}"${descContext}${contextStr}`
             }).join('\n\n')
             : '(No themes created yet — all suggestions will be new)'
 
