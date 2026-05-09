@@ -119,9 +119,9 @@ ${existingList}
 
 Task: Suggest exactly 3 theme options for this code. Prioritize semantic fit:
 
-1. FIRST check each existing theme — look at its name AND the codes already inside it. If "${codeLabel}" belongs conceptually with those codes, REUSE that theme. Copy its exact name.
-2. If no existing theme fits well, propose a NEW interpretive theme. It must be abstract and theoretically meaningful — not just a restatement of the code label.
-3. Vary abstraction levels across the 3 suggestions.
+1. CRITICAL: FIRST check each existing theme — look at its name AND the codes already inside it. If "${codeLabel}" belongs conceptually with those codes, YOU MUST REUSE THAT THEME. Do not create a new theme if an existing one is a 70%+ conceptual match. Copy its EXACT name.
+2. If, and ONLY if, no existing theme fits well, propose a NEW interpretive theme.
+3. Provide a mix of existing (if applicable) and new options. At least your first option should be an existing theme if one is even remotely relevant.
 
 Return ONLY a raw JSON array, no markdown fences:
 [

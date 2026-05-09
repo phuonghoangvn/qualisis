@@ -150,15 +150,23 @@ export async function POST(
 
                 // If a new theme name was provided (and no existing themeId), create the theme first
                 if (!resolvedThemeId && newThemeName && projectId) {
-                    const newTheme = await prisma.theme.create({
-                        data: {
-                            projectId,
-                            name: newThemeName,
-                            description: `Created from Mass Review: "${finalLabel}"`,
-                            status: 'DRAFT',
-                        }
-                    })
-                    resolvedThemeId = newTheme.id;
+                    // Prevent duplicates: Check if a theme with the same name already exists
+                    let existingTheme = await prisma.theme.findFirst({
+                        where: { projectId, name: { equals: newThemeName, mode: 'insensitive' } }
+                    });
+                    if (existingTheme) {
+                        resolvedThemeId = existingTheme.id;
+                    } else {
+                        const newTheme = await prisma.theme.create({
+                            data: {
+                                projectId,
+                                name: newThemeName,
+                                description: `Created from Mass Review: "${finalLabel}"`,
+                                status: 'DRAFT',
+                            }
+                        });
+                        resolvedThemeId = newTheme.id;
+                    }
                 }
 
                 // Create ThemeCodeLink (upsert to avoid duplicates)
@@ -182,16 +190,24 @@ export async function POST(
 
                     // If a new mega theme name was provided, create it
                     if (!resolvedMegaThemeId && newMegaThemeName && projectId) {
-                        const newMegaTheme = await prisma.theme.create({
-                            data: {
-                                projectId,
-                                name: newMegaThemeName,
-                                description: `Meta-theme created from Mass Review`,
-                                memo: 'META:Synthesized container theme',
-                                status: 'DRAFT',
-                            }
+                        // Prevent duplicates: Check if a mega theme with the same name already exists
+                        let existingMegaTheme = await prisma.theme.findFirst({
+                            where: { projectId, name: { equals: newMegaThemeName, mode: 'insensitive' } }
                         });
-                        resolvedMegaThemeId = newMegaTheme.id;
+                        if (existingMegaTheme) {
+                            resolvedMegaThemeId = existingMegaTheme.id;
+                        } else {
+                            const newMegaTheme = await prisma.theme.create({
+                                data: {
+                                    projectId,
+                                    name: newMegaThemeName,
+                                    description: `Meta-theme created from Mass Review`,
+                                    memo: 'META:Synthesized container theme',
+                                    status: 'DRAFT',
+                                }
+                            });
+                            resolvedMegaThemeId = newMegaTheme.id;
+                        }
                     }
 
                     if (resolvedMegaThemeId && resolvedThemeId) {
