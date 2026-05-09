@@ -108,82 +108,182 @@ Be precise and academically rigorous. Do NOT fabricate findings; draw on real sc
         })
         const literatureSynthesis = litCompletion.choices[0]?.message?.content || ''
 
-        // 5. PHASE 2 — Thesis-argument structured discussion
-        const gapAnalysisPrompt = `You are an expert qualitative researcher writing the "Discussion" chapter for a peer-reviewed thesis.
+        // 5. PHASE 2 — Full thesis structure: Findings → Discussion → Design Guidelines
+        const gapAnalysisPrompt = `You are an expert qualitative researcher writing a thesis. Your task is to produce three connected sections: Findings, Discussion, and Design Guidelines.
 
 RESEARCH QUESTION (anchor everything here):
 "${researchQuestion}"
 
-WHAT THE LITERATURE ALREADY SAYS (synthesised from peer-reviewed sources):
+WHAT THE LITERATURE ALREADY SAYS:
 ${literatureSynthesis}
 
-WHAT THE RESEARCHER'S DATA SHOWS (codebook from empirical fieldwork):
+RESEARCHER'S EMPIRICAL DATA (codebook from fieldwork):
 ${codebookEvidence}
 
 ---
 
-YOUR TASK — WRITE A THESIS-ARGUMENT STRUCTURED DISCUSSION:
+PART 0 — DERIVE THE CENTRAL ARGUMENT FIRST (do not output this section, use it to guide everything else):
 
-This is NOT a list of gaps. It is a SINGLE, COHERENT ARGUMENT built through multiple interconnected analytic moves.
+Before writing, formulate ONE central argument sentence that:
+- Names what the data shows
+- Names what existing literature has missed or misframed
+- Uses the language system: hybrid workflow, conditional reliance, traceability, interpretive alignment, analytic ownership, contextual refinement
 
-The logic is: ONE CENTRAL CLAIM → Literature produces the blind spot → Each finding advances the argument → Conceptual reframing
-
-BEFORE writing, identify ONE sentence: the core theoretical contribution this data makes. This is a reframing — not a summary. Every section must serve this claim.
-
-Write with this EXACT structure:
+This sentence is the spine. Every finding, every discussion paragraph, every design guideline must serve it.
 
 ---
 
-# Discussion: [A short argumentative title — a claim, not a description]
+PART 1 — FINDINGS
+
+Rules for Findings:
+- Consolidate all themes/codes into EXACTLY 4–5 high-level findings. Do not list themes or codes separately.
+- Each finding must have a pattern + meaning, not just "Theme X is Y."
+- Write each finding using this three-layer structure:
+  A. CLAIM: One sentence naming the finding.
+  B. EVIDENCE: 2–3 specific participant quotes embedded in a sentence (not block-quoted). Strip timestamps and "Speaker X" labels from quotes.
+  C. INTERPRETATION: 2–3 sentences explaining what this pattern means for the research question.
+- Do NOT write: "Theme 1 is X. Theme 2 is Y." Instead write causal patterns: "Participants did X because Y, especially when Z."
+- Use consistent language: hybrid workflow / conditional reliance / traceability / interpretive alignment / analytic ownership
+
+---
+
+# Findings
+
+## Finding 1: [Short title — a descriptive claim]
+
+**Claim:** [One sentence stating the finding as a pattern.]
+
+**Evidence:** [2–3 sentences weaving in participant quotes as evidence. Embed quotes inline: as one participant noted, "..." ([Name]).
+
+**Interpretation:** [2–3 sentences: what does this pattern mean for the research question?]
+
+## Finding 2: [Short title]
+
+**Claim:** ...
+**Evidence:** ...
+**Interpretation:** ...
+
+## Finding 3: [Short title]
+[Same structure]
+
+## Finding 4: [Short title]
+[Same structure]
+
+## Finding 5: [Short title — only if clearly supported by a fifth distinct pattern in the data]
+[Same structure]
+
+---
+
+PART 2 — DISCUSSION
+
+Rules for Discussion:
+- Do NOT repeat what Findings already said. Findings describe patterns. Discussion explains what those patterns mean conceptually.
+- For each major finding, follow this formula:
+  Finding says: Researchers do X.
+  This means: This changes how we understand Y.
+  Compared with literature: Existing work says A, but this data shows B, which suggests C.
+- Use the central argument spine to connect findings into one coherent intellectual story.
+- Use the language system consistently. Do not switch between "control", "agency", "ownership" if they mean the same thing. Use the defined terms:
+  - trust = researcher believes output is meaningful and defensible
+  - reliance = researcher uses AI for practical reasons, regardless of trust level
+  - control = researcher can steer, edit, or reject AI outputs
+  - ownership = researcher maintains interpretive authority and responsibility
+- Show explicitly: reliance ≠ trust. This is the key conceptual move.
+- End with a Conceptual Contribution paragraph that names something new — a concept, framework, or reframing.
+
+---
+
+# Discussion
 
 ## The Central Argument
-3–4 sentences. State the ONE core claim. Name what assumption in the existing literature it challenges. Use: "This study argues that...", "Contrary to the prevailing focus on X, the data reveals...", "The key issue is not X but Y."
+[3–4 sentences. State the one core claim. Name what assumption in the literature it challenges. Use "This study argues that...", "Contrary to...", "The key issue is not X but Y."]
 
-## What the Literature Has Framed — and Why That Framing Is Insufficient
-4–6 sentences in ONE flowing paragraph (not a list). Synthesise 2–3 ways the literature has approached this topic. For each: what it covers, and what it systematically cannot see. Show how they collectively produce the blind spot this study's data addresses.
+## What the Literature Has Framed — and Why It Falls Short
+[4–6 sentences in ONE paragraph. Weave together 2–3 literature positions, name what each cannot see, and show how they collectively produce the blind spot this data addresses. Do not list them. Write as flowing prose.]
 
-## Analytic Move 1: [verb-noun reframing — e.g. "Reframing X as Y", "From X to Y", NOT "Gap 1"]
-5–7 sentences. Tension → finding → argument advance → embedded quote(s) in prose.
+## Conceptual Move 1: [verb-noun reframing — e.g. "From AI Adoption to Negotiated Integration"]
+[5–7 sentences. Open with the tension between literature and finding. Develop the finding analytically. Connect back to the central argument. 1–2 embedded participant quotes.]
 
-## Analytic Move 2: [verb-noun reframing]
-5–7 sentences. Same structure.
+## Conceptual Move 2: [verb-noun reframing]
+[5–7 sentences. Same structure.]
 
-## Analytic Move 3: [verb-noun reframing]
-5–7 sentences. Same structure.
+## Conceptual Move 3: [verb-noun reframing]
+[5–7 sentences. Same structure.]
 
-## Analytic Move 4: [Only if clearly supported by a fourth distinct data cluster]
-5–7 sentences. Same structure.
+## Conceptual Move 4: [Only if supported by a fourth distinct data cluster]
+[5–7 sentences. Same structure.]
 
-## Conceptual Contribution: Towards [Name of a new concept, reframing, or framework]
-4–5 sentences. Name the contribution explicitly. A reframing — not a summary. This is the thesis's original insight. Connect back to the Central Argument.
-
-## Implications
-
-### For Research
-- [Specific future study direction 1]
-- [Direction 2]
-- [Direction 3]
-
-### For Practice
-- [How practitioners should act differently 1]
-- [Implication 2]
+## Conceptual Contribution: Towards [Name of the new concept or framework]
+[4–5 sentences. Name the contribution explicitly. A reframing of how the field should think. Connect back to the central argument. This is the thesis's original insight.]
 
 ---
 
-CRITICAL RULES:
-- Every move must connect back to the Central Claim. Drop any move that does not serve it.
-- Do NOT invent participant quotes. Use ONLY quotes from the codebook data provided above.
-- Strip timestamps (e.g. "00:20:13") and "Speaker X" labels from quotes before using them.
-- Write in the register of a strong qualitative thesis — analytical, precise, not hedged.
-- Never say "Gap 1", "Gap 2". This is an argument, not a list.
-- The Conceptual Contribution must name something new — a concept, reframing, or framework.
-- Analytic move titles must be verb-noun phrases that name what the move does analytically.`
+PART 3 — DESIGN GUIDELINES
+
+Rules for Design Guidelines:
+- There should be EXACTLY one design guideline per major finding (4–5 guidelines total).
+- Each guideline must be explicitly derived from its corresponding finding — not invented.
+- Use this fixed format for every guideline:
+
+**Guideline N: [Short title — imperative verb, e.g. "Support hybrid human-AI workflows"]**
+
+*Why this matters (from the findings):* [1–2 sentences directly linking to the finding.]
+
+*Design recommendation:* [1–2 sentences on what the tool/system should do.]
+
+*Possible features:* [Bullet list of 2–4 specific, concrete feature examples.]
+
+---
+
+# Design Guidelines
+
+**Guideline 1: [Title]**
+
+*Why this matters:* ...
+*Design recommendation:* ...
+*Possible features:*
+- ...
+- ...
+
+**Guideline 2: [Title]**
+[Same structure]
+
+**Guideline 3: [Title]**
+[Same structure]
+
+**Guideline 4: [Title]**
+[Same structure]
+
+**Guideline 5: [Title — only if there is a 5th finding]**
+[Same structure]
+
+---
+
+APPENDIX TABLE: Mapping Overview
+
+| Finding | Core Evidence | Discussion Concept | Design Guideline |
+|---|---|---|---|
+| [Finding 1 title] | [Key quote or code] | [Concept it advances] | [Guideline 1 title] |
+| [Finding 2 title] | [Key quote or code] | [Concept it advances] | [Guideline 2 title] |
+| [Finding 3 title] | [Key quote or code] | [Concept it advances] | [Guideline 3 title] |
+| [Finding 4 title] | [Key quote or code] | [Concept it advances] | [Guideline 4 title] |
+
+---
+
+ABSOLUTE RULES:
+1. Do NOT invent participant quotes. Use ONLY quotes from the codebook evidence provided.
+2. Strip timestamps (e.g. "00:20:13") and "Speaker X" labels from all quotes.
+3. Do NOT repeat in Discussion what Findings already said — Discussion adds conceptual meaning.
+4. Do NOT write "Gap 1", "Gap 2", "Theme 1". Use the defined structure above.
+5. Every Design Guideline must trace back to a specific Finding.
+6. Use the language system consistently: hybrid workflow / conditional reliance / traceability / interpretive alignment / analytic ownership / contextual refinement.
+7. The overall flow must tell a causal story: researchers try to stay close to data → AI becomes useful under pressure → they integrate it conditionally → trust requires traceability → ownership requires editability → therefore tools need to be hybrid, traceable, editable, and flexible.`
 
         const gapCompletion = await openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [{ role: 'user', content: gapAnalysisPrompt }],
-            temperature: 0.35,
-            max_tokens: 4000,
+            temperature: 0.3,
+            max_tokens: 5000,
         })
         const gapAnalysis = gapCompletion.choices[0]?.message?.content || ''
 
