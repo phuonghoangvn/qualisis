@@ -534,14 +534,11 @@ export default function TranscriptWorkspace({
 
             if (ds.type === 'speaker') {
                 if (currentBlock.isSpeaker && currentBlock.rawSpeaker === ds.rawSpeaker) {
-                    // Same speaker continues. Just append the timestamp as a visual separator if needed.
+                    // Same speaker continues. Update the end time and add a spacer
                     if (ds.timestamp) {
-                        pushNode(
-                            <span key={`ts-${ds.id}`} className="block text-[10px] text-slate-400 font-bold mt-2 mb-1 select-none" data-offset={actualStart}>
-                                {ds.timestamp}
-                            </span>
-                        );
+                        currentBlock.endTime = ds.timestamp;
                     }
+                    pushNode(<span key={`ts-${ds.id}`} className="block h-2" data-offset={actualStart} />);
                 } else {
                     if (currentBlock.nodes.length > 0 || currentBlock.isSpeaker) {
                         blocks.push(currentBlock);
@@ -718,11 +715,20 @@ export default function TranscriptWorkspace({
                 cStyle = knownSpeakers[baseName];
             }
 
+            let displayLabel = b.label;
+            if (b.endTime) {
+                if (displayLabel.includes('•')) {
+                    displayLabel = `${displayLabel} - ${b.endTime}`;
+                } else {
+                    displayLabel = `${displayLabel} • ${b.endTime}`;
+                }
+            }
+
             return (
                 <div key={`block-${i}`} className="mb-6 mt-4 border border-slate-200 rounded-[14px] shadow-sm bg-white overflow-hidden relative break-inside-avoid">
                     <div className={`select-none absolute top-0 left-0 bottom-0 w-1.5 ${cStyle.bar}`} />
                     <div className={`select-none ${cStyle.bg} border-b border-slate-100 px-5 py-2.5 font-extrabold ${cStyle.text} text-[10.5px] uppercase tracking-widest pl-6 shadow-[inset_0_1px_rgba(255,255,255,1)]`}>
-                        {b.label}
+                        {displayLabel}
                     </div>
                     <div className="px-6 py-4 pb-5 text-[14.5px] leading-[2.25rem] text-slate-700">
                         {b.nodes}
