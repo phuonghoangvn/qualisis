@@ -20,9 +20,27 @@ function wordSimilarity(a: string, b: string): number {
 // Returns 3 theme suggestions — with full semantic context per existing theme
 export async function POST(req: Request, { params }: { params: { projectId: string } }) {
     try {
-        const { codeLabel, excerpt } = await req.json()
+        const { codeLabel, excerpt, segmentId } = await req.json()
         if (!codeLabel || !excerpt) {
             return NextResponse.json({ error: 'codeLabel and excerpt required' }, { status: 400 })
+        }
+
+        // Fetch researcher memo if segmentId is provided
+        let researcherMemo = ''
+        if (segmentId) {
+            const segment = await prisma.segment.findUnique({
+                where: { id: segmentId },
+                include: {
+                    suggestions: {
+                        orderBy: { confidence: 'desc' },
+                        take: 1,
+                        include: { reviewDecision: true }
+                    }
+                }
+            })
+            if (segment && segment.suggestions.length > 0) {
+                researcherMemo = segment.suggestions[0].reviewDecision?.note || ''
+            }
         }
 
         // Fetch project context
@@ -68,6 +86,7 @@ ${rqContext}
 
 A researcher has coded this excerpt with the label: "${codeLabel}"
 Excerpt: "${excerpt.substring(0, 300)}"
+${researcherMemo ? `Researcher Memo: "${researcherMemo}"` : ''}
 
 Current themes already in this project (with their existing codes):
 ${existingList}

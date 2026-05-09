@@ -38,7 +38,8 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
                     select: { id: true, title: true }
                 },
                 suggestions: {
-                    orderBy: { confidence: 'desc' }
+                    orderBy: { confidence: 'desc' },
+                    include: { reviewDecision: true }
                 },
                 codeAssignments: {
                     include: {
@@ -132,6 +133,7 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
                     matchingExistingTheme,
                     matchingExistingThemeId,
                     assignedThemes,
+                    reviewDecision: (topSuggestion as any)?.reviewDecision,
                 },
                 isHuman,
                 humanCodes: humanAssignments.map(c => c.codebookEntry.name),

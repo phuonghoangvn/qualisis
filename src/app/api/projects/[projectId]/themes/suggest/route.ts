@@ -23,7 +23,11 @@ export async function POST(
                 codeAssignments: {
                     include: {
                         segment: { select: { text: true, transcriptId: true } },
-                        aiSuggestion: { select: { uncertainty: true } }
+                        aiSuggestion: { 
+                            include: { 
+                                reviewDecision: { select: { note: true } } 
+                            } 
+                        }
                     },
                     take: 3 // limit examples per code to keep prompt compact
                 },
@@ -86,14 +90,20 @@ export async function POST(
         }
 
         const codesSummary = batchCodes.map((code, idx) => {
+            // Extract researcher memos
+            const memos = code.codeAssignments
+                .map((a: any) => a.aiSuggestion?.reviewDecision?.note)
+                .filter(Boolean);
+            const uniqueMemos = Array.from(new Set(memos)).join(' | ');
+
             const examples = code.codeAssignments
                 .slice(0, 2)
                 .map((a: any) => `"${a.segment.text.length > 250 ? a.segment.text.slice(0, 250) + '...' : a.segment.text}"`)
                 .join('\n     - ')
                 
             return `${idx + 1}. [${humanReadableType(code)}] "${code.name}" (${code._count.codeAssignments}× used)${
-                code.definition ? `\n   Definition/Note: ${code.definition}` : ''
-            }${examples ? `\n   Quotes in data:\n     - ${examples}` : ''}`
+                code.definition ? `\n   Definition: ${code.definition}` : ''
+            }${uniqueMemos ? `\n   Researcher Memos: ${uniqueMemos}` : ''}${examples ? `\n   Quotes in data:\n     - ${examples}` : ''}`
         }).join('\n\n')
 
         // 4. Get project context and existing themes

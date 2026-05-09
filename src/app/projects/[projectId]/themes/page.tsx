@@ -521,6 +521,41 @@ export default function ThemesPage() {
     const [rowCodeSuggestions, setRowCodeSuggestions] = useState<Record<string, string[]>>({})
     const [rowCodeSuggestingLoading, setRowCodeSuggestingLoading] = useState<Record<string, boolean>>({})
 
+    const [editingMemoId, setEditingMemoId] = useState<string | null>(null)
+    const [memoDraft, setMemoDraft] = useState('')
+    const [memoSaving, setMemoSaving] = useState(false)
+
+    const handleSaveMemo = async (segmentId: string, suggestionId: string) => {
+        setMemoSaving(true)
+        try {
+            const res = await fetch(`/api/segments/${segmentId}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'UPDATE_NOTE', suggestionId, note: memoDraft })
+            })
+            if (res.ok) {
+                setPendingCodes(prev => prev.map(r => {
+                    if (r.segmentId === segmentId) {
+                        return { 
+                            ...r, 
+                            suggestion: { 
+                                ...r.suggestion, 
+                                reviewDecision: { ...(r.suggestion as any).reviewDecision, note: memoDraft } 
+                            } 
+                        };
+                    }
+                    return r;
+                }))
+                setEditingMemoId(null)
+            } else {
+                alert('Failed to save memo')
+            }
+        } catch (e) {
+            console.error('Failed to save memo:', e)
+        }
+        setMemoSaving(false)
+    }
+
     const fetchPendingCodes = useCallback(async () => {
         setPendingCodesLoading(true)
         try {
@@ -640,7 +675,7 @@ export default function ThemesPage() {
             const res = await fetch(`/api/projects/${projectId}/suggest-themes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ codeLabel: row.suggestion.label, excerpt: row.text })
+                body: JSON.stringify({ codeLabel: row.suggestion.label, excerpt: row.text, segmentId: row.segmentId })
             })
             const data = await res.json()
             if (data.suggestions?.length > 0) {
@@ -1901,13 +1936,27 @@ Rules:
                                                                 );
                                                             })()}
                                                             {/* Researcher memo */}
-                                                            {(row.suggestion as any).reviewDecision?.note && (
-                                                                <div className="bg-purple-50 border border-purple-100 rounded-lg p-2 mt-1">
+                                                            {!row.isHuman && (
+                                                                <div className="bg-purple-50/50 border border-purple-100 rounded-lg p-2 mt-2">
                                                                     <strong className="flex items-center gap-1 uppercase tracking-widest text-[8px] mb-1 font-extrabold text-purple-600">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                                                         Researcher Memo
                                                                     </strong>
-                                                                    <p className="text-[10px] text-purple-900 leading-relaxed italic">"{(row.suggestion as any).reviewDecision.note}"</p>
+                                                                    <InlineEditField
+                                                                        value={(row.suggestion as any).reviewDecision?.note || ''}
+                                                                        placeholder="Add memo/rationale for this code..."
+                                                                        isEditing={editingMemoId === row.segmentId}
+                                                                        onStartEdit={() => {
+                                                                            setMemoDraft((row.suggestion as any).reviewDecision?.note || '')
+                                                                            setEditingMemoId(row.segmentId)
+                                                                        }}
+                                                                        draft={memoDraft}
+                                                                        setDraft={setMemoDraft}
+                                                                        onSave={() => handleSaveMemo(row.segmentId, row.suggestion.id)}
+                                                                        onCancel={() => setEditingMemoId(null)}
+                                                                        saving={memoSaving && editingMemoId === row.segmentId}
+                                                                        emptyClass="opacity-0 group-hover:opacity-100"
+                                                                    />
                                                                 </div>
                                                             )}
                                                         </div>

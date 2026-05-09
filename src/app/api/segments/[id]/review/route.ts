@@ -37,6 +37,18 @@ export async function POST(
             await prisma.codeAssignment.deleteMany({
                 where: { aiSuggestionId: suggestionId }
             })
+        } else if (action === 'UPDATE_NOTE') {
+            await prisma.reviewDecision.upsert({
+                where: { aiSuggestionId: suggestionId },
+                update: { note: note ?? null },
+                create: {
+                    aiSuggestionId: suggestionId,
+                    action: 'REVIEWED',
+                    note: note ?? null,
+                    reviewerId: userId || 'researcher-1',
+                }
+            })
+            return NextResponse.json({ success: true, action: 'UPDATE_NOTE' })
         } else {
             // Create or update ReviewDecision
             await prisma.reviewDecision.upsert({
