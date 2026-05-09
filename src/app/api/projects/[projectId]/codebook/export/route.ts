@@ -13,6 +13,8 @@ export async function GET(
         const rawThemes = await prisma.theme.findMany({
             where: { projectId: params.projectId, status: { not: 'MERGED' } },
             include: {
+                relationsIn: { where: { relationType: 'SUBTHEME_OF' } },
+                relationsOut: { where: { relationType: 'SUBTHEME_OF' } },
                 codeLinks: {
                     include: {
                         codebookEntry: {
@@ -57,36 +59,109 @@ export async function GET(
         }
 
         const BOM = '\uFEFF'
-        const header = ['THEME', 'CODE', 'DEFINITION', 'SAMPLE EVIDENCE', 'PARTICIPANT IDS']
+        const header = ['MEGA THEME', 'THEME', 'CODE', 'DEFINITION', 'SAMPLE EVIDENCE', 'PARTICIPANT IDS', 'THEME PARTICIPANT COUNT']
         const rows: string[][] = []
 
-        for (const theme of rawThemes) {
-            const validLinks = theme.codeLinks.filter(l => l.codebookEntry.codeAssignments.length > 0)
+        // Extract top level themes (those that are not subthemes of any other theme)
+        const topLevelThemes = rawThemes.filter(t => t.relationsOut.length === 0);
 
-            let themeParticipants = new Set<string>()
-            let themePieces = 0
-            for (const l of validLinks) {
-                themePieces += l.codebookEntry.codeAssignments.length
-                l.codebookEntry.codeAssignments.forEach((ca: any) => {
-                    if (ca.segment?.transcript) themeParticipants.add(ca.segment.transcript.title)
-                })
-            }
+        for (const theme of topLevelThemes) {
+            const childrenIds = theme.relationsIn.map(r => r.sourceId);
+            const isMega = childrenIds.length > 0;
 
-            const themeLabel = `${sanitise(theme.name)} (${themeParticipants.size} part., ${themePieces} pieces)`
+            if (isMega) {
+                const megaThemeLabel = sanitise(theme.name);
 
-            if (validLinks.length === 0) {
-                rows.push([themeLabel, '-', '', '', ''])
+                // For each sub-theme
+                for (const subId of childrenIds) {
+                    const subTheme = rawThemes.find(t => t.id === subId);
+                    if (!subTheme) continue;
+                    
+                    const subThemeLabel = sanitise(subTheme.name);
+                    const validLinks = subTheme.codeLinks.filter(l => l.codebookEntry.codeAssignments.length > 0);
+
+                    const themeParticipants = new Set<string>();
+                    for (const l of validLinks) {
+                        l.codebookEntry.codeAssignments.forEach((ca: any) => {
+                            if (ca.segment?.transcript) themeParticipants.add(ca.segment.transcript.title);
+                        })
+                    }
+                    const themePartCount = themeParticipants.size.toString();
+
+                    if (validLinks.length === 0) {
+                        rows.push([megaThemeLabel, subThemeLabel, '-', '', '', '', '0']);
+                    } else {
+                        for (const link of validLinks) {
+                            const stats = getCodeStats(link.codebookEntry.codeAssignments);
+                            const definition = link.codebookEntry.definition || link.codebookEntry.examplesIn || '';
+                            rows.push([
+                                megaThemeLabel,
+                                subThemeLabel,
+                                sanitise(link.codebookEntry.name),
+                                sanitise(definition),
+                                sanitise(stats.sampleEvidence),
+                                sanitise(stats.participantIds),
+                                themePartCount
+                            ]);
+                        }
+                    }
+                }
+
+                // If Mega Theme has direct codes assigned to it
+                const directValidLinks = theme.codeLinks.filter(l => l.codebookEntry.codeAssignments.length > 0);
+                if (directValidLinks.length > 0) {
+                    const themeParticipants = new Set<string>();
+                    for (const l of directValidLinks) {
+                        l.codebookEntry.codeAssignments.forEach((ca: any) => {
+                            if (ca.segment?.transcript) themeParticipants.add(ca.segment.transcript.title);
+                        })
+                    }
+                    const themePartCount = themeParticipants.size.toString();
+
+                    for (const link of directValidLinks) {
+                        const stats = getCodeStats(link.codebookEntry.codeAssignments);
+                        const definition = link.codebookEntry.definition || link.codebookEntry.examplesIn || '';
+                        rows.push([
+                            megaThemeLabel,
+                            '-', // No subtheme
+                            sanitise(link.codebookEntry.name),
+                            sanitise(definition),
+                            sanitise(stats.sampleEvidence),
+                            sanitise(stats.participantIds),
+                            themePartCount
+                        ]);
+                    }
+                }
+
             } else {
-                for (const link of validLinks) {
-                    const stats = getCodeStats(link.codebookEntry.codeAssignments)
-                    const definition = link.codebookEntry.definition || link.codebookEntry.examplesIn || ''
-                    rows.push([
-                        themeLabel,
-                        sanitise(link.codebookEntry.name),
-                        sanitise(definition),
-                        sanitise(stats.sampleEvidence),
-                        sanitise(stats.participantIds),
-                    ])
+                // It's a standalone theme
+                const themeLabel = sanitise(theme.name);
+                const validLinks = theme.codeLinks.filter(l => l.codebookEntry.codeAssignments.length > 0);
+
+                const themeParticipants = new Set<string>();
+                for (const l of validLinks) {
+                    l.codebookEntry.codeAssignments.forEach((ca: any) => {
+                        if (ca.segment?.transcript) themeParticipants.add(ca.segment.transcript.title);
+                    })
+                }
+                const themePartCount = themeParticipants.size.toString();
+
+                if (validLinks.length === 0) {
+                    rows.push(['-', themeLabel, '-', '', '', '', '0']);
+                } else {
+                    for (const link of validLinks) {
+                        const stats = getCodeStats(link.codebookEntry.codeAssignments);
+                        const definition = link.codebookEntry.definition || link.codebookEntry.examplesIn || '';
+                        rows.push([
+                            '-',
+                            themeLabel,
+                            sanitise(link.codebookEntry.name),
+                            sanitise(definition),
+                            sanitise(stats.sampleEvidence),
+                            sanitise(stats.participantIds),
+                            themePartCount
+                        ]);
+                    }
                 }
             }
         }
