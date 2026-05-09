@@ -46,6 +46,8 @@ export type ThemeNodeData = {
     onTrace: (codeId: string, codeName: string) => void
     draggingCodeId: string | null
     draggingFromThemeId: string | null
+    isMeta?: boolean
+    children?: { id: string, name: string }[]
 }
 
 // ─── Theme Card Node ──────────────────────────────────────────────────────────
@@ -55,8 +57,12 @@ function ThemeNode({ data, selected }: NodeProps) {
     const [expanded, setExpanded] = useState(false)
 
     const codesArr = d.codeLinks || []
+    const childrenArr = d.children || []
+    
+    const totalItems = codesArr.length + childrenArr.length
     const codesToShow = expanded ? codesArr : codesArr.slice(0, 4)
-    const hiddenCount = codesArr.length - 4
+    const childrenToShow = expanded ? childrenArr : childrenArr.slice(0, Math.max(0, 4 - codesToShow.length))
+    const hiddenCount = totalItems - (codesToShow.length + childrenToShow.length)
     const isDropTarget = d.draggingCodeId !== null
 
     return (
@@ -73,15 +79,16 @@ function ThemeNode({ data, selected }: NodeProps) {
                     d.onDropCode(d.id, payload.codeId, payload.fromThemeId)
                 }
             }}
-            className={`w-[320px] rounded-2xl border transition-all shadow-sm bg-white flex flex-col relative
-                ${isDragOver ? 'border-indigo-500 shadow-lg shadow-indigo-100 bg-indigo-50/30' : ''}
-                ${isDropTarget && !isDragOver ? 'border-indigo-300 border-dashed' : ''}
-                ${!isDropTarget && !isDragOver ? 'border-slate-200/80 hover:border-slate-300 hover:shadow-md' : ''}
-                ${selected ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}
+            className={`w-[320px] rounded-2xl border transition-all shadow-sm flex flex-col relative
+                ${d.isMeta ? 'bg-fuchsia-50/30 border-2 border-dashed border-fuchsia-300 hover:border-fuchsia-400 hover:shadow-fuchsia-100' : 'bg-white border-slate-200/80 hover:border-slate-300'}
+                ${isDragOver ? (d.isMeta ? 'border-fuchsia-500 shadow-lg shadow-fuchsia-100 bg-fuchsia-50/50' : 'border-indigo-500 shadow-lg shadow-indigo-100 bg-indigo-50/30') : ''}
+                ${isDropTarget && !isDragOver ? (d.isMeta ? 'border-fuchsia-400 border-dashed' : 'border-indigo-300 border-dashed') : ''}
+                ${!isDropTarget && !isDragOver && !d.isMeta ? 'hover:shadow-md' : ''}
+                ${selected ? (d.isMeta ? 'ring-2 ring-fuchsia-500 ring-offset-1' : 'ring-2 ring-indigo-500 ring-offset-1') : ''}
             `}
             style={{ cursor: 'default' }}
         >
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-300 rounded-l-2xl" />
+            <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${d.isMeta ? 'bg-fuchsia-400' : 'bg-slate-300'}`} />
 
             {isDragOver && (
                 <div className="absolute inset-0 rounded-2xl pointer-events-none z-10 flex items-end justify-center pb-3">
@@ -108,7 +115,18 @@ function ThemeNode({ data, selected }: NodeProps) {
                 {d.description && <p className="text-[11px] text-slate-500 leading-relaxed break-words">{d.description}</p>}
 
                 <div className="flex flex-col gap-1 min-h-[28px] p-2 -mx-1 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
-                    {codesArr.length === 0 && <p className="text-[10px] text-slate-400 italic text-center py-1">Drop codes here</p>}
+                    {codesArr.length === 0 && childrenArr.length === 0 && <p className="text-[10px] text-slate-400 italic text-center py-1">Drop codes here</p>}
+                    {childrenToShow.map(child => (
+                        <span
+                            key={`child-${child.id}`}
+                            className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200"
+                        >
+                            <span className="truncate flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                                {child.name}
+                            </span>
+                        </span>
+                    ))}
                     {codesToShow.map(link => (
                         <span
                             key={link.codebookEntry.id}
@@ -139,11 +157,11 @@ function ThemeNode({ data, selected }: NodeProps) {
                         </span>
                     ))}
                     {hiddenCount > 0 && !expanded && <button className="text-[10px] text-indigo-500 font-bold text-center hover:text-indigo-700 py-0.5" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setExpanded(true) }}>+{hiddenCount} more</button>}
-                    {expanded && codesArr.length > 4 && <button className="text-[10px] text-slate-400 font-bold text-center hover:text-slate-600 py-0.5" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setExpanded(false) }}>Show less</button>}
+                    {expanded && totalItems > 4 && <button className="text-[10px] text-slate-400 font-bold text-center hover:text-slate-600 py-0.5" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setExpanded(false) }}>Show less</button>}
                 </div>
-
+                
                 <div className="flex items-center justify-between pt-0.5">
-                    <span className="text-[10px] text-slate-400 font-medium">{codesArr.length} codes</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{codesArr.length > 0 ? `${codesArr.length} codes` : ''}{codesArr.length > 0 && childrenArr.length > 0 ? ', ' : ''}{childrenArr.length > 0 ? `${childrenArr.length} sub-themes` : ''}</span>
                     <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         {d.participantsCount || 0}

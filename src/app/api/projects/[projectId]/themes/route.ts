@@ -332,6 +332,7 @@ export async function PATCH(
             })
         } else if (action === 'ADD_THEME') {
             if (!subThemeId) return NextResponse.json({ error: 'Missing subThemeId' }, { status: 400 })
+            if (subThemeId === themeId) return NextResponse.json({ error: 'Cannot link a theme to itself' }, { status: 400 })
             // Remove existing parent if any
             await prisma.themeRelation.deleteMany({
                 where: { sourceId: subThemeId, relationType: 'SUBTHEME_OF' }

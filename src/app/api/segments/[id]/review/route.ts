@@ -210,7 +210,7 @@ export async function POST(
                         }
                     }
 
-                    if (resolvedMegaThemeId && resolvedThemeId) {
+                    if (resolvedMegaThemeId && resolvedThemeId && resolvedMegaThemeId !== resolvedThemeId) {
                         // Link Theme -> MegaTheme
                         // Remove any existing parent relation for this theme just in case (a theme usually has 1 mega theme)
                         await prisma.themeRelation.deleteMany({

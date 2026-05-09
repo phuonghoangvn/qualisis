@@ -1907,6 +1907,13 @@ Rules:
                                                                         </div>
                                                                     </div>
                                                                 ) : null}
+                                                                {/* Refinement Options - Hidden by default for accepted rows */}
+                                                                <details className="group/refine mt-1" open={!isAccepted && !row.isHuman}>
+                                                                    <summary className={`text-[10px] font-bold text-slate-400 cursor-pointer list-none flex items-center gap-1 transition-colors ${(!isAccepted && !row.isHuman) ? 'hidden' : 'hover:text-indigo-500'}`}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-open/refine:rotate-90 transition-transform"><path d="m9 18 6-6-6-6"/></svg>
+                                                                        Refine Analysis & Themes
+                                                                    </summary>
+                                                                    <div className="flex flex-col gap-2 mt-2 pt-1 border-t border-slate-100">
                                                                 {/* Alternatives — on-demand generation */}
                                                                 {row.suggestion.status !== 'REJECTED' && (() => {
                                                                     const suggestions = rowCodeSuggestions[row.segmentId];
@@ -2097,6 +2104,8 @@ Rules:
                                                                         </div>
                                                                     )
                                                                 })()}
+                                                                    </div>
+                                                                </details>
                                                             </div>
                                                             )
                                                         })()}
