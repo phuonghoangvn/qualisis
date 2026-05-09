@@ -4,6 +4,16 @@ import OpenAI from 'openai'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+function cleanQuote(text: string): string {
+    return text
+        .replace(/(?:\d{2}:)?\d{2}:\d{2}\s*Speaker\s*\d+\s*/gi, '')
+        .replace(/Speaker\s*\d+\s*(?:\d{2}:)?\d{2}:\d{2}\s*/gi, '')
+        .replace(/(?:\d{2}:)?\d{2}:\d{2}\s*/g, '')
+        .replace(/Speaker\s*\d+\s*/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+}
+
 export async function POST(
     req: Request,
     { params }: { params: { projectId: string } }
@@ -12,11 +22,11 @@ export async function POST(
         // 1. Fetch project info
         const project = await prisma.project.findUnique({
             where: { id: params.projectId },
-            select: { name: true, description: true, researchQuestion: true }
+            select: { name: true, description: true, researchQuestion: true, coreOntology: true }
         })
         if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
-        // 2. Fetch themes with codes + up to 3 quotes per code
+        // 2. Fetch themes with codes + quotes
         const rawThemes = await prisma.theme.findMany({
             where: { projectId: params.projectId, status: { not: 'MERGED' } },
             include: {
@@ -47,124 +57,162 @@ export async function POST(
             orderBy: { createdAt: 'desc' }
         })
 
-        // 3. Helper: format a single theme's codes into text
-        const formatCodes = (theme: typeof rawThemes[0]) => {
-            if (theme.codeLinks.length === 0) return '  (no codes assigned yet)'
-            return theme.codeLinks.map(link => {
+        // 3. Build compact codebook evidence block for the prompt
+        const codebookEvidence = rawThemes.map(theme => {
+            const codes = theme.codeLinks.map(link => {
                 const quotes = link.codebookEntry.codeAssignments
                     .filter(a => a.segment?.text)
-                    .map(a => `      - "${a.segment!.text}" [${a.segment?.transcript?.title || 'Participant'}]`)
+                    .map(a => `    → "${cleanQuote(a.segment!.text)}" [${a.segment?.transcript?.title || 'Participant'}]`)
                     .join('\n')
-                return `  • Code: ${link.codebookEntry.name} (${link.codebookEntry._count.codeAssignments} instances)\n    Definition: ${link.codebookEntry.definition || '(no definition)'}\n    Sample quotes:\n${quotes || '      (none)'}`
+                return `  • ${link.codebookEntry.name} (n=${link.codebookEntry._count.codeAssignments}): ${link.codebookEntry.definition || ''}\n${quotes}`
             }).join('\n\n')
-        }
 
-        // 4. Build hierarchical theme summary for prompt
-        const standaloneThemes = rawThemes.filter(t => t.relationsOut.length === 0)
-        
-        const themesSummary = standaloneThemes.map(parentTheme => {
-            // Find children (where this parent is the target of a SUBTHEME_OF relation)
-            const children = rawThemes.filter(child => 
-                child.relationsOut.some(r => r.targetId === parentTheme.id)
-            )
-            
-            let block = `## Mega-Theme / Primary Theme: ${parentTheme.name}\nDescription: ${parentTheme.description || '(no description)'}\n\nCodes (direct):\n${formatCodes(parentTheme)}\n`
-            
-            if (children.length > 0) {
-                block += `\n### Sub-Themes under "${parentTheme.name}":\n`
-                children.forEach(child => {
-                    block += `#### Sub-Theme: ${child.name}\nDescription: ${child.description}\nCodes:\n${formatCodes(child)}\n\n`
-                })
-            }
-            return block
+            return `**Theme: ${theme.name}**\n${theme.description ? `Summary: ${theme.description}\n` : ''}Codes:\n${codes}`
         }).join('\n\n---\n\n')
 
-        const researchQuestions = project.researchQuestion || '(not specified)'
+        const researchQuestion = project.researchQuestion || '(not specified)'
+        const fieldContext = project.coreOntology || project.description || '(qualitative research)'
+        const now = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
 
-        const systemPrompt = `You are an expert qualitative researcher writing the "Thematic Findings" section of an academic research report. 
-Write in a scholarly but accessible tone. Use first person plural ("we found", "the analysis revealed").
-Your PRIMARY GOAL is to directly answer the provided RESEARCH QUESTION. Do not just summarize the data; explain what the data means in the context of the Research Question.
-Always embed verbatim quotes from participants to evidence each point. 
-Format output in clean Markdown with clear headings.`
+        // 4. PHASE 1 — Synthesize what the literature already says
+        const literatureSynthesisPrompt = `You are an expert academic researcher with deep knowledge of the most current peer-reviewed literature (up to 2024-2025).
 
-        const userPrompt = `Write the full "Thematic Findings" section for this study.
+The researcher is studying this research question:
+"${researchQuestion}"
 
-PROJECT: ${project.name}
-TOPIC: ${project.description || '(see project name)'}
-RESEARCH QUESTION (Highest Priority):
-${researchQuestions}
+Field/Context: ${fieldContext}
 
-CODEBOOK DATA (Hierarchical Mega-Themes & Sub-Themes):
-${themesSummary}
+YOUR TASK — LITERATURE SYNTHESIS:
+Write a structured synthesis of what the MOST RECENT peer-reviewed academic literature (prioritise 2022–2025) already knows about this topic.
+
+For each major area the literature covers, write 2-3 sentences summarising the current scholarly consensus. Reference real, plausible author names, journals, and years (draw on your training knowledge of real papers in HCI, CSCW, qualitative methods, AI-assisted research, etc. as relevant).
+
+Structure your synthesis as:
+## What Existing Literature Already Knows
+
+### [Sub-topic Area 1]
+[2-3 sentences of synthesis with citations]
+
+### [Sub-topic Area 2]
+[2-3 sentences]
+
+(continue for 4-6 sub-areas most relevant to the research question)
+
+Be precise and academically rigorous. Do NOT fabricate findings; draw on real scholarly conversations.`
+
+        const litCompletion = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: literatureSynthesisPrompt }],
+            temperature: 0.3,
+            max_tokens: 1800,
+        })
+        const literatureSynthesis = litCompletion.choices[0]?.message?.content || ''
+
+        // 5. PHASE 2 — Gap analysis comparing literature with codebook data
+        const gapAnalysisPrompt = `You are an expert qualitative researcher writing a "Research Gap Analysis" section for a peer-reviewed academic paper.
+
+RESEARCH QUESTION (anchor everything here):
+"${researchQuestion}"
+
+WHAT THE LITERATURE ALREADY SAYS (synthesised from peer-reviewed sources):
+${literatureSynthesis}
+
+WHAT THE RESEARCHER'S DATA SHOWS (codebook from empirical fieldwork):
+${codebookEvidence}
 
 ---
 
-Instructions:
-1. Write an INTRODUCTION paragraph (2-3 sentences) framing the overall findings as a direct response to the Research Question.
-2. For each Mega-Theme / Primary Theme, write a FULL narrative section that:
-   - Explains the core insight of this Mega-Theme and how it answers the Research Question.
-   - If it has Sub-Themes, weave their findings into the narrative cohesively (do not just list them).
-   - Weaves in 3-5 verbatim participant quotes as evidence (format: *"quote text"* [ParticipantName]).
-3. Write a SYNTHESIS paragraph (3-4 sentences) identifying cross-cutting patterns across all Mega-Themes.
-4. Use this exact heading structure:
-   - # Thematic Findings
-   - ## 1. [Mega-Theme Name]
-      (narrative text...)
-   - ## Synthesis and Cross-Cutting Patterns
+YOUR TASK — WRITE A GAP ANALYSIS REPORT:
 
-Be highly analytical. Do NOT invent quotes — use only those provided above.`
+Write a full academic gap analysis that:
+1. Identifies 4-6 specific, concrete gaps between what existing literature covers and what the empirical data shows
+2. Frames each gap as: "Existing work tends to focus on X, but this data reveals Y — which has not been adequately theorised"
+3. Anchors every gap directly to the research question
+4. Uses specific verbatim participant quotes from the codebook data as evidence (clean the quotes — remove any timestamps or "Speaker X" markers before the quote text)
+5. Produces writing that could go directly into a thesis Discussion section
 
-        // 5. Call OpenAI
-        const completion = await openai.chat.completions.create({
+Format:
+# Gap Analysis: [Project Topic]
+
+## Overview
+[2-3 sentences: what the data reveals that the literature has missed, in relation to the research question]
+
+## Gap 1: [Short compelling title]
+**What the literature says:** ...
+**What this data shows:** ...
+**Why this matters:** ...
+**Evidence from data:**
+> "[participant quote]" — [Participant name]
+
+## Gap 2: [Short compelling title]
+...
+
+(repeat for each gap)
+
+## Theoretical Contribution
+[3-4 sentences: how these gaps collectively point to a novel theoretical contribution or reframing]
+
+## Implications for Future Research
+[Bullet list of 3-5 concrete directions]
+
+---
+Rules:
+- Do NOT invent participant quotes. Use ONLY quotes from the codebook data provided above.
+- Do NOT just summarise the codebook. Identify genuine tensions between literature and data.
+- Be analytically sharp. The best gaps show something the field has overlooked, misframed, or undertheorised.
+- All gaps must directly serve the research question.`
+
+        const gapCompletion = await openai.chat.completions.create({
             model: 'gpt-4o',
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.4,
-            max_tokens: 4000,
+            messages: [{ role: 'user', content: gapAnalysisPrompt }],
+            temperature: 0.35,
+            max_tokens: 3500,
         })
+        const gapAnalysis = gapCompletion.choices[0]?.message?.content || ''
 
-        const reportMarkdown = completion.choices[0]?.message?.content || ''
-
-        // 6. Build full report with metadata sections
-        const now = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
+        // 6. Build stats for report header
         const participantSet = new Set<string>()
         rawThemes.forEach(t => t.codeLinks.forEach(l =>
             l.codebookEntry.codeAssignments.forEach(a => {
                 if (a.segment?.transcript?.title) participantSet.add(a.segment.transcript.title)
             })
         ))
-
         const totalCodesCount = rawThemes.reduce((acc, t) => acc + t.codeLinks.length, 0)
 
-        // Build flat appendix table
+        // 7. Build codebook appendix table
         const appendixRows = rawThemes.flatMap(t =>
             t.codeLinks.map(l => {
                 const codeDef = `**${l.codebookEntry.name}**<br>_${(l.codebookEntry.definition || 'No definition provided').replace(/\|/g, '/')}_`
                 const sampleQuote = l.codebookEntry.codeAssignments.find(a => a.segment?.text)?.segment
-                const quoteHtml = sampleQuote ? `"${sampleQuote.text.replace(/\|/g, '/')}"<br>— ${sampleQuote.transcript?.title || 'Participant'}` : '—'
+                const quoteHtml = sampleQuote
+                    ? `"${cleanQuote(sampleQuote.text).replace(/\|/g, '/')}"<br>— ${sampleQuote.transcript?.title || 'Participant'}`
+                    : '—'
                 return `| **${t.name}** | ${codeDef} | ${quoteHtml} |`
             })
         )
 
-        const fullReport = `# Research Report: ${project.name}
+        // 8. Assemble full report
+        const fullReport = `# Research Gap Analysis: ${project.name}
 
-**Generated:** ${now}  
-**Analysis Method:** AI-Assisted Thematic Analysis (QualiSIS)  
-**Participants:** ${participantSet.size}  
-**Themes:** ${rawThemes.length}  
+**Generated:** ${now}
+**Analysis Method:** AI-Assisted Thematic Analysis & Literature Gap Mapping (QualiSIS)
+**Participants:** ${participantSet.size}
+**Themes:** ${rawThemes.length}
 **Total Codes:** ${totalCodesCount}
 
 ---
 
-## Research Questions
+## Research Question
 
-${researchQuestions}
+${researchQuestion}
 
 ---
 
-${reportMarkdown}
+${literatureSynthesis}
+
+---
+
+${gapAnalysis}
 
 ---
 
@@ -176,7 +224,7 @@ ${appendixRows.join('\n')}
 
 ---
 
-*This report was generated with AI assistance using QualiSIS. All thematic interpretations should be reviewed and validated by the researcher.*`
+*This report was generated with AI assistance using QualiSIS. Literature references draw on the model's training knowledge and should be verified before submission. All thematic interpretations should be reviewed and validated by the researcher.*`
 
         return NextResponse.json({ report: fullReport })
 

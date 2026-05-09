@@ -130,7 +130,7 @@ export default function ReportPage() {
             <div className="flex-shrink-0 bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
                 <div>
                     <h1 className="text-[22px] font-extrabold tracking-tight text-slate-800">⑤ Research Report</h1>
-                    <p className="text-[12px] text-slate-400 font-medium mt-0.5">AI-generated thematic findings narrative from your codebook</p>
+                    <p className="text-[12px] text-slate-400 font-medium mt-0.5">AI Gap Analysis — compares your codebook findings against the latest peer-reviewed literature</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {report && (
@@ -203,11 +203,11 @@ export default function ReportPage() {
                             <div className="absolute inset-0 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
                         </div>
                         <div className="text-center">
-                            <p className="text-lg font-bold text-slate-800">AI is writing your report…</p>
-                            <p className="text-sm text-slate-400 mt-1">Reading your codebook and crafting thematic narratives</p>
+                            <p className="text-lg font-bold text-slate-800">AI is writing your gap analysis…</p>
+                            <p className="text-sm text-slate-400 mt-1">Synthesising literature, reading your codebook, identifying research gaps</p>
                         </div>
-                        <div className="flex flex-col gap-2 w-64">
-                            {['Reading themes & codes', 'Analysing participant quotes', 'Writing narrative findings', 'Building full report'].map((step, i) => (
+                        <div className="flex flex-col gap-2 w-72">
+                            {['Reading your research question & codebook', 'Synthesising recent peer-reviewed literature', 'Identifying gaps between literature & data', 'Mapping theoretical contributions', 'Building full academic report'].map((step, i) => (
                                 <div key={i} className="flex items-center gap-2.5 text-[12px] text-slate-500">
                                     <svg className="w-3.5 h-3.5 text-indigo-400 animate-pulse flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                         <circle cx="12" cy="12" r="10"/>
@@ -231,15 +231,15 @@ export default function ReportPage() {
                             </svg>
                         </div>
                         <div className="text-center max-w-md">
-                            <h2 className="text-xl font-extrabold text-slate-800 mb-2">Generate Your Research Report</h2>
+                            <h2 className="text-xl font-extrabold text-slate-800 mb-2">Generate Your Research Gap Analysis</h2>
                             <p className="text-sm text-slate-500 leading-relaxed mb-6">
-                                AI will read your entire codebook — all themes, codes, and participant quotes — and write a structured <strong>Thematic Findings</strong> section with narrative analysis, embedded evidence, and a codebook appendix.
+                                AI will read your codebook, synthesise the <strong>most recent peer-reviewed literature</strong> on your topic, and identify concrete <strong>research gaps</strong> — where your empirical findings reveal something the field has missed, misframed, or undertheorised.
                             </p>
                             <div className="grid grid-cols-3 gap-4 text-left mb-8">
                                 {[
-                                    { icon: '📖', title: 'Narrative Findings', desc: 'Per-theme academic prose with embedded quotes' },
-                                    { icon: '🔗', title: 'Cross-cutting Patterns', desc: 'Identifies themes that overlap across participants' },
-                                    { icon: '📎', title: 'Codebook Appendix', desc: 'Full structured table of codes & definitions' },
+                                    { icon: '📚', title: 'Literature Synthesis', desc: 'Summarises what 2022–2025 peer-reviewed papers already know' },
+                                    { icon: '🔍', title: 'Gap Identification', desc: 'Spots 4-6 specific gaps between literature & your data' },
+                                    { icon: '🎯', title: 'Anchored to RQ', desc: 'Every gap ties back to your research question' },
                                 ].map(f => (
                                     <div key={f.title} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
                                         <div className="text-2xl mb-1">{f.icon}</div>
