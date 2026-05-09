@@ -48,7 +48,18 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
                                 id: true,
                                 name: true,
                                 themeLinks: {
-                                    select: { theme: { select: { id: true, name: true } } }
+                                    select: { 
+                                        theme: { 
+                                            select: { 
+                                                id: true, 
+                                                name: true,
+                                                relationsOut: {
+                                                    where: { relationType: 'SUBTHEME_OF' },
+                                                    select: { target: { select: { id: true, name: true } } }
+                                                }
+                                            } 
+                                        } 
+                                    }
                                 }
                             }
                         }
@@ -111,7 +122,12 @@ export async function GET(_req: Request, { params }: { params: { projectId: stri
                 const links = (ca.codebookEntry as any).themeLinks || []
                 for (const link of links) {
                     if (link.theme && !assignedThemes.find((t: any) => t.id === link.theme.id)) {
-                        assignedThemes.push({ id: link.theme.id, name: link.theme.name })
+                        const megaRel = link.theme.relationsOut?.[0];
+                        assignedThemes.push({ 
+                            id: link.theme.id, 
+                            name: link.theme.name,
+                            megaTheme: megaRel ? { id: megaRel.target.id, name: megaRel.target.name } : undefined
+                        })
                     }
                 }
             }

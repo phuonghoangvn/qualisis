@@ -1465,6 +1465,34 @@ Rules:
         }
     }
 
+    const handleRemoveMegaThemeFromRow = async (codebookEntryId: string, themeId: string, megaThemeId: string) => {
+        try {
+            const res = await fetch(`/api/projects/${projectId}/themes`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ themeId: megaThemeId, action: 'REMOVE_THEME', subThemeId: themeId })
+            });
+            if (res.ok) {
+                // Update local state to immediately remove the mega theme from this row
+                setPendingCodes(prev => prev.map(row => {
+                    if (row.codebookEntryId === codebookEntryId) {
+                        const newAssignedThemes = ((row.suggestion as any).assignedThemes || []).map((t: any) => {
+                            if (t.id === themeId) {
+                                return { ...t, megaTheme: undefined };
+                            }
+                            return t;
+                        });
+                        return { ...row, suggestion: { ...row.suggestion, assignedThemes: newAssignedThemes } };
+                    }
+                    return row;
+                }));
+                fetchData();
+            }
+        } catch (e) {
+            console.error('Failed to unlink mega theme from row', e);
+        }
+    }
+
     const handleApplyRowUpdates = async (row: PendingRow) => {
         if (!row.codebookEntryId) return;
 
@@ -1885,24 +1913,43 @@ Rules:
                                                                     <div className="flex flex-col gap-0.5 mt-0.5">
                                                                         <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest">In theme:</span>
                                                                         <div className="flex flex-wrap gap-1">
-                                                                            {((row.suggestion as any).assignedThemes as { id: string; name: string }[]).map(t => (
-                                                                                <span
-                                                                                    key={t.id}
-                                                                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded text-[9px] font-bold group/themechip"
-                                                                                    title={`Linked to theme: ${t.name}`}
-                                                                                >
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                                                                    {t.name}
-                                                                                    {row.codebookEntryId && (
-                                                                                        <button 
-                                                                                            onClick={(e) => { e.stopPropagation(); handleRemoveThemeFromRow(row.codebookEntryId!, t.id); }}
-                                                                                            className="ml-1 opacity-0 group-hover/themechip:opacity-100 text-teal-400 hover:text-rose-500 hover:bg-rose-50 rounded px-0.5 transition-all"
-                                                                                            title="Remove code from theme"
+                                                                            {((row.suggestion as any).assignedThemes as { id: string; name: string; megaTheme?: { id: string; name: string } }[]).map(t => (
+                                                                                <div key={t.id} className="flex flex-col gap-0.5">
+                                                                                    <span
+                                                                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded text-[9px] font-bold group/themechip w-fit"
+                                                                                        title={`Linked to theme: ${t.name}`}
+                                                                                    >
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                                                        {t.name}
+                                                                                        {row.codebookEntryId && (
+                                                                                            <button 
+                                                                                                onClick={(e) => { e.stopPropagation(); handleRemoveThemeFromRow(row.codebookEntryId!, t.id); }}
+                                                                                                className="ml-1 opacity-0 group-hover/themechip:opacity-100 text-teal-400 hover:text-rose-500 hover:bg-rose-50 rounded px-0.5 transition-all"
+                                                                                                title="Remove code from theme"
+                                                                                            >
+                                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </span>
+                                                                                    {t.megaTheme && (
+                                                                                        <span
+                                                                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 rounded text-[9px] font-bold group/megachip w-fit ml-3"
+                                                                                            title={`Nested under mega theme: ${t.megaTheme.name}`}
                                                                                         >
-                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                                                                        </button>
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                                                            Mega: {t.megaTheme.name}
+                                                                                            {row.codebookEntryId && (
+                                                                                                <button 
+                                                                                                    onClick={(e) => { e.stopPropagation(); handleRemoveMegaThemeFromRow(row.codebookEntryId!, t.id, t.megaTheme!.id); }}
+                                                                                                    className="ml-1 opacity-0 group-hover/megachip:opacity-100 text-fuchsia-400 hover:text-rose-500 hover:bg-rose-50 rounded px-0.5 transition-all"
+                                                                                                    title="Remove from mega theme"
+                                                                                                >
+                                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                                                                </button>
+                                                                                            )}
+                                                                                        </span>
                                                                                     )}
-                                                                                </span>
+                                                                                </div>
                                                                             ))}
                                                                         </div>
                                                                     </div>

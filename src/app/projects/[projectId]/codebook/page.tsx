@@ -163,15 +163,23 @@ export default function CodebookPage() {
                     <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
                             <tr>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[22%] border-r border-slate-200">Theme</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[16%]">Code</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[22%]">Definition</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[22%]">Sample Evidence</th>
-                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[14%]">Participant IDs</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[14%] border-r border-slate-200">Mega Theme</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[14%] border-r border-slate-200">Theme</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[14%]">Code</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[24%]">Definition</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-r border-slate-200 w-[24%]">Sample Evidence</th>
+                                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400 w-[10%]">Participant IDs</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {topLevelThemes.flatMap((theme) => {
+                            {topLevelThemes.flatMap((themeOrMega) => {
+                                const renderMegaThemeInfo = (t: any) => (
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-extrabold text-fuchsia-700 text-[13px]">{t.name}</span>
+                                        </div>
+                                    </div>
+                                )
                                 // Shared cell content for Themes
                                 const renderThemeInfo = (t: any) => (
                                     <div className="flex flex-col gap-2">
@@ -257,18 +265,54 @@ export default function CodebookPage() {
                                     </>
                                 )
 
-                                // All themes are standalone in the flat model
-                                if (!theme.codeLinks || theme.codeLinks.length === 0) return null
-                                return theme.codeLinks.map((link: any, linkIdx: number) => (
-                                    <tr key={`${theme.id}-${link.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
-                                        {linkIdx === 0 && (
-                                            <td rowSpan={theme.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-slate-50/30">
-                                                {renderThemeInfo(theme)}
-                                            </td>
-                                        )}
-                                        {renderCodeCells(link)}
-                                    </tr>
-                                ))
+                                // Mega Theme handling
+                                if (themeOrMega.isMeta || (themeOrMega.children && themeOrMega.children.length > 0)) {
+                                    const children = themeOrMega.children || [];
+                                    const allChildLinks = children.flatMap((child: any) => 
+                                        (child.codeLinks || []).map((l: any) => ({ ...l, childTheme: child }))
+                                    );
+                                    if (allChildLinks.length === 0) return null;
+
+                                    return allChildLinks.map((linkWithTheme: any, idx: number) => {
+                                        const isFirstMega = idx === 0;
+                                        const childLinkIndex = linkWithTheme.childTheme.codeLinks.findIndex((l: any) => l.codebookEntry.id === linkWithTheme.codebookEntry.id);
+                                        const isFirstChild = childLinkIndex === 0;
+
+                                        return (
+                                            <tr key={`${themeOrMega.id}-${linkWithTheme.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
+                                                {isFirstMega && (
+                                                    <td rowSpan={allChildLinks.length} className="px-5 py-4 border-r border-fuchsia-100 align-top bg-fuchsia-50/30">
+                                                        {renderMegaThemeInfo(themeOrMega)}
+                                                    </td>
+                                                )}
+                                                {isFirstChild && (
+                                                    <td rowSpan={linkWithTheme.childTheme.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-slate-50/30">
+                                                        {renderThemeInfo(linkWithTheme.childTheme)}
+                                                    </td>
+                                                )}
+                                                {renderCodeCells(linkWithTheme)}
+                                            </tr>
+                                        )
+                                    })
+                                } else {
+                                    // Regular theme
+                                    if (!themeOrMega.codeLinks || themeOrMega.codeLinks.length === 0) return null
+                                    return themeOrMega.codeLinks.map((link: any, linkIdx: number) => (
+                                        <tr key={`${themeOrMega.id}-${link.codebookEntry.id}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
+                                            {linkIdx === 0 && (
+                                                <td rowSpan={themeOrMega.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-slate-50/10">
+                                                    <span className="text-[10px] text-slate-400 italic">—</span>
+                                                </td>
+                                            )}
+                                            {linkIdx === 0 && (
+                                                <td rowSpan={themeOrMega.codeLinks.length} className="px-5 py-4 border-r border-slate-100 align-top bg-slate-50/30">
+                                                    {renderThemeInfo(themeOrMega)}
+                                                </td>
+                                            )}
+                                            {renderCodeCells(link)}
+                                        </tr>
+                                    ))
+                                }
                             })}
                         </tbody>
                     </table>

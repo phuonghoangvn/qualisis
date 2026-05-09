@@ -47,6 +47,7 @@ export type ThemeNodeData = {
     draggingCodeId: string | null
     draggingFromThemeId: string | null
     isMeta?: boolean
+    isContainer?: boolean
     children?: { id: string, name: string }[]
 }
 
@@ -65,6 +66,39 @@ function ThemeNode({ data, selected }: NodeProps) {
     const hiddenCount = totalItems - (codesToShow.length + childrenToShow.length)
     const isDropTarget = d.draggingCodeId !== null
 
+    if (d.isContainer) {
+        return (
+            <div
+                className={`w-full h-full rounded-[24px] border-2 border-dashed transition-all bg-fuchsia-50/20 border-fuchsia-200 flex flex-col relative
+                    ${selected ? 'ring-2 ring-fuchsia-500 ring-offset-2' : ''}
+                `}
+                style={{ cursor: 'default' }}
+            >
+                <div className="absolute left-0 top-0 bottom-0 w-2 bg-fuchsia-400 rounded-l-[24px]" />
+                <div className="p-5 pl-7 flex flex-col gap-1.5">
+                    <div className="flex items-start justify-between">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-extrabold text-fuchsia-500 uppercase tracking-widest mb-0.5 flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                Mega Theme
+                            </span>
+                            <p className="text-xl font-extrabold text-slate-800 tracking-tight">{d.name}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => d.onEdit(d.id, d.name, d.description || '')} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                            </button>
+                            <button onClick={() => d.onDelete(d.id, d.name)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    {d.description && <p className="text-[12px] text-slate-500 max-w-[500px]">{d.description}</p>}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div
             onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true) }}
@@ -79,7 +113,7 @@ function ThemeNode({ data, selected }: NodeProps) {
                     d.onDropCode(d.id, payload.codeId, payload.fromThemeId)
                 }
             }}
-            className={`w-[320px] rounded-2xl border transition-all shadow-sm flex flex-col relative
+            className={`w-[320px] h-fit rounded-2xl border transition-all shadow-sm flex flex-col relative
                 ${d.isMeta ? 'bg-fuchsia-50/30 border-2 border-dashed border-fuchsia-300 hover:border-fuchsia-400 hover:shadow-fuchsia-100' : 'bg-white border-slate-200/80 hover:border-slate-300'}
                 ${isDragOver ? (d.isMeta ? 'border-fuchsia-500 shadow-lg shadow-fuchsia-100 bg-fuchsia-50/50' : 'border-indigo-500 shadow-lg shadow-indigo-100 bg-indigo-50/30') : ''}
                 ${isDropTarget && !isDragOver ? (d.isMeta ? 'border-fuchsia-400 border-dashed' : 'border-indigo-300 border-dashed') : ''}
@@ -99,14 +133,14 @@ function ThemeNode({ data, selected }: NodeProps) {
                 </div>
             )}
 
-            <div className="p-4 flex flex-col gap-2.5">
-                <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-extrabold text-slate-800 leading-snug break-words flex-1">{d.name}</p>
-                    <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
-                        <button className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors" title="Edit theme" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); d.onEdit(d.id, d.name, d.description || '') }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            <div className="p-4 pl-5 flex flex-col gap-1.5 pointer-events-auto">
+                <div className="flex items-start justify-between">
+                    <p className="text-[13px] font-bold text-slate-800 leading-snug break-words pr-2">{d.name}</p>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => d.onEdit(d.id, d.name, d.description || '')} className="p-1 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit theme">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                         </button>
-                        <button className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors" title="Delete theme" onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); d.onDelete(d.id, d.name) }}>
+                        <button onClick={() => d.onDelete(d.id, d.name)} className="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete theme">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                         </button>
                     </div>
@@ -116,7 +150,7 @@ function ThemeNode({ data, selected }: NodeProps) {
 
                 <div className="flex flex-col gap-1 min-h-[28px] p-2 -mx-1 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
                     {codesArr.length === 0 && childrenArr.length === 0 && <p className="text-[10px] text-slate-400 italic text-center py-1">Drop codes here</p>}
-                    {childrenToShow.map(child => (
+                    {!d.isMeta && childrenToShow.map(child => (
                         <span
                             key={`child-${child.id}`}
                             className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200"
@@ -357,18 +391,46 @@ function ThemeCanvasInner({
     const [pendingCreate, setPendingCreate] = useState<{ sx: number; sy: number; fx: number; fy: number } | null>(null)
 
     const makeNodes = useCallback((ts: ThemeNodeData[], suggs: any[]): Node[] => {
-        const regularNodes: Node[] = ts.map((theme, i) => ({
-            id: theme.id,
-            type: 'themeCard',
-            position: {
-                x: (theme as any).positionX ?? (i % 4) * 380 + 40,
-                y: (theme as any).positionY ?? Math.floor(i / 4) * 380 + 40,
-            },
-            data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, onTrace, draggingCodeId, draggingFromThemeId },
-        }))
+        const regularNodes: Node[] = []
+        ts.forEach((theme, i) => {
+            const x = (theme as any).positionX ?? (i % 4) * 380 + 40
+            const y = (theme as any).positionY ?? Math.floor(i / 4) * 380 + 40
 
-        const maxExistingY = ts.reduce((max, t, i) => Math.max(max, (t as any).positionY ?? (Math.floor(i / 4) * 380 + 40)), -400)
-        const startY = ts.length > 0 ? maxExistingY + 440 : 40;
+            if (theme.isMeta) {
+                const children = theme.children || []
+                const megaWidth = Math.max(380, 40 + children.length * 360)
+                const megaHeight = 440 // large enough to hold child themeCards
+
+                regularNodes.push({
+                    id: theme.id,
+                    type: 'themeCard',
+                    position: { x, y },
+                    style: { width: megaWidth, height: megaHeight, zIndex: -1 },
+                    data: { ...theme, isContainer: true, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, onTrace, draggingCodeId, draggingFromThemeId },
+                })
+
+                children.forEach((child, j) => {
+                    regularNodes.push({
+                        id: child.id,
+                        type: 'themeCard',
+                        parentId: theme.id,
+                        extent: 'parent',
+                        position: { x: 20 + j * 350, y: 80 },
+                        data: { ...child, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, onTrace, draggingCodeId, draggingFromThemeId },
+                    })
+                })
+            } else {
+                regularNodes.push({
+                    id: theme.id,
+                    type: 'themeCard',
+                    position: { x, y },
+                    data: { ...theme, onEdit, onDelete, onRemoveCode, onDropCode, onDragStartCode, onDragEndCode, onTrace, draggingCodeId, draggingFromThemeId },
+                })
+            }
+        })
+
+        const maxExistingY = regularNodes.reduce((max, t) => Math.max(max, t.position.y), -400)
+        const startY = regularNodes.length > 0 ? maxExistingY + 440 : 40;
 
         const suggNodes: Node[] = suggs.map((sugg, i) => ({
             id: `suggestion-${sugg.name}`,
