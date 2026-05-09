@@ -556,6 +556,33 @@ export default function ThemesPage() {
         setMemoSaving(false)
     }
 
+    const [editingExplanationId, setEditingExplanationId] = useState<string | null>(null)
+    const [explanationDraft, setExplanationDraft] = useState('')
+    const [explanationSaving, setExplanationSaving] = useState(false)
+
+    const handleSaveExplanation = async (segmentId: string, suggestionId: string) => {
+        setExplanationSaving(true)
+        try {
+            const res = await fetch(`/api/segments/${segmentId}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'UPDATE_EXPLANATION', suggestionId, explanation: explanationDraft })
+            })
+            if (res.ok) {
+                setPendingCodes(prev => prev.map(r => {
+                    if (r.segmentId === segmentId) {
+                        return { ...r, suggestion: { ...r.suggestion, explanation: explanationDraft } }
+                    }
+                    return r
+                }))
+                setEditingExplanationId(null)
+            } else {
+                alert('Failed to save')
+            }
+        } catch (e) { console.error(e) }
+        setExplanationSaving(false)
+    }
+
     const fetchPendingCodes = useCallback(async () => {
         setPendingCodesLoading(true)
         try {
@@ -1892,12 +1919,50 @@ Rules:
                                                     {/* 5. Rationale & Memos */}
                                                     <td className="px-4 py-4 align-top">
                                                         <div className="flex flex-col gap-2">
-                                                            {/* AI Explanation */}
-                                                            {(row.suggestion as any).explanation && (
-                                                                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                                                                    {(row.suggestion as any).explanation}
-                                                                </p>
-                                                            )}
+                                                            {/* AI Explanation — click to override */}
+                                                            {(() => {
+                                                                const explanation = (row.suggestion as any).explanation
+                                                                const isEditExp = editingExplanationId === row.segmentId
+                                                                if (isEditExp) {
+                                                                    return (
+                                                                        <div className="flex flex-col gap-1">
+                                                                            <textarea
+                                                                                autoFocus
+                                                                                value={explanationDraft}
+                                                                                onChange={e => setExplanationDraft(e.target.value)}
+                                                                                rows={3}
+                                                                                className="w-full text-[11px] text-slate-700 bg-white border border-slate-300 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-slate-200 leading-relaxed"
+                                                                            />
+                                                                            <div className="flex gap-1.5">
+                                                                                <button
+                                                                                    onClick={() => handleSaveExplanation(row.segmentId, row.suggestion.id)}
+                                                                                    disabled={explanationSaving && editingExplanationId === row.segmentId}
+                                                                                    className="text-[10px] font-bold px-2 py-0.5 bg-slate-700 text-white rounded hover:bg-slate-900 disabled:opacity-50 transition-colors"
+                                                                                >
+                                                                                    {explanationSaving && editingExplanationId === row.segmentId ? 'Saving…' : 'Save'}
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => setEditingExplanationId(null)}
+                                                                                    className="text-[10px] font-bold px-2 py-0.5 border border-slate-200 text-slate-500 rounded hover:bg-slate-50 transition-colors"
+                                                                                >
+                                                                                    Cancel
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    )
+                                                                }
+                                                                if (!explanation) return null
+                                                                return (
+                                                                    <p
+                                                                        onClick={() => { setExplanationDraft(explanation); setEditingExplanationId(row.segmentId) }}
+                                                                        className="text-[11px] text-slate-600 leading-relaxed font-medium cursor-pointer hover:bg-slate-50 rounded px-1 -mx-1 transition-colors group/exp"
+                                                                        title="Click to edit this rationale"
+                                                                    >
+                                                                        {explanation}
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1 text-slate-300 opacity-0 group-hover/exp:opacity-100 transition-opacity"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                                                                    </p>
+                                                                )
+                                                            })()}
                                                             {/* AI Reliance Report (expandable) */}
                                                             {(row.suggestion as any).uncertainty && (row.suggestion as any).uncertainty !== 'None' && (() => {
                                                                 const isExpanded = (expandedRationaleRows as any)[row.segmentId];

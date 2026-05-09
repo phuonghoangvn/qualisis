@@ -49,6 +49,13 @@ export async function POST(
                 }
             })
             return NextResponse.json({ success: true, action: 'UPDATE_NOTE' })
+        } else if (action === 'UPDATE_EXPLANATION') {
+            // Directly patch the AI suggestion's explanation field
+            await prisma.aISuggestion.update({
+                where: { id: suggestionId },
+                data: { explanation: body.explanation ?? '' }
+            })
+            return NextResponse.json({ success: true, action: 'UPDATE_EXPLANATION' })
         } else {
             // Create or update ReviewDecision
             await prisma.reviewDecision.upsert({
