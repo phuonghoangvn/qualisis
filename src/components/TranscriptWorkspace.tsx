@@ -969,6 +969,12 @@ export default function TranscriptWorkspace({
                             if (args[1] === 'ACCEPT' || args[1] === 'OVERRIDE') triggerToast('Code saved! Available in Theme Builder.');
                         }}
                         projectId={projectId}
+                        transcriptId={transcript.id}
+                        transcriptContent={transcript.content}
+                        onSupportingQuoteAdded={() => {
+                            triggerToast('Supporting quote linked!')
+                            router.refresh()
+                        }}
                     />
                 )}
                 {activePanel?.type === 'human' && (

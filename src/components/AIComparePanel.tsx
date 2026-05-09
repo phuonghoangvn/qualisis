@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 type Suggestion = {
     id: string
@@ -54,11 +54,17 @@ export default function AIComparePanel({
     onClose,
     onDecision,
     projectId,
+    transcriptId,
+    transcriptContent,
+    onSupportingQuoteAdded,
 }: {
     segment: Segment & { codeAssignments?: { codebookEntry: { name: string } }[] }
     onClose: () => void
     onDecision: (segId: string, action: string, label?: string, note?: string) => Promise<void> | void
     projectId?: string
+    transcriptId?: string
+    transcriptContent?: string
+    onSupportingQuoteAdded?: () => void
 }) {
     // Find if it was already accepted or modified
     const initialAccepted = segment.suggestions?.find(s => s.status === 'APPROVED' || s.status === 'MODIFIED')
@@ -72,6 +78,72 @@ export default function AIComparePanel({
         initialAccepted ? { action: initialAccepted.status === 'APPROVED' ? 'ACCEPT' : 'OVERRIDE', label: initialLabel } : null
     )
     const [loading, setLoading] = useState(false)
+
+    // ── Supporting Quote state ──────────────────────────────────────────────────
+    const [addingSupport, setAddingSupport] = useState(false)
+    const [supportSelection, setSupportSelection] = useState<{ text: string; startIndex?: number; endIndex?: number } | null>(null)
+    const [supportSaving, setSupportSaving] = useState(false)
+    const [supportAdded, setSupportAdded] = useState(0)
+
+    // Listen for text selection while addingSupport mode is active
+    useEffect(() => {
+        if (!addingSupport) return
+
+        const handleMouseUp = () => {
+            const sel = window.getSelection()
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
+            const text = sel.toString().trim()
+            if (!text || text.length < 3) return
+
+            const range = sel.getRangeAt(0)
+
+            // Resolve absolute offsets using data-offset attributes
+            const getAbsoluteOffset = (node: Node | null, relativeOffset: number) => {
+                let el: HTMLElement | null = node?.nodeType === Node.TEXT_NODE ? (node as Text).parentElement : (node as HTMLElement)
+                while (el && !el.hasAttribute('data-offset')) el = el.parentElement
+                if (el) return parseInt(el.getAttribute('data-offset') || '0', 10) + relativeOffset
+                return null
+            }
+
+            const startIndex = getAbsoluteOffset(range.startContainer, range.startOffset)
+            const endIndex   = getAbsoluteOffset(range.endContainer,   range.endOffset)
+
+            setSupportSelection({ text, startIndex: startIndex ?? undefined, endIndex: endIndex ?? undefined })
+        }
+
+        document.addEventListener('mouseup', handleMouseUp)
+        return () => document.removeEventListener('mouseup', handleMouseUp)
+    }, [addingSupport])
+
+    const saveSupport = useCallback(async () => {
+        if (!supportSelection || !transcriptId || !projectId || !decided) return
+        setSupportSaving(true)
+        try {
+            const rawText = transcriptContent && supportSelection.startIndex != null && supportSelection.endIndex != null
+                ? transcriptContent.slice(supportSelection.startIndex, supportSelection.endIndex).trim() || supportSelection.text
+                : supportSelection.text
+
+            const res = await fetch(`/api/transcripts/${transcriptId}/human-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId,
+                    text: rawText,
+                    codeName: decided.label,
+                    codeDescription: '',
+                    startIndex: supportSelection.startIndex ?? 0,
+                    endIndex: supportSelection.endIndex ?? 0,
+                })
+            })
+            if (res.ok) {
+                setSupportAdded(n => n + 1)
+                setSupportSelection(null)
+                window.getSelection()?.removeAllRanges()
+                onSupportingQuoteAdded?.()
+            }
+        } catch (e) { console.error(e) }
+        setSupportSaving(false)
+    }, [supportSelection, transcriptId, projectId, decided, transcriptContent, onSupportingQuoteAdded])
 
     // Compute consensus
     const labels = segment.suggestions.map(s => s.label)
@@ -365,22 +437,74 @@ export default function AIComparePanel({
                             )}
                         </div>
                         {projectId && decided.action !== 'REJECT' && (
-                            <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl relative overflow-hidden group animate-in fade-in slide-in-from-bottom-2">
-                                <div className="absolute right-0 top-0 opacity-10 text-indigo-500 scale-150 translate-x-2 -translate-y-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                            <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-bottom-2">
+                                {/* Code saved banner */}
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                    <p className="text-[11px] font-bold text-emerald-700 flex-1">Code &ldquo;{decided.label}&rdquo; saved</p>
+                                    {supportAdded > 0 && (
+                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">+{supportAdded} quote{supportAdded > 1 ? 's' : ''}</span>
+                                    )}
                                 </div>
-                                <div className="relative z-10">
-                                    <p className="text-[11px] font-bold text-indigo-600 mb-1 flex items-center gap-1.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                        Code saved to project
-                                    </p>
-                                    <p className="text-[11px] text-slate-600 mb-3 leading-relaxed">
-                                        This code is ready to be clustered into broader themes.
-                                    </p>
-                                    <a href={`/projects/${projectId}/themes`} className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-white px-2.5 py-1.5 rounded-lg border border-indigo-200 shadow-sm transition-all hover:shadow hover:-translate-y-[1px]">
-                                        Go to Theme Builder <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                                    </a>
-                                </div>
+
+                                {/* Add supporting quote section */}
+                                {transcriptId && (
+                                    addingSupport ? (
+                                        <div className="p-3 bg-indigo-50 border-2 border-dashed border-indigo-300 rounded-xl animate-in fade-in">
+                                            {supportSelection ? (
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500">Selected quote</p>
+                                                    <p className="text-[12px] text-slate-700 italic border-l-2 border-indigo-300 pl-2 leading-relaxed line-clamp-3">&ldquo;{supportSelection.text}&rdquo;</p>
+                                                    <div className="flex gap-2 pt-1">
+                                                        <button
+                                                            onClick={saveSupport}
+                                                            disabled={supportSaving}
+                                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-[11px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                                                        >
+                                                            {supportSaving ? (
+                                                                <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Saving…</>
+                                                            ) : (
+                                                                <><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>Link to &ldquo;{decided.label}&rdquo;</>
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setSupportSelection(null)}
+                                                            className="px-3 py-2 text-[11px] font-bold text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded-lg transition-colors"
+                                                        >
+                                                            Re-select
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-2">
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mx-auto mb-2">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m8 16 2.05-2.05a5.55 5.55 0 0 0-7.85-7.85L5 3"/><path d="m14 8 2.3 2.3c.9.9 2.5.9 3.4 0l.6-.6c.9-.9.9-2.5 0-3.4l-2.3-2.3"/><path d="m21 21-1-1"/><path d="m16 8 4 4"/><path d="M4 16h6v5H4v-5Z"/></svg>
+                                                    </div>
+                                                    <p className="text-[11px] font-bold text-indigo-700 mb-0.5">Highlight any text in the transcript</p>
+                                                    <p className="text-[10px] text-indigo-400">Select text above to add it as evidence</p>
+                                                    <button
+                                                        onClick={() => { setAddingSupport(false); setSupportSelection(null) }}
+                                                        className="mt-2 text-[10px] font-bold text-slate-400 hover:text-slate-600 underline"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => { setAddingSupport(true); setSupportSelection(null) }}
+                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-dashed border-indigo-300 rounded-xl text-[11px] font-bold text-indigo-500 hover:bg-indigo-50 hover:border-indigo-400 transition-all"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                            Add supporting quote
+                                        </button>
+                                    )
+                                )}
+
+                                <a href={`/projects/${projectId}/themes`} className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-white px-2.5 py-1.5 rounded-lg border border-indigo-200 shadow-sm transition-all hover:shadow hover:-translate-y-[1px]">
+                                    Go to Theme Builder <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                                </a>
                             </div>
                         )}
                     </div>
