@@ -508,8 +508,8 @@ export default function TranscriptWorkspace({
     const renderTranscript = () => {
         const content = transcript.content;
 
-        const blocks: { isSpeaker: boolean; label: string; rawSpeaker?: string; nodes: React.ReactNode[] }[] = [];
-        let currentBlock = { isSpeaker: false, label: '', rawSpeaker: '', nodes: [] as React.ReactNode[] };
+        const blocks: { isSpeaker: boolean; label: string; rawSpeaker?: string; endTime?: string; nodes: React.ReactNode[] }[] = [];
+        let currentBlock: { isSpeaker: boolean; label: string; rawSpeaker?: string; endTime?: string; nodes: React.ReactNode[] } = { isSpeaker: false, label: '', rawSpeaker: '', nodes: [] };
         const pushNode = (node: React.ReactNode) => currentBlock.nodes.push(node);
         
         let cursor = 0;
@@ -534,11 +534,11 @@ export default function TranscriptWorkspace({
 
             if (ds.type === 'speaker') {
                 if (currentBlock.isSpeaker && currentBlock.rawSpeaker === ds.rawSpeaker) {
-                    // Same speaker continues. Update the end time and add a spacer
+                    // Same speaker continues. Update the end time.
                     if (ds.timestamp) {
                         currentBlock.endTime = ds.timestamp;
                     }
-                    pushNode(<span key={`ts-${ds.id}`} className="block h-2" data-offset={actualStart} />);
+                    // Text will automatically flow as a continuous paragraph since we are omitting the block spacer
                 } else {
                     if (currentBlock.nodes.length > 0 || currentBlock.isSpeaker) {
                         blocks.push(currentBlock);
