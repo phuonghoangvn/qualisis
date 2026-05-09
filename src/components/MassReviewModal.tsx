@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import ConfirmModal from './ConfirmModal'
+import { cleanExcerpt } from '@/lib/utils'
 
 type Suggestion = {
     id: string
@@ -538,7 +539,7 @@ export default function MassReviewModal({ segments, initialTab, transcriptTitle,
                                             </span>
                                         </div>
                                         <div className="relative pl-3 border-l-2 border-indigo-200">
-                                            <p className="text-[13px] text-slate-700 leading-relaxed italic line-clamp-4 group-hover:line-clamp-none transition-all">"{r.segment.text}"</p>
+                                            <p className="text-[13px] text-slate-700 leading-relaxed italic line-clamp-4 group-hover:line-clamp-none transition-all">"{cleanExcerpt(r.segment.text)}"</p>
                                         </div>
                                         <button 
                                             onClick={() => { onClose(); onTrace(r.segment.id); }}

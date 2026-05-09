@@ -27,3 +27,14 @@ export function getTranscriptIdentity(name: string) {
     
     return { initials, color: colors[idx].bg, text: colors[idx].text };
 }
+
+export function cleanExcerpt(text: string) {
+    if (!text) return text;
+    return text
+        .replace(/(?:\d{2}:)?\d{2}:\d{2}\s*Speaker\s*\d+\s*/gi, '')
+        .replace(/Speaker\s*\d+\s*(?:\d{2}:)?\d{2}:\d{2}\s*/gi, '')
+        .replace(/(?:\d{2}:)?\d{2}:\d{2}\s*/g, '')
+        .replace(/Speaker\s*\d+\s*/gi, '')
+        .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
+        .trim();
+}
