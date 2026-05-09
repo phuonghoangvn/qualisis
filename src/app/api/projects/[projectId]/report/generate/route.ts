@@ -74,7 +74,47 @@ export async function POST(
         const fieldContext = project.coreOntology || project.description || '(qualitative research)'
         const now = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
 
-        // 4. PHASE 1 — Synthesize what the literature already says
+        // 4. PHASE 0 — Data Detective: mine for tensions, surprises, contradictions BEFORE writing
+        const detectivePrompt = `You are a sharp qualitative data analyst. Your job is NOT to summarise the data. Your job is to READ the raw quotes carefully and find what is analytically INTERESTING, SURPRISING, TENSE, or COUNTER-INTUITIVE.
+
+RESEARCH QUESTION:
+"${researchQuestion}"
+
+RAW DATA (quotes from participants):
+${codebookEvidence}
+
+---
+
+YOUR TASK — DATA DETECTIVE PASS:
+
+Read every quote carefully. Then identify:
+
+1. TENSIONS: Places where participants say or do things that are in conflict with each other, or that contradict what we would expect.
+   Format: "TENSION: [describe it]. Evidence: '[quote A]' vs '[quote B]'"
+
+2. SURPRISES: Things participants do or say that are unexpected — that push back against the common assumption in the literature.
+   Format: "SURPRISE: [describe it]. Quote: '[quote]' ([participant])"
+
+3. THINGS PARTICIPANTS DO BUT DON'T REALISE THEY'RE DOING: Practices, workarounds, or adaptations that are analytically significant but the participant describes casually.
+   Format: "IMPLICIT PRACTICE: [describe it]. Quote: '[quote]' ([participant])"
+
+4. SHARPER REFRAMINGS: A pattern that looks simple on the surface but reveals something more complex when read carefully.
+   Format: "REFRAMING: Instead of reading this as 'X', this data suggests 'Y'. Evidence: '[quote]'"
+
+5. KEY QUOTES: The 3–5 single sharpest quotes in the entire dataset — the ones that most precisely name something real and analytically valuable.
+   Format: "SHARP QUOTE: '[exact quote]' ([participant]) — Why it matters: [1 sentence]"
+
+Be ruthless. Only report genuine insights — things that are actually analytically interesting. Do NOT just summarise what participants said. Find what's SURPRISING, TENSE, or ANALYTICALLY RICH.`
+
+        const detectiveCompletion = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: detectivePrompt }],
+            temperature: 0.4,
+            max_tokens: 2000,
+        })
+        const dataInsights = detectiveCompletion.choices[0]?.message?.content || ''
+
+        // 5. PHASE 1 — Synthesize what the literature already says
         const literatureSynthesisPrompt = `You are an expert academic researcher with deep knowledge of the most current peer-reviewed literature (up to 2024-2025).
 
 The researcher is studying this research question:
@@ -120,6 +160,9 @@ ${literatureSynthesis}
 RESEARCHER'S EMPIRICAL DATA (codebook from fieldwork):
 ${codebookEvidence}
 
+ANALYTICAL DETECTIVE PASS (tensions, surprises, implicit practices, sharp quotes — mined from the raw data):
+${dataInsights}
+
 ---
 
 PART 0 — DERIVE THE CENTRAL ARGUMENT FIRST (do not output this section, use it to guide everything else):
@@ -136,13 +179,14 @@ This sentence is the spine. Every finding, every discussion paragraph, every des
 PART 1 — FINDINGS
 
 Rules for Findings:
+- START FROM THE DETECTIVE PASS ABOVE. The tensions, surprises, implicit practices, and sharp quotes identified there are your analytical raw material. Build findings around those discoveries — not around theme names.
 - Consolidate all themes/codes into EXACTLY 4–5 high-level findings. Do not list themes or codes separately.
-- Each finding must have a pattern + meaning, not just "Theme X is Y."
+- Each finding must name a PATTERN + its MEANING. A finding that just says "participants used AI" is worthless. A finding that says "participants systematically introduced AI only after establishing their own reading of the data, suggesting AI was used as a comparative lens rather than a primary analytic engine" is valuable.
 - Write each finding using this three-layer structure:
-  A. CLAIM: One sentence naming the finding.
-  B. EVIDENCE: 2–3 specific participant quotes embedded in a sentence (not block-quoted). Strip timestamps and "Speaker X" labels from quotes.
-  C. INTERPRETATION: 2–3 sentences explaining what this pattern means for the research question.
-- Do NOT write: "Theme 1 is X. Theme 2 is Y." Instead write causal patterns: "Participants did X because Y, especially when Z."
+  A. CLAIM: One sentence naming the finding as a sharp, specific pattern — not a theme label.
+  B. EVIDENCE: 2–3 participant quotes embedded in prose (not block-quoted). Strip timestamps and "Speaker X" labels.
+  C. INTERPRETATION: 2–3 sentences on what this pattern means for the research question. Name what it reveals that wasn't obvious.
+- Prefer findings that capture tensions, contradictions, or counter-intuitive practices over findings that just confirm expectations.
 - Use consistent language: hybrid workflow / conditional reliance / traceability / interpretive alignment / analytic ownership
 
 ---
