@@ -13,6 +13,24 @@ import { autoCleanHighlights } from '@/lib/clean'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
+// Strip timestamp/speaker-tag lines that AI models sometimes include in segment text
+function cleanSegmentText(text: string): string {
+    return text
+        .split('\n')
+        .filter(line => {
+            const t = line.trim()
+            if (!t) return false
+            // Drop pure timestamp lines: e.g. "00:13:33", "[00:13:33]", "00:13:33 Speaker 2", "00"
+            if (/^\[?(\d{1,2}:)?\d{2}:\d{2}\]?\s*(\w[\w\s]*)?$/.test(t)) return false
+            // Drop lines that are ONLY a number (like lone "00" cutoff)
+            if (/^\d{1,4}$/.test(t)) return false
+            return true
+        })
+        .join(' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+}
+
 // POST /api/transcripts/[id]/analyze
 // Calls all 3 AI models in parallel, merges results, saves to DB
 export async function POST(
@@ -182,7 +200,7 @@ export async function POST(
                 const segment = await prisma.segment.create({
                     data: {
                         transcriptId: params.id,
-                        text: seg.text,
+                        text: cleanSegmentText(seg.text),
                         startIndex: seg.startIndex,
                         endIndex: seg.endIndex,
                         order: i + batchIdx,
