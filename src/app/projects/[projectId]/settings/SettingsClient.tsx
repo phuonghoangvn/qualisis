@@ -14,8 +14,7 @@ export default function SettingsClient({ projectId, project, initialSettings, lo
         name: project.name || '',
         description: project.description || '',
         coreOntology: project.coreOntology || '',
-        researchQuestion: project.researchQuestion || '',
-        aiSettings: typeof project.aiSettings === 'string' ? JSON.parse(project.aiSettings) : (project.aiSettings || { defaultModel: 'gpt-4o-mini' })
+        researchQuestion: project.researchQuestion || ''
     })
 
     const handleSaveProject = async () => {
@@ -98,23 +97,9 @@ export default function SettingsClient({ projectId, project, initialSettings, lo
                                 placeholder="What critical questions is this research trying to answer?"
                             />
                         </div>
-
-                        <div className="pt-4 border-t border-slate-200">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Custom AI Model ID</label>
-                            <input 
-                                type="text" 
-                                className="w-full rounded-xl border border-slate-300 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 p-3 bg-white transition-all shadow-sm"
-                                value={projectData.aiSettings.defaultModel}
-                                onChange={e => setProjectData({ ...projectData, aiSettings: { ...projectData.aiSettings, defaultModel: e.target.value } })}
-                                placeholder="e.g. gpt-4o-mini OR accounts/.../models/maria-style-v1"
-                            />
-                            <p className="text-xs text-slate-500 mt-2 ml-1">
-                                Paste your fine-tuned Fireworks AI model ID here to use it for all future thematic analyses.
-                            </p>
-                        </div>
                     </div>
 
-                    <div className="flex justify-end border-b border-slate-200 pb-8">
+                    <div className="flex justify-end pb-8">
                         <button 
                             onClick={handleSaveProject}
                             disabled={saving}
@@ -127,30 +112,6 @@ export default function SettingsClient({ projectId, project, initialSettings, lo
                                 </>
                             ) : 'Save Project Details'}
                         </button>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100 flex flex-col gap-4">
-                        <div className="flex items-start gap-4">
-                            <div className="p-3 bg-white rounded-xl shadow-sm border border-indigo-100 text-indigo-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-800">Export AI Fine-Tuning Data</h3>
-                                <p className="text-sm font-medium text-slate-600 mt-1">
-                                    Download all human-coded and approved segments in this project as a <code className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">JSONL</code> file. You can upload this file to the OpenAI Fine-Tuning dashboard to train a custom model (e.g., GPT-4o-mini) to deeply learn and mimic your exact coding style.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex justify-start mt-2">
-                            <a 
-                                href={`/api/projects/${projectId}/export-finetune`}
-                                download
-                                className="px-6 py-2.5 bg-white border-2 border-indigo-200 text-indigo-700 text-sm font-bold rounded-xl shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-colors flex items-center gap-2"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                                Download JSONL Dataset
-                            </a>
-                        </div>
                     </div>
                 </div>
             )}
