@@ -372,16 +372,7 @@ export default function AIComparePanel({
                                     )}
                                 </div>
 
-                                {sg.alternatives.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-slate-100">
-                                        <span className="text-[10px] uppercase font-extrabold text-slate-400 mb-2 block">Alternative Themes</span>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {sg.alternatives.map(a => (
-                                                <span key={a} className="text-[11px] font-medium bg-slate-50 border border-slate-200 text-slate-600 px-2 py-0.5 rounded">{a}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 {sg.promptVersion && (
                                     <div className="mt-3 text-[9px] text-slate-400 font-mono tracking-wider truncate border-t border-slate-100 pt-2">
