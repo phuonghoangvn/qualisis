@@ -505,6 +505,8 @@ export default function ThemesPage() {
     const [pendingCodesLoading, setPendingCodesLoading] = useState(false)
     const [pendingAcceptingAll, setPendingAcceptingAll] = useState(false)
     const [pendingRestoringAll, setPendingRestoringAll] = useState(false)
+    const [pendingSort, setPendingSort] = useState<'no-theme-first' | 'transcript' | 'status'>('no-theme-first')
+    const pendingTableScrollRef = React.useRef<HTMLDivElement>(null)
     
     // Inline editing for Mass Review table
     // Per-row local label drafts (NOT saved until Accept is clicked)
@@ -589,18 +591,50 @@ export default function ThemesPage() {
         setExplanationSaving(false)
     }
 
-    const fetchPendingCodes = useCallback(async () => {
+    const fetchPendingCodes = useCallback(async (preserveScroll = false) => {
+        const scrollTop = pendingTableScrollRef.current?.scrollTop ?? 0
         setPendingCodesLoading(true)
         try {
             const res = await fetch(`/api/projects/${projectId}/compare-codes`)
             const data = await res.json()
             setPendingCodes(data.rows || [])
+            if (preserveScroll) {
+                // Restore scroll after React re-renders the table
+                setTimeout(() => {
+                    if (pendingTableScrollRef.current) {
+                        pendingTableScrollRef.current.scrollTop = scrollTop
+                    }
+                }, 60)
+            }
         } catch (e) {
             console.error('Failed to load pending codes', e)
         } finally {
             setPendingCodesLoading(false)
         }
     }, [projectId])
+
+    // sortedPendingCodes — memoised sort that keeps unthemed rows at the top
+    const sortedPendingCodes = useMemo(() => {
+        const rows = [...pendingCodes]
+        if (pendingSort === 'no-theme-first') {
+            return rows.sort((a, b) => {
+                const aHasTheme = ((a.suggestion as any).assignedThemes?.length ?? 0) > 0
+                const bHasTheme = ((b.suggestion as any).assignedThemes?.length ?? 0) > 0
+                if (aHasTheme !== bHasTheme) return aHasTheme ? 1 : -1  // no-theme first
+                // secondary: pending (SUGGESTED) before decided
+                const statusOrder = (s: string) => s === 'SUGGESTED' || s === 'UNDER_REVIEW' ? 0 : 1
+                return statusOrder(a.suggestion.status) - statusOrder(b.suggestion.status)
+            })
+        }
+        if (pendingSort === 'transcript') {
+            return rows.sort((a, b) => a.transcriptTitle.localeCompare(b.transcriptTitle))
+        }
+        if (pendingSort === 'status') {
+            const order: Record<string, number> = { SUGGESTED: 0, UNDER_REVIEW: 1, APPROVED: 2, MODIFIED: 3, REJECTED: 4 }
+            return rows.sort((a, b) => (order[a.suggestion.status] ?? 9) - (order[b.suggestion.status] ?? 9))
+        }
+        return rows
+    }, [pendingCodes, pendingSort])
 
     // Load pending codes when tab is first opened
     const [pendingCodesLoaded, setPendingCodesLoaded] = useState(false)
@@ -1780,13 +1814,24 @@ Rules:
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={fetchPendingCodes}
+                                    onClick={() => fetchPendingCodes(true)}
                                     disabled={pendingCodesLoading}
                                     className="flex items-center gap-2 px-3 py-2 border border-slate-200 text-slate-600 text-[12px] font-bold rounded-lg hover:bg-slate-50 transition-colors"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={pendingCodesLoading ? 'animate-spin' : ''}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                                     Refresh
                                 </button>
+                                {/* Sort selector */}
+                                <select
+                                    value={pendingSort}
+                                    onChange={e => setPendingSort(e.target.value as typeof pendingSort)}
+                                    className="text-[11px] font-bold text-slate-600 border border-slate-200 rounded-lg px-2 py-2 bg-white hover:bg-slate-50 cursor-pointer outline-none"
+                                    title="Sort order"
+                                >
+                                    <option value="no-theme-first">↑ Unthemed first</option>
+                                    <option value="status">Status order</option>
+                                    <option value="transcript">Transcript A–Z</option>
+                                </select>
                                 {pendingCodes.some(r => r.suggestion.status === 'SUGGESTED' || r.suggestion.status === 'UNDER_REVIEW') && (
                                     <button
                                         onClick={handleAcceptAllPending}
@@ -1817,7 +1862,7 @@ Rules:
                         </div>
 
                         {/* Table */}
-                        <div className="flex-1 overflow-auto">
+                        <div className="flex-1 overflow-auto" ref={pendingTableScrollRef}>
                             {pendingCodesLoading ? (
                                 <div className="flex items-center justify-center h-full gap-3 text-slate-400">
                                     <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
@@ -1846,7 +1891,7 @@ Rules:
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {pendingCodes.map(row => {
+                                        {sortedPendingCodes.map(row => {
                                             const conf = parseInt(row.suggestion.confidence || '0') || 0
                                             const confBg = conf >= 80 ? 'bg-emerald-100 text-emerald-700' : conf >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
                                             const humanLabel = row.humanCodes[0]
