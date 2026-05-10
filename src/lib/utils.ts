@@ -31,10 +31,10 @@ export function getTranscriptIdentity(name: string) {
 export function cleanExcerpt(text: string) {
     if (!text) return text;
     return text
-        .replace(/(?:\d{2}:)?\d{2}:\d{2}\s*Speaker\s*\d+\s*/gi, '')
-        .replace(/Speaker\s*\d+\s*(?:\d{2}:)?\d{2}:\d{2}\s*/gi, '')
-        .replace(/(?:\d{2}:)?\d{2}:\d{2}\s*/g, '')
-        .replace(/Speaker\s*\d+\s*/gi, '')
-        .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
+        .replace(/^([A-Za-z_][A-Za-z0-9_ -]*)\s*:\s*/gm, '')        
+        .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s+[A-Za-z_][A-Za-z0-9_ -]*\s*/g, ' ') 
+        .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s*/g, ' ')
+        .replace(/\n{2,}/g, ' ')
+        .replace(/\s{2,}/g, ' ')
         .trim();
 }

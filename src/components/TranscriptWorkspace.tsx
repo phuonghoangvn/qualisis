@@ -524,9 +524,14 @@ export default function TranscriptWorkspace({
     // appear inside highlighted segments when a segment straddles a speaker tag.
     const stripSpeakerTags = (text: string) =>
         text
-            .replace(/^([A-Za-z_][A-Za-z0-9_ -]*)\s*:\s*/gm, '')        // "Speaker 1: "
-            .replace(/^((?:\[?\d{1,2}:)?\d{2}:\d{2}\]?)\s+[A-Za-z_][A-Za-z0-9_ -]*\s*$/gm, '')  // "00:16:43 Speaker 1"
+            // 1. "Speaker 1: " or "Interviewer:" at the start of a line
+            .replace(/^([A-Za-z_][A-Za-z0-9_ -]*)\s*:\s*/gm, '')        
+            // 2. "00:16:43 Speaker 1" anywhere (inline or start of line)
+            .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s+[A-Za-z_][A-Za-z0-9_ -]*\s*/g, ' ') 
+            // 3. Just "00:16:43" alone anywhere
+            .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s*/g, ' ')
             .replace(/\n{2,}/g, ' ')  // collapse leftover blank lines into a space
+            .trim()
 
     const renderTranscript = () => {
         const content = transcript.content;

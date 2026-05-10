@@ -15,9 +15,16 @@ export default function HumanCodePanel({
     onClose: () => void
     onRemove?: (segId: string) => Promise<void>
     projectId?: string
-}) {
     const ts = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     const [isDeleting, setIsDeleting] = useState(false)
+
+    const stripSpeakerTags = (text: string) =>
+        text
+            .replace(/^([A-Za-z_][A-Za-z0-9_ -]*)\s*:\s*/gm, '')        
+            .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s+[A-Za-z_][A-Za-z0-9_ -]*\s*/g, ' ') 
+            .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s*/g, ' ')
+            .replace(/\n{2,}/g, ' ')
+            .trim()
 
     const handleDelete = async () => {
         if (!segmentId) return;
@@ -69,7 +76,7 @@ export default function HumanCodePanel({
 
                 <div className="mb-5">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Source Text</label>
-                    <p className="text-sm italic text-slate-600 border-l-2 border-purple-400 pl-3 py-1 leading-relaxed">"{text}"</p>
+                    <p className="text-sm italic text-slate-600 border-l-2 border-purple-400 pl-3 py-1 leading-relaxed">"{stripSpeakerTags(text)}"</p>
                 </div>
 
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-500 leading-relaxed">

@@ -66,6 +66,14 @@ export default function AIComparePanel({
     transcriptContent?: string
     onSupportingQuoteAdded?: () => void
 }) {
+    const stripSpeakerTags = (text: string) =>
+        text
+            .replace(/^([A-Za-z_][A-Za-z0-9_ -]*)\s*:\s*/gm, '')        
+            .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s+[A-Za-z_][A-Za-z0-9_ -]*\s*/g, ' ') 
+            .replace(/\s*\[?(?:\d{1,2}:)?\d{2}:\d{2}\]?\s*/g, ' ')
+            .replace(/\n{2,}/g, ' ')
+            .trim()
+
     // Find if it was already accepted or modified
     const initialAccepted = segment.suggestions?.find(s => s.status === 'APPROVED' || s.status === 'MODIFIED')
     const initialLabel = segment.codeAssignments?.[0]?.codebookEntry?.name || initialAccepted?.label || ''
@@ -212,7 +220,7 @@ export default function AIComparePanel({
             <div className="p-4 border-b border-slate-200 bg-white flex items-start justify-between shadow-sm flex-shrink-0">
                 <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-800 text-sm">AI Code Suggestion</h3>
-                    <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 italic">"{segment.text.substring(0, 60)}…"</p>
+                    <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 italic">"{stripSpeakerTags(segment.text).substring(0, 60)}…"</p>
                 </div>
                 <button onClick={onClose} className="text-slate-400 hover:text-slate-600 ml-2 flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,7 +314,7 @@ export default function AIComparePanel({
                                                     <p className="font-bold text-slate-800 mb-0.5 text-[11px] uppercase tracking-wider">What does this score mean?</p>
                                                     <p className="text-[10px] leading-relaxed text-slate-600 font-medium">
                                                         {itemScore >= 70 
-                                                            ? `The AI has deeply analyzed your text "${segment.text.substring(0, 35)}..." and is highly confident that the label "${sg.label}" captures the sentiment.` 
+                                                            ? `The AI has deeply analyzed your text "${stripSpeakerTags(segment.text).substring(0, 35)}..." and is highly confident that the label "${sg.label}" captures the sentiment.` 
                                                             : itemScore >= 50 
                                                                 ? `The label "${sg.label}" is generally accurate, but the AI found some ambiguity in your text. You should verify it manually.` 
                                                                 : `The AI struggled to extract a clear meaning for "${sg.label}" from this specific text segment. Manual override is recommended.`}
@@ -327,8 +335,8 @@ export default function AIComparePanel({
                                                             </div>
                                                             <p className="text-[9.5px] leading-relaxed text-slate-500">
                                                                 The Semantic Vector engine (text-embedding-3-small) mathematically mapped your text to this code. 
-                                                                {getOverlappingWords(sg.label, segment.text).length > 0 ? (
-                                                                    <span> It discovered direct conceptual anchors around words like <em className="text-emerald-700 font-bold bg-emerald-50 px-1 rounded">"{getOverlappingWords(sg.label, segment.text).join('", "')}"</em>.</span>
+                                                                {getOverlappingWords(sg.label, stripSpeakerTags(segment.text)).length > 0 ? (
+                                                                    <span> It discovered direct conceptual anchors around words like <em className="text-emerald-700 font-bold bg-emerald-50 px-1 rounded">"{getOverlappingWords(sg.label, stripSpeakerTags(segment.text)).join('", "')}"</em>.</span>
                                                                 ) : (
                                                                     <span> It found underlying meaning that mathematically aligns, even though no exact words were copied.</span>
                                                                 )}
