@@ -36,13 +36,18 @@ export default function CodebookPage() {
     const [themes, setThemes] = useState<ThemeData[]>([])
     const [loading, setLoading] = useState(true)
 
-    // Inline edit state
+    // Batch inline edit state — map of { codeId: draftText } for simultaneous multi-edit
     const [editingThemeDesc, setEditingThemeDesc] = useState<string | null>(null) // themeId
     const [themeDescDraft, setThemeDescDraft] = useState('')
-    const [editingCodeDef, setEditingCodeDef] = useState<string | null>(null) // codeId
-    const [codeDefDraft, setCodeDefDraft] = useState('')
     const [savingTheme, setSavingTheme] = useState(false)
-    const [savingCode, setSavingCode] = useState(false)
+
+    // Per-code definition drafts: any code can be in draft state simultaneously
+    const [codeDefDrafts, setCodeDefDrafts] = useState<Record<string, string>>({})
+    const [savedCodes, setSavedCodes] = useState<Record<string, boolean>>({})
+    const [savingAll, setSavingAll] = useState(false)
+
+    // Track which codes have unsaved changes vs current persisted value
+    const [persistedDefs, setPersistedDefs] = useState<Record<string, string>>({})
 
     // Trace panel state
     const [tracingCode, setTracingCode] = useState<{ id: string; name: string } | null>(null)
@@ -92,6 +97,19 @@ export default function CodebookPage() {
             }) : [];
 
             setThemes(mergedData)
+            // Seed persistedDefs so we can detect dirty state
+            const defMap: Record<string, string> = {}
+            mergedData.forEach((t: any) => {
+                (t.codeLinks || []).forEach((l: any) => {
+                    defMap[l.codebookEntry.id] = l.codebookEntry.definition || ''
+                })
+                ;(t.children || []).forEach((child: any) => {
+                    (child.codeLinks || []).forEach((l: any) => {
+                        defMap[l.codebookEntry.id] = l.codebookEntry.definition || ''
+                    })
+                })
+            })
+            setPersistedDefs(defMap)
         } catch (e) {
             console.error(e)
         } finally { setLoading(false) }
@@ -115,8 +133,9 @@ export default function CodebookPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ description: themeDescDraft })
             })
-            await fetchThemes() // Ensure data is perfectly in sync
-        } catch (e) { 
+            // Optimistic local update — no full reload
+            setThemes(prev => prev.map(t => t.id === themeId ? { ...t, description: themeDescDraft } : t))
+        } catch (e) {
             console.error(e)
         } finally {
             setSavingTheme(false)
@@ -124,22 +143,62 @@ export default function CodebookPage() {
         }
     }
 
-    // Save code explanation
+    // Start editing a code definition (open inline textarea for that code)
+    const startEditCodeDef = (codeId: string, currentDef: string | null | undefined) => {
+        setCodeDefDrafts(prev => ({ ...prev, [codeId]: prev[codeId] ?? (currentDef || '') }))
+    }
+
+    // Discard draft for a single code
+    const cancelCodeDef = (codeId: string) => {
+        setCodeDefDrafts(prev => { const n = { ...prev }; delete n[codeId]; return n })
+    }
+
+    // Save a single code definition — optimistic, no fetchThemes reload
     const saveCodeDef = async (codeId: string) => {
-        setSavingCode(true)
+        const newDef = codeDefDrafts[codeId] ?? ''
         try {
             await fetch(`/api/codebook/${codeId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ definition: codeDefDraft })
+                body: JSON.stringify({ definition: newDef })
             })
-            await fetchThemes() // Ensure data is perfectly in sync
+            // Optimistic update: update themes state locally
+            setThemes(prev => prev.map(t => ({
+                ...t,
+                codeLinks: t.codeLinks.map(l =>
+                    l.codebookEntry.id === codeId
+                        ? { ...l, codebookEntry: { ...l.codebookEntry, definition: newDef } }
+                        : l
+                ),
+                children: (t.children || []).map((child: any) => ({
+                    ...child,
+                    codeLinks: child.codeLinks.map((l: any) =>
+                        l.codebookEntry.id === codeId
+                            ? { ...l, codebookEntry: { ...l.codebookEntry, definition: newDef } }
+                            : l
+                    )
+                }))
+            })))
+            setPersistedDefs(prev => ({ ...prev, [codeId]: newDef }))
+            // Flash saved indicator
+            setSavedCodes(prev => ({ ...prev, [codeId]: true }))
+            setTimeout(() => setSavedCodes(prev => { const n = { ...prev }; delete n[codeId]; return n }), 2000)
+            // Remove from drafts
+            setCodeDefDrafts(prev => { const n = { ...prev }; delete n[codeId]; return n })
         } catch (e) {
             console.error(e)
-        } finally {
-            setSavingCode(false)
-            setEditingCodeDef(null)
         }
+    }
+
+    // Compute dirty codes = drafts that differ from persisted
+    const dirtyCodes = Object.entries(codeDefDrafts).filter(([id, draft]) => draft !== (persistedDefs[id] ?? ''))
+
+    // Save all dirty definitions in one batch
+    const saveAllDefs = async () => {
+        if (dirtyCodes.length === 0) return
+        setSavingAll(true)
+        await Promise.all(dirtyCodes.map(([id]) => saveCodeDef(id)))
+        setSavingAll(false)
     }
 
     // Open trace panel
@@ -177,6 +236,34 @@ export default function CodebookPage() {
                     </a>
                 </div>
             </header>
+
+            {/* Floating "Save All" banner when there are unsaved definitions */}
+            {dirtyCodes.length > 0 && (
+                <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-8 py-2.5 bg-amber-50 border-b border-amber-200 shadow-sm">
+                    <span className="text-[12px] font-semibold text-amber-800">
+                        {dirtyCodes.length} definition{dirtyCodes.length > 1 ? 's' : ''} edited — not yet saved
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCodeDefDrafts({})}
+                            className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
+                        >
+                            Discard all
+                        </button>
+                        <button
+                            onClick={saveAllDefs}
+                            disabled={savingAll}
+                            className="text-[11px] font-bold px-4 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                        >
+                            {savingAll ? (
+                                <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Saving...</>
+                            ) : (
+                                <>Save {dirtyCodes.length} definition{dirtyCodes.length > 1 ? 's' : ''}</>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Body */}
             <main className="flex-1 overflow-auto">
@@ -253,16 +340,29 @@ export default function CodebookPage() {
                                         <td className="px-5 py-4 border-r border-slate-100 align-top bg-white"><div className="font-bold text-slate-800 text-[12px] leading-snug">{link.codebookEntry.name}</div></td>
                                         {/* Explanation */}
                                         <td className="px-5 py-4 border-r border-slate-100 align-top bg-white">
-                                            {editingCodeDef === link.codebookEntry.id ? (
+                                            {codeDefDrafts.hasOwnProperty(link.codebookEntry.id) ? (
                                                 <div className="space-y-1.5">
-                                                    <textarea autoFocus className="w-full text-[11px] text-slate-700 border border-indigo-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300" rows={3} value={codeDefDraft} onChange={e => setCodeDefDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setEditingCodeDef(null) }} placeholder="Add explanation..." />
+                                                    <textarea
+                                                        autoFocus
+                                                        className="w-full text-[11px] text-slate-700 border border-indigo-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                        rows={3}
+                                                        value={codeDefDrafts[link.codebookEntry.id]}
+                                                        onChange={e => setCodeDefDrafts(prev => ({ ...prev, [link.codebookEntry.id]: e.target.value }))}
+                                                        onKeyDown={e => { if (e.key === 'Escape') cancelCodeDef(link.codebookEntry.id) }}
+                                                        placeholder="Add explanation..."
+                                                    />
                                                     <div className="flex gap-1">
-                                                        <button onClick={() => saveCodeDef(link.codebookEntry.id)} disabled={savingCode} className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{savingCode ? '...' : 'Save'}</button>
-                                                        <button onClick={() => setEditingCodeDef(null)} className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">Cancel</button>
+                                                        <button onClick={() => saveCodeDef(link.codebookEntry.id)} className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Save</button>
+                                                        <button onClick={() => cancelCodeDef(link.codebookEntry.id)} className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">Cancel</button>
                                                     </div>
                                                 </div>
+                                            ) : savedCodes[link.codebookEntry.id] ? (
+                                                <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                    Saved
+                                                </p>
                                             ) : (
-                                                <button onClick={() => { setEditingCodeDef(link.codebookEntry.id); setCodeDefDraft(link.codebookEntry.definition || '') }} className="group/def w-full text-left">
+                                                <button onClick={() => startEditCodeDef(link.codebookEntry.id, link.codebookEntry.definition)} className="group/def w-full text-left">
                                                     {link.codebookEntry.definition ? (
                                                         <p className="text-[11px] text-slate-500 leading-relaxed group-hover/def:text-slate-700 transition-colors">{link.codebookEntry.definition}</p>
                                                     ) : link.codebookEntry.examplesIn && link.codebookEntry.type !== 'OBSERVATION' ? (
