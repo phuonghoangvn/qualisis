@@ -15,6 +15,7 @@ export default function HumanCodePanel({
     onClose: () => void
     onRemove?: (segId: string) => Promise<void>
     projectId?: string
+}) {
     const ts = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     const [isDeleting, setIsDeleting] = useState(false)
 

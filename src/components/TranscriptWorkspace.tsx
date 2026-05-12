@@ -88,6 +88,20 @@ export default function TranscriptWorkspace({
     const [isFetchingForReview, setIsFetchingForReview] = useState(false)
     const [showEditConfirm, setShowEditConfirm] = useState(false)
     const [isRightBarCollapsed, setIsRightBarCollapsed] = useState(false)
+    const [showSticky, setShowSticky] = useState(false)
+    const [stickyNote, setStickyNote] = useState(transcript.metadata?.stickyNote || '')
+
+    const saveSticky = async (note: string) => {
+        try {
+            await fetch(`/api/transcripts/${transcript.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ metadata: { ...(transcript.metadata || {}), stickyNote: note } })
+            })
+        } catch (e) {
+            console.error('Failed to save sticky note', e)
+        }
+    }
 
     const refreshSegments = useCallback(async () => {
         try {
