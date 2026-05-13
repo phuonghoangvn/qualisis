@@ -24,6 +24,11 @@ export async function GET(
                                 definition: true,
                                 examplesIn: true,
                                 codeAssignments: {
+                                    where: {
+                                        segment: {
+                                            transcript: { projectId: params.projectId }
+                                        }
+                                    },
                                     select: {
                                         segment: {
                                             select: {
